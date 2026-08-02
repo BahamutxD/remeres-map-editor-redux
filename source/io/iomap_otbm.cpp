@@ -433,21 +433,14 @@ bool IOMapOTBM::saveMapToDisk(Map& map, const FileName& identifier) {
 		return false;
 	}
 
-	// Always save waypoints to XML if they exist, creating a default file if needed
-	if (map.waypoints.size() > 0) {
+const bool otbmSupportsEmbeddedWaypoints = map.getVersion().otbm >= MAP_OTBM_3;
+	const bool needsXmlFallback = !otbmSupportsEmbeddedWaypoints || !map.waypointfile.empty();
+
+	if (needsXmlFallback && (map.waypoints.size() > 0 || !map.waypointfile.empty())) {
 		if (map.waypointfile.empty()) {
 			map.waypointfile = identifier.GetName() + "-waypoint.xml";
-			// Notify user of auto-creation? Maybe not needed here as it's standard behavior now,
-			// but we could log it.
 			spdlog::info("Auto-created waypoint file: {}", map.waypointfile);
 		}
-		// Save waypoints to the external file
-		if (!MapXMLIO::saveWaypoints(map, identifier)) {
-			spdlog::error("IOMapOTBM::saveMapToDisk: Failed to save waypoints");
-			return false;
-		}
-	} else if (!map.waypointfile.empty()) {
-		// If we have an empty waypoint list but a file is defined, we should probably still save (to verify emptiness/update file)
 		if (!MapXMLIO::saveWaypoints(map, identifier)) {
 			spdlog::error("IOMapOTBM::saveMapToDisk: Failed to save waypoints");
 			return false;
@@ -493,7 +486,7 @@ bool IOMapOTBM::saveMap(Map& map, NodeFileWriteHandle& f) {
 			writeTileData(map, f);
 			writeTowns(map, f);
 
-			// Waypoints are strictly forbidden in OTBM (saved to XML only)
+			writeWaypoints(map, f, mapVersion);
 		}
 		f.endNode();
 	}

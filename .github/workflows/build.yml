@@ -95,3 +95,31 @@ jobs:
           name: rme-linux
           path: build/rme
           retention-days: 30
+
+build-windows:
+    runs-on: windows-latest
+
+    env:
+      VCPKG_DEFAULT_TRIPLET: x64-windows
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: '1940ee77e81573713c0d364c42f5990172198be1'
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows -A x64
+
+      - name: Build RME
+        run: cmake --build build --config Release --target rme --parallel
+
+      - name: Upload RME binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: rme-windows
+          path: build/Release
+          retention-days: 30
