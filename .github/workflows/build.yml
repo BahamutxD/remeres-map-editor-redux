@@ -96,7 +96,7 @@ jobs:
           path: build/rme
           retention-days: 30
 
-build-windows:
+  build-windows:
     runs-on: windows-latest
 
     env:
