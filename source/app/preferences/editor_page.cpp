@@ -120,6 +120,25 @@ EditorPage::EditorPage(wxWindow* parent) : ScrollablePreferencesPage(parent) {
 	);
 	page_sizer->Add(merge_section, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(10));
 
+	auto* compatibility_section = new PreferencesSectionPanel(
+		GetScrollWindow(),
+		"Compatibility",
+		"Options for maps that are also opened in other, older map editors."
+	);
+	legacy_item_count_format_chkbox = PreferencesLayout::AddCheckBoxRow(
+		compatibility_section,
+		"Write item count as 2 bytes (legacy format)",
+		"Some older editors, such as Remere's Map Editor 3.8.0, expect the item count/subtype attribute to be 2 bytes instead of the standard 1 byte. Enable this if a map saved here loses items when reopened in such an editor. Reading always accepts both formats automatically.",
+		g_settings.getBoolean(Config::LEGACY_ITEM_COUNT_FORMAT)
+	);
+	show_waypoint_migration_dialog_chkbox = PreferencesLayout::AddCheckBoxRow(
+		compatibility_section,
+		"Show waypoint migration dialog",
+		"Show a popup whenever a map with waypoints embedded in the OTBM file is opened. Disable to only log the migration instead.",
+		g_settings.getBoolean(Config::SHOW_WAYPOINT_MIGRATION_DIALOG)
+	);
+	page_sizer->Add(compatibility_section, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(10));
+
 	FinishLayout();
 }
 
@@ -138,6 +157,8 @@ void EditorPage::Apply() {
 	g_settings.setInteger(Config::RAW_LIKE_SIMONE, allow_multiple_orderitems_chkbox->GetValue());
 	g_settings.setInteger(Config::MERGE_MOVE, merge_move_chkbox->GetValue());
 	g_settings.setInteger(Config::MERGE_PASTE, merge_paste_chkbox->GetValue());
+	g_settings.setInteger(Config::LEGACY_ITEM_COUNT_FORMAT, legacy_item_count_format_chkbox->GetValue());
+	g_settings.setInteger(Config::SHOW_WAYPOINT_MIGRATION_DIALOG, show_waypoint_migration_dialog_chkbox->GetValue());
 
 	if (previous_floor_visibility_mode != g_settings.getInteger(Config::FLOOR_VISIBILITY_MODE)) {
 		g_gui.RefreshView();

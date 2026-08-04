@@ -546,6 +546,11 @@ void Settings::IO(IOMode mode) {
 		}
 	}
 
+	// Compatibility options for maps shared with legacy editors (e.g. RME 3.8.0)
+	section("Compatibility");
+	Bool(LEGACY_ITEM_COUNT_FORMAT, false);
+	Bool(SHOW_WAYPOINT_MIGRATION_DIALOG, true);
+
 	if (mode == SAVE) {
 		int tileSize = getInteger(PALETTE_TILE_SIZE);
 		if (tileSize == 32 || tileSize == 64 || tileSize == 128) {
