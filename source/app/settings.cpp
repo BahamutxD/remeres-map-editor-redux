@@ -475,6 +475,11 @@ void Settings::IO(IOMode mode) {
 	Bool(SHOW_MISSING_ITEMS_WARNING, false);
 	Int(FLOOR_VISIBILITY_MODE, 0);
 
+	// Compatibility options for maps shared with legacy editors (e.g. RME 3.8.0)
+	section("Compatibility");
+	Bool(LEGACY_ITEM_COUNT_FORMAT, false);
+	Bool(SHOW_WAYPOINT_MIGRATION_DIALOG, true);
+
 	if (mode == SAVE) {
 		std::ofstream file("config.toml");
 		if (file.is_open()) {

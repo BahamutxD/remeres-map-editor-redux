@@ -226,6 +226,14 @@ namespace Config {
 		VSYNC_MODE,
 		FLOOR_VISIBILITY_MODE,
 
+		// Compatibility with editors that use a non-standard 2-byte item count/subtype
+		// (e.g. Remere's Map Editor 3.8.0 and older). Reading always auto-detects the
+		// format regardless of this setting; this only controls what format is written.
+		LEGACY_ITEM_COUNT_FORMAT,
+		// Some old maps embed waypoints directly in the OTBM file. By default the editor
+		// shows a migration dialog every time such a map is opened; this lets that be silenced.
+		SHOW_WAYPOINT_MIGRATION_DIALOG,
+
 		LAST,
 	};
 }

@@ -276,12 +276,16 @@ bool IOMapOTBM::loadMapFromDisk(Map& map, const FileName& filename) {
 			if (MapXMLIO::loadWaypoints(map, filename, false)) {
 				size_t afterCount = map.waypoints.size();
 				if (afterCount > beforeCount) {
-					DialogUtil::PopupDialog(g_gui.root, "Warning", "Waypoints detected in both OTBM and external XML file.\n"
-																   "They have been merged.\n"
-																   "Note: OTBM waypoints took precedence over XML duplicates.\n"
-																   "\n"
-																   "Future saves will ONLY use the XML file.",
-											wxOK | wxICON_WARNING);
+					if (g_settings.getBoolean(Config::SHOW_WAYPOINT_MIGRATION_DIALOG)) {
+						DialogUtil::PopupDialog(g_gui.root, "Warning", "Waypoints detected in both OTBM and external XML file.\n"
+																	   "They have been merged.\n"
+																	   "Note: OTBM waypoints took precedence over XML duplicates.\n"
+																	   "\n"
+																	   "Future saves will ONLY use the XML file.",
+												wxOK | wxICON_WARNING);
+					} else {
+						spdlog::info("Waypoints detected in both OTBM and external XML file '{}'; merged, OTBM took precedence over duplicates. Future saves will only use the XML file.", map.waypointfile);
+					}
 				}
 			}
 		} else {
@@ -291,7 +295,11 @@ bool IOMapOTBM::loadMapFromDisk(Map& map, const FileName& filename) {
 				map.waypointfile = waypointFile;
 			}
 
-			DialogUtil::PopupDialog(g_gui.root, "Waypoint Migration", std::format("Waypoints detected in OTBM file.\n\nThey have been migrated to the external file:\n{}\n\nThey will be removed from the OTBM file on the next save.", map.waypointfile), wxOK | wxICON_INFORMATION);
+			if (g_settings.getBoolean(Config::SHOW_WAYPOINT_MIGRATION_DIALOG)) {
+				DialogUtil::PopupDialog(g_gui.root, "Waypoint Migration", std::format("Waypoints detected in OTBM file.\n\nThey have been migrated to the external file:\n{}\n\nThey will be removed from the OTBM file on the next save.", map.waypointfile), wxOK | wxICON_INFORMATION);
+			} else {
+				spdlog::info("Waypoints detected in OTBM file; migrated to external file '{}'. They will be removed from the OTBM file on the next save.", map.waypointfile);
+			}
 
 			// Save immediately to XML
 			if (!MapXMLIO::saveWaypoints(map, filename)) {

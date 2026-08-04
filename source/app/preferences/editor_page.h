@@ -24,6 +24,8 @@ private:
 	wxCheckBox* allow_multiple_orderitems_chkbox = nullptr;
 	wxCheckBox* merge_move_chkbox = nullptr;
 	wxCheckBox* merge_paste_chkbox = nullptr;
+	wxCheckBox* legacy_item_count_format_chkbox = nullptr;
+	wxCheckBox* show_waypoint_migration_dialog_chkbox = nullptr;
 };
 
 #endif
