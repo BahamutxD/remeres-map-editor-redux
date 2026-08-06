@@ -28,6 +28,7 @@
 #include "game/house.h"
 #include "map/basemap.h"
 #include "map/map_region.h"
+#include "map/render_epoch.h"
 #include "game/spawn.h"
 #include <ranges>
 #include <algorithm>
@@ -385,6 +386,7 @@ uint8_t Tile::getMiniMapColor() const {
 void Tile::modify() {
 	statflags |= TILESTATE_MODIFIED;
 	minimapColor = INVALID_MINIMAP_COLOR;
+	MapRenderEpoch::Bump();
 
 	if (!ownedLocation) {
 		if (Editor* editor = g_gui.GetCurrentEditor()) {

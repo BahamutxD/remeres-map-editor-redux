@@ -3,6 +3,7 @@
 
 #include <wx/checkbox.h>
 #include <wx/choice.h>
+#include <wx/spinctrl.h>
 
 #include "preferences_page.h"
 
@@ -26,6 +27,8 @@ private:
 	wxCheckBox* merge_paste_chkbox = nullptr;
 	wxCheckBox* legacy_item_count_format_chkbox = nullptr;
 	wxCheckBox* show_waypoint_migration_dialog_chkbox = nullptr;
+	wxCheckBox* enable_tile_render_cache_chkbox = nullptr;
+	wxSpinCtrl* tile_render_cache_max_mb_spin = nullptr;
 };
 
 #endif

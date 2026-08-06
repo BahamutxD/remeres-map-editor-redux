@@ -20,6 +20,7 @@
 #include "map/tile.h"
 #include "map/basemap.h"
 #include "map/spatial_hash_grid.h"
+#include "map/render_epoch.h"
 
 BaseMap::BaseMap() :
 	allocator(),
@@ -130,6 +131,13 @@ std::unique_ptr<Tile> BaseMap::swapTile(int x, int y, int z, std::unique_ptr<Til
 	ASSERT(!newtile || newtile->getX() == int(x));
 	ASSERT(!newtile || newtile->getY() == int(y));
 	ASSERT(!newtile || newtile->getZ() == int(z));
+
+	// A whole-tile swap (used by undo/redo) changes what should be rendered
+	// at this position without necessarily calling Tile::modify() on the
+	// incoming tile (the undo path in particular does not). Bump the render
+	// cache epoch here too so the renderer never shows stale cached content
+	// for a position after undo/redo.
+	MapRenderEpoch::Bump();
 
 	MapNode* leaf = grid.getLeafForce(x, y);
 	return leaf->setTile(x, y, z, std::move(newtile));

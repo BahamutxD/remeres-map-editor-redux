@@ -234,6 +234,12 @@ namespace Config {
 		// shows a migration dialog every time such a map is opened; this lets that be silenced.
 		SHOW_WAYPOINT_MIGRATION_DIALOG,
 
+		// Caches the per-tile item enumeration used while drawing the map, so panning and
+		// zooming over unchanged parts of the map don't redo that work every frame. See
+		// rendering/core/tile_render_cache.h for exactly what is and isn't cached.
+		ENABLE_TILE_RENDER_CACHE,
+		TILE_RENDER_CACHE_MAX_MB,
+
 		LAST,
 	};
 }

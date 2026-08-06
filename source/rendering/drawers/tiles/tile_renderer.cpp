@@ -26,6 +26,7 @@
 #include "rendering/core/light_buffer.h"
 #include "rendering/core/sprite_preloader.h"
 #include "rendering/utilities/pattern_calculator.h"
+#include "rendering/core/tile_render_cache.h"
 
 #include <ranges>
 
@@ -432,17 +433,46 @@ void TileRenderer::DrawTile(SpriteBatch& sprite_batch, const TileLocation* locat
 
 			bool process_tooltips = options.show_tooltips && map_z == view.floor;
 
+			// Resolve which items are on this tile, either from the render
+			// cache (nothing changed since it was last built) or by
+			// scanning tile->items fresh — in which case the scan also
+			// populates the cache for next time. Everything below this
+			// point runs identically either way: no draw call, tooltip, or
+			// overlay registration is ever skipped, only the enumeration
+			// itself (getDefinition/isBorder/isInvalidOTBMItem per item).
+			const CachedTilePlan* cached_plan = g_tile_render_cache.TryGet(tile);
+			std::vector<CachedTileDrawEntry> fresh_entries;
+			const std::vector<CachedTileDrawEntry>* entries_ptr;
+
+			if (cached_plan) {
+				entries_ptr = &cached_plan->entries;
+			} else {
+				fresh_entries.reserve(tile->items.size());
+				for (const auto& item : tile->items) {
+					fresh_entries.push_back(CachedTileDrawEntry {
+						.item = item.get(),
+						.definition = item->getDefinition(),
+						.is_border = item->isBorder(),
+						.is_invalid_otbm_item = item->isInvalidOTBMItem()
+					});
+				}
+				entries_ptr = &fresh_entries;
+				g_tile_render_cache.Insert(tile, CachedTilePlan { fresh_entries });
+			}
+
 			// items on tile
-			for (const auto& item : tile->items) {
-				if (item->isInvalidOTBMItem() && options.show_invalid_tiles) {
+			for (const CachedTileDrawEntry& entry : *entries_ptr) {
+				Item* item = entry.item;
+				const ItemDefinitionView& it = entry.definition;
+
+				if (entry.is_invalid_otbm_item && options.show_invalid_tiles) {
 					if (invalid_tile_marker_color != InvalidOTBMItemMarkerColor::Red) {
 						invalid_tile_marker_color = item->invalidOTBMMarkerColor();
 					}
 					has_selected_invalid_item = has_selected_invalid_item || item->isSelected();
 				}
 
-				const ItemDefinitionView it = item->getDefinition();
-				if (item->isInvalidOTBMItem() && (!options.show_invalid_tiles || !it)) {
+				if (entry.is_invalid_otbm_item && (!options.show_invalid_tiles || !it)) {
 					// Missing-definition placeholders are represented by the tile-level invalid overlay.
 					continue;
 				}
@@ -450,7 +480,7 @@ void TileRenderer::DrawTile(SpriteBatch& sprite_batch, const TileLocation* locat
 				// item tooltip (one per item)
 				if (process_tooltips) {
 					TooltipData& itemData = tooltip_drawer->requestTooltipData();
-					if (FillItemTooltipData(itemData, item.get(), it, position, is_house_tile, view.zoom)) {
+					if (FillItemTooltipData(itemData, item, it, position, is_house_tile, view.zoom)) {
 						if (itemData.hasVisibleFields()) {
 							tooltip_drawer->commitTooltip();
 						}
@@ -458,20 +488,20 @@ void TileRenderer::DrawTile(SpriteBatch& sprite_batch, const TileLocation* locat
 				}
 
 				if (GameSprite* sprite = item->getSprite()) {
-					SpritePatterns patterns = PatternCalculator::Calculate(sprite, it, item.get(), tile, position);
+					SpritePatterns patterns = PatternCalculator::Calculate(sprite, it, item, tile, position);
 
 					// Inline preload check â€” skip function call when sprite is simple and loaded
 					if (!sprite->isSimpleAndLoaded()) {
 						rme::collectTileSprites(sprite, patterns.x, patterns.y, patterns.z, patterns.frame);
 					}
 
-					BlitItemParams params(position, item.get(), options);
+					BlitItemParams params(position, item, options);
 					params.tile = tile;
 					params.item_definition = it;
 					params.patterns = &patterns;
 
 					// item sprite
-					if (item->isBorder()) {
+					if (entry.is_border) {
 						params.red = r;
 						params.green = g;
 						params.blue = b;
@@ -501,7 +531,7 @@ void TileRenderer::DrawTile(SpriteBatch& sprite_batch, const TileLocation* locat
 						params.view = &view;
 						item_drawer->BlitItem(sprite_batch, sprite_drawer, creature_drawer, draw_x, draw_y, params);
 					}
-				} else if (item->isInvalidOTBMItem()) {
+				} else if (entry.is_invalid_otbm_item) {
 					// Missing-definition placeholders are represented by the tile-level invalid overlay.
 				}
 			}

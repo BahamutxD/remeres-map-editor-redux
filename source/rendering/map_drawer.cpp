@@ -22,6 +22,8 @@
 #include "editor/editor.h"
 #include "ui/gui.h"
 #include "game/sprites.h"
+#include "app/settings.h"
+#include "rendering/core/tile_render_cache.h"
 
 #include "rendering/map_drawer.h"
 #include "brushes/brush.h"
@@ -287,6 +289,11 @@ void MapDrawer::Release() {
 
 void MapDrawer::Draw() {
 	g_gui.gfx.updateTime();
+
+	// Sync the per-tile render cache with the user's settings once per
+	// frame (cheap) rather than doing it per-tile.
+	g_tile_render_cache.SetEnabled(g_settings.getBoolean(Config::ENABLE_TILE_RENDER_CACHE));
+	g_tile_render_cache.SetMaxBytes(static_cast<size_t>(std::max(0, g_settings.getInteger(Config::TILE_RENDER_CACHE_MAX_MB))) * 1024ull * 1024ull);
 
 	light_buffer.Clear();
 	creature_name_drawer->clear();
