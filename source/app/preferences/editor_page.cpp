@@ -139,6 +139,26 @@ EditorPage::EditorPage(wxWindow* parent) : ScrollablePreferencesPage(parent) {
 	);
 	page_sizer->Add(compatibility_section, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(10));
 
+	auto* performance_section = new PreferencesSectionPanel(
+		GetScrollWindow(),
+		"Performance",
+		"Tune how the map view caches work while you pan and zoom around large maps."
+	);
+	enable_tile_render_cache_chkbox = PreferencesLayout::AddCheckBoxRow(
+		performance_section,
+		"Cache tile rendering while panning/zooming",
+		"Remembers what each tile looked like so panning and zooming over unchanged parts of the map doesn't redo that work every frame. Automatically stays up to date when you edit, undo, or redo. Disable if you ever suspect the map view isn't refreshing correctly.",
+		g_settings.getBoolean(Config::ENABLE_TILE_RENDER_CACHE)
+	);
+	tile_render_cache_max_mb_spin = new wxSpinCtrl(performance_section, wxID_ANY, i2ws(g_settings.getInteger(Config::TILE_RENDER_CACHE_MAX_MB)), wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 8, 8192);
+	PreferencesLayout::AddControlRow(
+		performance_section,
+		"Render cache limit (MB)",
+		"Approximate RAM budget for the tile render cache. Least-recently-viewed tiles are dropped first once this is exceeded. Kept in RAM only, never written to disk.",
+		tile_render_cache_max_mb_spin
+	);
+	page_sizer->Add(performance_section, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(10));
+
 	FinishLayout();
 }
 
@@ -159,6 +179,8 @@ void EditorPage::Apply() {
 	g_settings.setInteger(Config::MERGE_PASTE, merge_paste_chkbox->GetValue());
 	g_settings.setInteger(Config::LEGACY_ITEM_COUNT_FORMAT, legacy_item_count_format_chkbox->GetValue());
 	g_settings.setInteger(Config::SHOW_WAYPOINT_MIGRATION_DIALOG, show_waypoint_migration_dialog_chkbox->GetValue());
+	g_settings.setInteger(Config::ENABLE_TILE_RENDER_CACHE, enable_tile_render_cache_chkbox->GetValue());
+	g_settings.setInteger(Config::TILE_RENDER_CACHE_MAX_MB, tile_render_cache_max_mb_spin->GetValue());
 
 	if (previous_floor_visibility_mode != g_settings.getInteger(Config::FLOOR_VISIBILITY_MODE)) {
 		g_gui.RefreshView();

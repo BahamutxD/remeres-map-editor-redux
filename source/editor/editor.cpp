@@ -41,6 +41,7 @@
 #include "live/live_action.h"
 
 #include "editor/operations/draw_operations.h"
+#include "map/render_epoch.h"
 
 #include <spdlog/spdlog.h>
 
@@ -53,6 +54,7 @@ Editor::Editor(CopyBuffer& copybuffer, const MapVersion& version) :
 	spdlog::info("Editor created (Empty) [Editor={}]", (void*)this);
 	map.convert(version);
 	map.initializeEmpty();
+	MapRenderEpoch::Bump(); // ensure no stale render cache entries from a previous map
 }
 
 Editor::Editor(CopyBuffer& copybuffer, const MapVersion& version, const FileName& fn, const MapLoadOptions& load_options) :
@@ -63,6 +65,7 @@ Editor::Editor(CopyBuffer& copybuffer, const MapVersion& version, const FileName
 	replace_brush(nullptr) {
 	spdlog::info("Editor created (From File) [Editor={}]", (void*)this);
 	EditorPersistence::loadMap(*this, fn, load_options);
+	MapRenderEpoch::Bump(); // ensure no stale render cache entries from a previous map
 }
 
 Editor::Editor(CopyBuffer& copybuffer, const MapVersion& version, std::unique_ptr<LiveClient> client) :
@@ -73,6 +76,7 @@ Editor::Editor(CopyBuffer& copybuffer, const MapVersion& version, std::unique_pt
 	replace_brush(nullptr) {
 	spdlog::info("Editor created (Live Client) [Editor={}]", (void*)this);
 	map.convert(version);
+	MapRenderEpoch::Bump(); // ensure no stale render cache entries from a previous map
 }
 
 Editor::~Editor() {

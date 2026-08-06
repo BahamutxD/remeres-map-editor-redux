@@ -480,6 +480,11 @@ void Settings::IO(IOMode mode) {
 	Bool(LEGACY_ITEM_COUNT_FORMAT, false);
 	Bool(SHOW_WAYPOINT_MIGRATION_DIALOG, true);
 
+	// Rendering performance
+	section("Performance");
+	Bool(ENABLE_TILE_RENDER_CACHE, true);
+	Int(TILE_RENDER_CACHE_MAX_MB, 256);
+
 	if (mode == SAVE) {
 		std::ofstream file("config.toml");
 		if (file.is_open()) {
