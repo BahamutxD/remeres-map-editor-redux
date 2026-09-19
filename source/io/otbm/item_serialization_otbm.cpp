@@ -266,22 +266,32 @@ bool ItemSerializationOTBM::unserializeItemNode(const IOMap& maphandle, FastOTBM
 	}
 
 	if (auto container = item.asContainer()) {
+		bool ok = true;
 		node.forEachChild([&](FastOTBMNode& child) {
+			if (!ok) {
+				return;
+			}
 			if (child.type != OTBM_ITEM) {
+				ok = false;
 				return;
 			}
 
 			auto childItem = createFromStream(maphandle, child.stream);
 			if (!childItem) {
+				ok = false;
 				return;
 			}
 
 			if (!unserializeItemNode(maphandle, child, *childItem, depth + 1)) {
+				ok = false;
 				return;
 			}
 
 			container->getVector().push_back(std::move(childItem));
 		});
+		if (!ok) {
+			return false;
+		}
 	}
 	return true;
 }
