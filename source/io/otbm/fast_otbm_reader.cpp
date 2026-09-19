@@ -6,6 +6,9 @@ bool FastOTBMStream::getString(std::string& out) {
 	if (!getU16(len)) {
 		return false;
 	}
+	if (len > remaining()) {
+		return false;
+	}
 	out.clear();
 	out.reserve(len);
 	for (uint16_t i = 0; i < len; ++i) {
@@ -21,6 +24,9 @@ bool FastOTBMStream::getString(std::string& out) {
 bool FastOTBMStream::getLongString(std::string& out) {
 	uint32_t len = 0;
 	if (!getU32(len)) {
+		return false;
+	}
+	if (len > remaining()) {
 		return false;
 	}
 	out.clear();
@@ -66,7 +72,7 @@ void FastOTBMStream::skipRemainingProps() noexcept {
 	}
 }
 
-void FastOTBMStream::skipNode() noexcept {
+bool FastOTBMStream::skipNode() noexcept {
 	int depth = 1;
 	while (p < end && depth > 0) {
 		uint8_t c = *p++;
@@ -80,6 +86,7 @@ void FastOTBMStream::skipNode() noexcept {
 			depth--;
 		}
 	}
+	return depth == 0;
 }
 
 std::vector<uint8_t> FastOTBMStream::readRemainingRawProps() {

@@ -121,7 +121,7 @@ public:
 	}
 
 	void skipRemainingProps() noexcept;
-	void skipNode() noexcept;
+	bool skipNode() noexcept;
 
 	// Extracts raw unescaped bytes of the remaining props in the current node
 	std::vector<uint8_t> readRemainingRawProps();
@@ -139,7 +139,7 @@ public:
 
 	template <typename Func>
 		requires std::invocable<Func, FastOTBMNode&>
-	void forEachChild(Func&& func) {
+	bool forEachChild(Func&& func) {
 		stream.skipRemainingProps();
 
 		while (stream.p < stream.end && *stream.p == OTBM_NODE_START) {
@@ -153,7 +153,9 @@ public:
 			func(child);
 
 			if (!child.closed) {
-				child.stream.skipNode();
+				if (!child.stream.skipNode()) {
+					return false;
+				}
 			}
 			stream.p = child.stream.p;
 		}
@@ -161,7 +163,9 @@ public:
 		if (stream.p < stream.end && *stream.p == OTBM_NODE_END) {
 			stream.p++; // consume closing OTBM_NODE_END
 			closed = true;
+			return true;
 		}
+		return false;
 	}
 
 	// Preserves this node and its children into a PreservedOTBMNode
