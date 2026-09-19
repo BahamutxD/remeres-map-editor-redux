@@ -150,7 +150,15 @@ bool Application::OnInit() {
 	if (g_settings.getInteger(Config::ONLY_ONE_INSTANCE) && m_single_instance_checker->IsAnotherRunning()) {
 		RMEProcessClient client;
 		wxLogNull nolog; // Prevent wxWidgets popup dialog on connection failure
-		wxConnectionBase* connection = client.MakeConnection("localhost", "rme_host", "rme_talk");
+		wxConnectionBase* connection = nullptr;
+		for (int attempt = 0; attempt < 3; ++attempt) {
+			connection = client.MakeConnection("localhost", "rme_host", "rme_talk");
+			if (connection) {
+				break;
+			}
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		}
+
 		if (connection) {
 			wxString fileName;
 			if (ParseCommandLineMap(fileName)) {
@@ -162,9 +170,10 @@ bool Application::OnInit() {
 			return false; // Since we return false - OnExit is never called
 		} else {
 			// Another instance was reported running but not responding (stale lock after crash or shutdown).
-			// Proceed to launch as primary instance instead of failing.
-			spdlog::warn("Another instance was reported running but IPC connection failed. Continuing as new instance.");
+			// Recreate the instance checker so this instance holds exclusive ownership.
+			spdlog::warn("Another instance was reported running but IPC connection failed. Reacquiring instance checker.");
 			wxDELETE(m_single_instance_checker);
+			m_single_instance_checker = newd wxSingleInstanceChecker;
 		}
 	}
 	// We act as server then
