@@ -17,10 +17,6 @@
 
 #include "app/main.h"
 
-#include <wx/wfstream.h>
-#include <wx/mstream.h>
-#include <wx/datstrm.h>
-
 #include <format>
 #include <fstream>
 #include <vector>
@@ -338,6 +334,7 @@ bool IOMapOTBM::loadMapFast(Map& map, const uint8_t* data, size_t size) {
 	if (!HeaderSerializationOTBM::readMapAttributes(map, stream)) {
 		return false;
 	}
+	stream.skipRemainingProps();
 
 	// Data structures for parallel block-partitioned loading
 	struct TileAreaJob {
@@ -355,9 +352,16 @@ bool IOMapOTBM::loadMapFast(Map& map, const uint8_t* data, size_t size) {
 		std::vector<TileAreaJob> jobs;
 	};
 
+	struct AuxiliaryJob {
+		uint8_t type = 0;
+		const uint8_t* node_start = nullptr;
+		const uint8_t* node_end = nullptr;
+	};
+
 	std::unordered_map<uint64_t, size_t> block_index_map;
 	std::vector<BlockBucket> block_buckets;
 	std::vector<TileAreaJob> unaligned_jobs;
+	std::vector<AuxiliaryJob> auxiliary_jobs;
 	std::vector<uint64_t> cell_keys;
 
 	auto t_prescan_start = std::chrono::high_resolution_clock::now();
@@ -380,6 +384,7 @@ bool IOMapOTBM::loadMapFast(Map& map, const uint8_t* data, size_t size) {
 			uint16_t bx = 0, by = 0;
 			uint8_t bz = 0;
 			if (!stream.getU16(bx) || !stream.getU16(by) || !stream.getU8(bz)) {
+				stream.skipNode();
 				continue;
 			}
 
@@ -419,14 +424,14 @@ bool IOMapOTBM::loadMapFast(Map& map, const uint8_t* data, size_t size) {
 			} else {
 				unaligned_jobs.push_back(job);
 			}
-		} else if (child_type == OTBM_TOWNS) {
-			FastOTBMNode townsNode(OTBM_TOWNS, stream.p, stream.end);
-			TownSerializationOTBM::readTowns(map, townsNode);
-			stream.p = townsNode.stream.p;
-		} else if (child_type == OTBM_WAYPOINTS) {
-			FastOTBMNode waypointsNode(OTBM_WAYPOINTS, stream.p, stream.end);
-			WaypointSerializationOTBM::readWaypoints(map, waypointsNode);
-			stream.p = waypointsNode.stream.p;
+		} else if (child_type == OTBM_TOWNS || child_type == OTBM_WAYPOINTS) {
+			const uint8_t* aux_start = stream.p;
+			stream.skipNode();
+			auxiliary_jobs.push_back(AuxiliaryJob {
+				.type = child_type,
+				.node_start = aux_start,
+				.node_end = stream.p,
+			});
 		} else {
 			stream.skipNode();
 		}
@@ -457,6 +462,7 @@ bool IOMapOTBM::loadMapFast(Map& map, const uint8_t* data, size_t size) {
 	}
 
 	std::atomic<size_t> next_bucket_idx { 0 };
+	std::atomic<size_t> completed_buckets { 0 };
 	std::vector<std::vector<std::pair<uint32_t, Tile*>>> thread_house_tiles(n_threads);
 	std::vector<uint64_t> thread_tile_counts(n_threads, 0);
 
@@ -481,6 +487,7 @@ bool IOMapOTBM::loadMapFast(Map& map, const uint8_t* data, size_t size) {
 					FastOTBMNode areaNode(OTBM_TILE_AREA, job.node_start, job.node_end);
 					TileSerializationOTBM::readTileArea(*this, map, areaNode, &bucket.cell_indices, house_tiles, tile_count);
 				}
+				completed_buckets.fetch_add(1, std::memory_order_relaxed);
 			}
 		});
 	}
@@ -488,7 +495,7 @@ bool IOMapOTBM::loadMapFast(Map& map, const uint8_t* data, size_t size) {
 	// Smoothly update loading bar on main thread while workers are running
 	const size_t total_buckets = block_buckets.size();
 	while (true) {
-		size_t done = next_bucket_idx.load(std::memory_order_relaxed);
+		size_t done = completed_buckets.load(std::memory_order_relaxed);
 		if (done >= total_buckets) {
 			break;
 		}
@@ -510,6 +517,17 @@ bool IOMapOTBM::loadMapFast(Map& map, const uint8_t* data, size_t size) {
 		for (const auto& job : unaligned_jobs) {
 			FastOTBMNode areaNode(OTBM_TILE_AREA, job.node_start, job.node_end);
 			TileSerializationOTBM::readTileArea(*this, map, areaNode, nullptr, house_tiles, tile_count);
+		}
+	}
+
+	// Process auxiliary nodes (towns, waypoints) sequentially now that all tiles are created
+	for (const auto& aux : auxiliary_jobs) {
+		if (aux.type == OTBM_TOWNS) {
+			FastOTBMNode townsNode(OTBM_TOWNS, aux.node_start, aux.node_end);
+			TownSerializationOTBM::readTowns(map, townsNode);
+		} else if (aux.type == OTBM_WAYPOINTS) {
+			FastOTBMNode waypointsNode(OTBM_WAYPOINTS, aux.node_start, aux.node_end);
+			WaypointSerializationOTBM::readWaypoints(map, waypointsNode);
 		}
 	}
 

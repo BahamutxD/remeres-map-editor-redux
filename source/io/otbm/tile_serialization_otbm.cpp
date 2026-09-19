@@ -173,15 +173,7 @@ void TileSerializationOTBM::readTileArea(
 						tile->addItemFast(std::move(item));
 					} else {
 						FastOTBMStream rawStream(itemStart, itemEnd);
-						std::vector<uint8_t> rawItemBytes;
-						while (rawStream.hasMoreProps()) {
-							uint8_t b = 0;
-							if (rawStream.getByte(b)) {
-								rawItemBytes.push_back(b);
-							} else {
-								break;
-							}
-						}
+						std::vector<uint8_t> rawItemBytes = rawStream.readRemainingRawProps();
 
 						const bool treatAsGround = shouldTreatInlineItemAsGround(*tile);
 						const uint16_t serverId = item ? item->getID() : decodeServerIdFromInlineBytes(rawItemBytes);
@@ -204,15 +196,7 @@ void TileSerializationOTBM::readTileArea(
 				}
 				default: {
 					FastOTBMStream rawStream(attrStart, tileNode.stream.end);
-					std::vector<uint8_t> rawBytes;
-					while (rawStream.hasMoreProps()) {
-						uint8_t b = 0;
-						if (rawStream.getByte(b)) {
-							rawBytes.push_back(b);
-						} else {
-							break;
-						}
-					}
+					std::vector<uint8_t> rawBytes = rawStream.readRemainingRawProps();
 					tile->addOpaqueTileAttribute(OpaqueTileAttributeRecord {
 						.rawBytes = std::move(rawBytes),
 					});
