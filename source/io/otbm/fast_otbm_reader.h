@@ -67,7 +67,7 @@ public:
 			p[0] != OTBM_ESCAPE_CHAR && p[1] != OTBM_ESCAPE_CHAR &&
 			p[0] != OTBM_NODE_START && p[0] != OTBM_NODE_END &&
 			p[1] != OTBM_NODE_START && p[1] != OTBM_NODE_END) {
-			out = *reinterpret_cast<const uint16_t*>(p);
+			std::memcpy(&out, p, sizeof(uint16_t));
 			p += 2;
 			return true;
 		}
@@ -87,7 +87,7 @@ public:
 			p[1] != OTBM_NODE_START && p[1] != OTBM_NODE_END &&
 			p[2] != OTBM_NODE_START && p[2] != OTBM_NODE_END &&
 			p[3] != OTBM_NODE_START && p[3] != OTBM_NODE_END) {
-			out = *reinterpret_cast<const uint32_t*>(p);
+			std::memcpy(&out, p, sizeof(uint32_t));
 			p += 4;
 			return true;
 		}
@@ -130,11 +130,12 @@ public:
 class FastOTBMNode {
 public:
 	uint8_t type = 0;
+	const uint8_t* nodeStart = nullptr;
 	FastOTBMStream stream;
 	bool closed = false;
 
 	FastOTBMNode(uint8_t t, const uint8_t* start, const uint8_t* end) noexcept :
-		type(t), stream(start, end), closed(false) { }
+		type(t), nodeStart(start), stream(start, end), closed(false) { }
 
 	template <typename Func>
 		requires std::invocable<Func, FastOTBMNode&>

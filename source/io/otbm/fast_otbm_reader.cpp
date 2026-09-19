@@ -99,10 +99,11 @@ PreservedOTBMNode FastOTBMNode::capturePreserved() {
 	PreservedOTBMNode preserved;
 	preserved.rawPayload.push_back(type);
 
-	// Read all remaining props
-	while (stream.hasMoreProps()) {
+	// Read all props from the beginning of the node if available, otherwise from stream.p
+	FastOTBMStream propStream(nodeStart ? nodeStart : stream.p, stream.end);
+	while (propStream.hasMoreProps()) {
 		uint8_t b = 0;
-		if (stream.getByte(b)) {
+		if (propStream.getByte(b)) {
 			preserved.rawPayload.push_back(b);
 		} else {
 			break;
