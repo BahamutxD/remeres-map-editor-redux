@@ -312,7 +312,7 @@ bool IOMapOTBM::loadMapFast(Map& map, const uint8_t* data, size_t size) {
 	}
 
 	if (majorVersion > static_cast<uint32_t>(g_item_definitions.MajorVersion)) {
-		spdlog::warn("Outdated items.otb (major {}), could not load map", majorVersion);
+		spdlog::warn("Newer items.otb major version ({}); continuing with unresolved item preservation", majorVersion);
 	}
 	version.client = static_cast<OtbVersionID>(minorVersion);
 
@@ -389,7 +389,10 @@ bool IOMapOTBM::loadMapFast(Map& map, const uint8_t* data, size_t size) {
 			}
 
 			// Find end of this OTBM_TILE_AREA node
-			stream.skipNode();
+			if (!stream.skipNode()) {
+				spdlog::error("FastOTBM: Truncated OTBM_TILE_AREA node encountered");
+				return false;
+			}
 			const uint8_t* job_end = stream.p;
 
 			TileAreaJob job {
@@ -426,14 +429,20 @@ bool IOMapOTBM::loadMapFast(Map& map, const uint8_t* data, size_t size) {
 			}
 		} else if (child_type == OTBM_TOWNS || child_type == OTBM_WAYPOINTS) {
 			const uint8_t* aux_start = stream.p;
-			stream.skipNode();
+			if (!stream.skipNode()) {
+				spdlog::error("FastOTBM: Truncated auxiliary node encountered");
+				return false;
+			}
 			auxiliary_jobs.push_back(AuxiliaryJob {
 				.type = child_type,
 				.node_start = aux_start,
 				.node_end = stream.p,
 			});
 		} else {
-			stream.skipNode();
+			if (!stream.skipNode()) {
+				spdlog::error("FastOTBM: Truncated unknown node encountered");
+				return false;
+			}
 		}
 	}
 
@@ -463,6 +472,7 @@ bool IOMapOTBM::loadMapFast(Map& map, const uint8_t* data, size_t size) {
 
 	std::atomic<size_t> next_bucket_idx { 0 };
 	std::atomic<size_t> completed_buckets { 0 };
+	std::atomic<bool> worker_failed { false };
 	std::vector<std::vector<std::pair<uint32_t, Tile*>>> thread_house_tiles(n_threads);
 	std::vector<uint64_t> thread_tile_counts(n_threads, 0);
 
@@ -476,18 +486,24 @@ bool IOMapOTBM::loadMapFast(Map& map, const uint8_t* data, size_t size) {
 		workers.emplace_back([&, tid]() {
 			auto& house_tiles = thread_house_tiles[tid];
 			auto& tile_count = thread_tile_counts[tid];
-			while (true) {
-				size_t bidx = next_bucket_idx.fetch_add(1, std::memory_order_relaxed);
-				if (bidx >= block_buckets.size()) {
-					break;
-				}
+			try {
+				while (true) {
+					size_t bidx = next_bucket_idx.fetch_add(1, std::memory_order_relaxed);
+					if (bidx >= block_buckets.size() || worker_failed.load(std::memory_order_relaxed)) {
+						break;
+					}
 
-				auto& bucket = block_buckets[bidx];
-				for (const auto& job : bucket.jobs) {
-					FastOTBMNode areaNode(OTBM_TILE_AREA, job.node_start, job.node_end);
-					TileSerializationOTBM::readTileArea(*this, map, areaNode, &bucket.cell_indices, house_tiles, tile_count);
+					auto& bucket = block_buckets[bidx];
+					for (const auto& job : bucket.jobs) {
+						FastOTBMNode areaNode(OTBM_TILE_AREA, job.node_start, job.node_end);
+						TileSerializationOTBM::readTileArea(*this, map, areaNode, &bucket.cell_indices, house_tiles, tile_count);
+					}
+					completed_buckets.fetch_add(1, std::memory_order_relaxed);
 				}
-				completed_buckets.fetch_add(1, std::memory_order_relaxed);
+			} catch (const std::exception& e) {
+				spdlog::error("FastOTBM: Worker {} failed with exception: {}", tid, e.what());
+				worker_failed.store(true, std::memory_order_relaxed);
+				completed_buckets.store(block_buckets.size(), std::memory_order_relaxed);
 			}
 		});
 	}
@@ -510,6 +526,11 @@ bool IOMapOTBM::loadMapFast(Map& map, const uint8_t* data, size_t size) {
 		}
 	}
 
+	if (worker_failed.load(std::memory_order_relaxed)) {
+		spdlog::error("FastOTBM: Map tile loading failed due to worker error");
+		return false;
+	}
+
 	// Process any unaligned jobs (single-threaded fallback)
 	if (!unaligned_jobs.empty()) {
 		auto& house_tiles = thread_house_tiles[0];
@@ -519,6 +540,18 @@ bool IOMapOTBM::loadMapFast(Map& map, const uint8_t* data, size_t size) {
 			TileSerializationOTBM::readTileArea(*this, map, areaNode, nullptr, house_tiles, tile_count);
 		}
 	}
+
+	auto t_load_end = std::chrono::high_resolution_clock::now();
+	spdlog::info("FastOTBM: Parallel tile loading completed in {:.2f} ms",
+		std::chrono::duration<double, std::milli>(t_load_end - t_load_start).count());
+
+	// Update tilecount directly from thread counters (O(1) instead of traversing all cells/floors)
+	// Establish base count before auxiliary nodes (towns) create additional tiles through getOrCreateTile.
+	uint64_t tile_count = 0;
+	for (uint64_t tc : thread_tile_counts) {
+		tile_count += tc;
+	}
+	map.tilecount = tile_count;
 
 	// Process auxiliary nodes (towns, waypoints) sequentially now that all tiles are created
 	for (const auto& aux : auxiliary_jobs) {
@@ -530,10 +563,6 @@ bool IOMapOTBM::loadMapFast(Map& map, const uint8_t* data, size_t size) {
 			WaypointSerializationOTBM::readWaypoints(map, waypointsNode);
 		}
 	}
-
-	auto t_load_end = std::chrono::high_resolution_clock::now();
-	spdlog::info("FastOTBM: Parallel tile loading completed in {:.2f} ms",
-		std::chrono::duration<double, std::milli>(t_load_end - t_load_start).count());
 
 	g_gui.SetLoadDone(95, "Finalizing houses and map data...");
 
@@ -550,13 +579,6 @@ bool IOMapOTBM::loadMapFast(Map& map, const uint8_t* data, size_t size) {
 			house->addTile(tile);
 		}
 	}
-
-	// Update tilecount directly from thread counters (O(1) instead of traversing all cells/floors)
-	uint64_t tile_count = 0;
-	for (uint64_t tc : thread_tile_counts) {
-		tile_count += tc;
-	}
-	map.tilecount = tile_count;
 
 	g_gui.SetLoadDone(100);
 	return true;
