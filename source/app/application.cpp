@@ -55,7 +55,6 @@
 #include <spdlog/spdlog.h>
 #include <chrono>
 #include <thread>
-#include <chrono>
 
 wxIMPLEMENT_APP_NO_MAIN(Application);
 
