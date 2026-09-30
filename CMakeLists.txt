@@ -77,8 +77,17 @@ include(source/CMakeLists.txt)
 set(RME_APPEARANCES_PROTO "${CMAKE_CURRENT_SOURCE_DIR}/source/protobuf/appearances.proto")
 protobuf_generate_cpp(RME_PROTO_SRCS RME_PROTO_HDRS "${RME_APPEARANCES_PROTO}")
 
-# Removed WIN32 to enable Console subsystem for persistent debugging logs
 add_executable(rme ${rme_H} ${rme_SRC} ${RME_PROTO_SRCS} ${RME_PROTO_HDRS})
+
+# On Windows the editor runs without a console window; turn this on to keep one for debugging logs.
+option(RME_WINDOWS_CONSOLE "Show a console window with debug logs on Windows" OFF)
+if(WIN32 AND NOT RME_WINDOWS_CONSOLE)
+	set_target_properties(rme PROPERTIES WIN32_EXECUTABLE ON)
+	if(MSVC)
+		# Keep using main() as the entry point with the GUI subsystem.
+		target_link_options(rme PRIVATE /ENTRY:mainCRTStartup)
+	endif()
+endif()
 
 set_target_properties(rme PROPERTIES CXX_STANDARD 23)
 set_target_properties(rme PROPERTIES CXX_STANDARD_REQUIRED ON)
