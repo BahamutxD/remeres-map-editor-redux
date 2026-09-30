@@ -19,9 +19,16 @@ public:
 	[[nodiscard]] WallBrush* linkedWall() const {
 		return linked_wall;
 	}
+	void setKeepGroundBorder(bool keep) {
+		keep_ground_border = keep;
+	}
+	[[nodiscard]] bool keepGroundBorder() const {
+		return keep_ground_border;
+	}
 
 private:
 	WallBrush* linked_wall = nullptr;
+	bool keep_ground_border = true;
 };
 
 extern GroundWallLink g_ground_wall_link;

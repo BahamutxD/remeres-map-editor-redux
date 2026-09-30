@@ -202,6 +202,9 @@ namespace {
 
 		if constexpr (std::is_same_v<T, GroundBrush>) {
 			if (WallBrush* linked_wall = g_ground_wall_link.linkedWall()) {
+				if (!g_ground_wall_link.keepGroundBorder()) {
+					GroundWallOutline::removeGroundBorder(editor, *batch, *brush, tilestodraw);
+				}
 				GroundWallOutline::apply(editor, *batch, *brush, *linked_wall, tilestodraw);
 			}
 		}

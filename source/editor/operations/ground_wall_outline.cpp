@@ -127,4 +127,30 @@ namespace GroundWallOutline {
 		placeWalls(editor, batch, ground, wall, sorted_changed, affected);
 		alignWalls(editor, batch, affected);
 	}
+
+	void removeGroundBorder(Editor& editor, BatchAction& batch, const GroundBrush& ground, std::span<const Position> changed) {
+		std::vector<uint16_t> border_ids;
+		ground.getOwnBorderItems(border_ids);
+		if (border_ids.empty()) {
+			return;
+		}
+		std::ranges::sort(border_ids);
+
+		const auto is_ground_border = [&](const std::unique_ptr<Item>& item) {
+			return item->isBorder() && std::ranges::binary_search(border_ids, item->getID());
+		};
+
+		std::unique_ptr<Action> action = editor.actionQueue->createAction(&batch);
+		for (const Position& pos : withNeighbours(changed)) {
+			Tile* tile = editor.map.getTile(pos);
+			if (!tile || !std::ranges::any_of(tile->items, is_ground_border)) {
+				continue;
+			}
+			std::unique_ptr<Tile> new_tile = TileOperations::deepCopy(tile, editor.map);
+			std::erase_if(new_tile->items, is_ground_border);
+			TileOperations::update(new_tile.get());
+			action->addChange(std::make_unique<Change>(std::move(new_tile)));
+		}
+		commitIfChanged(batch, std::move(action));
+	}
 } // namespace GroundWallOutline

@@ -19,6 +19,9 @@ namespace GroundWallOutline {
 	// edge tiles of the area get the wall, interior tiles (and tiles that lost the
 	// ground) lose it, and the affected walls are re-aligned.
 	void apply(Editor& editor, BatchAction& batch, const GroundBrush& ground, WallBrush& wall, std::span<const Position> changed);
+
+	// Removes the border items `ground` draws itself from the changed tiles and their neighbours.
+	void removeGroundBorder(Editor& editor, BatchAction& batch, const GroundBrush& ground, std::span<const Position> changed);
 } // namespace GroundWallOutline
 
 #endif
