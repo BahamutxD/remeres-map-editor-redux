@@ -57,9 +57,27 @@ namespace {
 		return tile && tile->getGroundBrush() == &ground;
 	}
 
-	bool isOutlineTile(const Map& map, const Position& pos, const GroundBrush& ground) {
-		return hasGround(map, pos, ground)
-			&& std::ranges::any_of(kRing, [&](Offset offset) { return !hasGround(map, shifted(pos, offset), ground); });
+	// Walls sit on the north and west side of the area (one tile outside it, so the
+	// edge tiles stay walkable) and on the south and east edge tiles themselves.
+	bool wantsWall(const Map& map, const Position& pos, const GroundBrush& ground) {
+		const auto in_area = [&](int dx, int dy) { return hasGround(map, shifted(pos, { dx, dy }), ground); };
+		if (in_area(0, 0)) {
+			const bool south = in_area(0, 1);
+			const bool east = in_area(1, 0);
+			return !south || !east || !in_area(1, 1);
+		}
+		const bool north_of_area = in_area(0, 1);
+		const bool west_of_area = in_area(1, 0);
+		const bool outer_corner = in_area(1, 1);
+		return north_of_area || west_of_area || outer_corner;
+	}
+
+	// True if the tile at `pos` or one of the tiles whose wall may land on it changed.
+	bool nearChange(const Position& pos, std::span<const Position> changed) {
+		constexpr std::array<Offset, 4> kSources = { { { 0, 0 }, { 0, 1 }, { 1, 0 }, { 1, 1 } } };
+		return std::ranges::any_of(kSources, [&](Offset offset) {
+			return std::ranges::binary_search(changed, shifted(pos, offset), kPositionLess);
+		});
 	}
 
 	bool hasWallOf(const Tile& tile, WallBrush& wall) {
@@ -72,28 +90,31 @@ namespace {
 		}
 	}
 
-	// Adds the wall to outline tiles and removes it from tiles inside (or no longer part of) the area.
+	// Adds the wall where the outline wants it and removes it from tiles inside (or no longer next to) the area.
 	void placeWalls(
 		Editor& editor, BatchAction& batch, const GroundBrush& ground, WallBrush& wall, std::span<const Position> changed,
 		std::span<const Position> affected
 	) {
 		std::unique_ptr<Action> action = editor.actionQueue->createAction(&batch);
 		for (const Position& pos : affected) {
-			Tile* tile = editor.map.getTile(pos);
+			const bool wants_wall = wantsWall(editor.map, pos, ground);
+			TileLocation* location = editor.map.createTileL(pos);
+			Tile* tile = location->get();
 			if (!tile) {
+				if (wants_wall) {
+					std::unique_ptr<Tile> new_tile(editor.map.allocator(location));
+					wall.draw(&editor.map, new_tile.get(), nullptr);
+					action->addChange(std::make_unique<Change>(std::move(new_tile)));
+				}
 				continue;
 			}
 
-			const bool in_area = hasGround(editor.map, pos, ground);
-			const bool was_changed = std::ranges::binary_search(changed, pos, kPositionLess);
-			const bool wants_wall = isOutlineTile(editor.map, pos, ground);
 			const bool has_wall = hasWallOf(*tile, wall);
-
 			if (wants_wall && !has_wall) {
 				std::unique_ptr<Tile> new_tile = TileOperations::deepCopy(tile, editor.map);
 				wall.draw(&editor.map, new_tile.get(), nullptr);
 				action->addChange(std::make_unique<Change>(std::move(new_tile)));
-			} else if (!wants_wall && has_wall && (in_area || was_changed)) {
+			} else if (!wants_wall && has_wall && (hasGround(editor.map, pos, ground) || nearChange(pos, changed))) {
 				std::unique_ptr<Tile> new_tile = TileOperations::deepCopy(tile, editor.map);
 				TileOperations::cleanWalls(new_tile.get(), &wall);
 				action->addChange(std::make_unique<Change>(std::move(new_tile)));
