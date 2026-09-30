@@ -19,6 +19,7 @@
 #include "item_definitions/core/asset_bundle_loader.h"
 #include "item_definitions/core/item_definition_store.h"
 #include "app/settings.h"
+#include "brushes/managers/ground_wall_link.h"
 
 #include <format>
 #include <ranges>
@@ -270,6 +271,7 @@ void VersionManager::UnloadVersion() {
 		g_gui.tool_options->Clear();
 	}
 	g_brush_manager.Clear();
+	g_ground_wall_link.unlink();
 
 	if (!loaded_version.empty()) {
 		g_materials.clear();

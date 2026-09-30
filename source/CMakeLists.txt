@@ -63,6 +63,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/editor/editor_factory.h
     ${CMAKE_CURRENT_LIST_DIR}/editor/operations/copy_operations.h
     ${CMAKE_CURRENT_LIST_DIR}/editor/operations/draw_operations.h
+    ${CMAKE_CURRENT_LIST_DIR}/editor/operations/ground_wall_outline.h
     ${CMAKE_CURRENT_LIST_DIR}/editor/operations/selection_operations.h
     ${CMAKE_CURRENT_LIST_DIR}/editor/operations/map_version_changer.h
     ${CMAKE_CURRENT_LIST_DIR}/editor/operations/unreachable_cleaner.h
@@ -165,6 +166,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/palette/house/edit_house_dialog.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_window.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/controls/virtual_brush_grid.h
+    ${CMAKE_CURRENT_LIST_DIR}/palette/controls/ground_wall_link_menu.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/panels/brush_palette_panel.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/panels/brush_panel.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/animator.h
@@ -314,6 +316,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/ui/managers/layout_manager.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/managers/minimap_manager.h
     ${CMAKE_CURRENT_LIST_DIR}/brushes/managers/doodad_preview_manager.h
+    ${CMAKE_CURRENT_LIST_DIR}/brushes/managers/ground_wall_link.h
     ${CMAKE_CURRENT_LIST_DIR}/brushes/managers/autoborder_preview_manager.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/managers/status_manager.h
     ${CMAKE_CURRENT_LIST_DIR}/brushes/managers/brush_manager.h
@@ -471,6 +474,7 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/editor/editor_factory.cpp
     ${CMAKE_CURRENT_LIST_DIR}/editor/operations/copy_operations.cpp
     ${CMAKE_CURRENT_LIST_DIR}/editor/operations/draw_operations.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/editor/operations/ground_wall_outline.cpp
     ${CMAKE_CURRENT_LIST_DIR}/editor/operations/selection_operations.cpp
     ${CMAKE_CURRENT_LIST_DIR}/editor/operations/map_version_changer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/editor/operations/unreachable_cleaner.cpp
@@ -560,6 +564,7 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/palette/house/edit_house_dialog.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_window.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/controls/virtual_brush_grid.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/palette/controls/ground_wall_link_menu.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/panels/brush_palette_panel.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/panels/brush_panel.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/animator.cpp
@@ -714,6 +719,7 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/ui/managers/layout_manager.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/managers/minimap_manager.cpp
     ${CMAKE_CURRENT_LIST_DIR}/brushes/managers/doodad_preview_manager.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/brushes/managers/ground_wall_link.cpp
     ${CMAKE_CURRENT_LIST_DIR}/brushes/managers/autoborder_preview_manager.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/managers/status_manager.cpp
     ${CMAKE_CURRENT_LIST_DIR}/brushes/managers/brush_manager.cpp

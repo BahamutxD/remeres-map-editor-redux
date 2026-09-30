@@ -4,10 +4,12 @@
 
 #include "app/main.h"
 #include "editor/operations/draw_operations.h"
+#include "editor/operations/ground_wall_outline.h"
 #include "editor/editor.h"
 #include "editor/action_queue.h"
 #include "ui/gui.h"
 #include "brushes/managers/doodad_preview_manager.h"
+#include "brushes/managers/ground_wall_link.h"
 #include "brushes/brush.h"
 #include "brushes/doodad/doodad_brush.h"
 #include "brushes/ground/ground_brush.h"
@@ -196,6 +198,15 @@ namespace {
 				}
 			}
 			batch->addAndCommitAction(std::move(action));
+		}
+
+		if constexpr (std::is_same_v<T, GroundBrush>) {
+			if (WallBrush* linked_wall = g_ground_wall_link.linkedWall()) {
+				if (!g_ground_wall_link.keepGroundBorder()) {
+					GroundWallOutline::removeGroundBorder(editor, *batch, *brush, tilestodraw);
+				}
+				GroundWallOutline::apply(editor, *batch, *brush, *linked_wall, tilestodraw);
+			}
 		}
 
 		editor.addBatch(std::move(batch), 2);
