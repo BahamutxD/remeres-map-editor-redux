@@ -1,5 +1,8 @@
 #include "app/main.h"
 #include "palette/controls/virtual_brush_grid.h"
+#include "palette/controls/ground_wall_link_menu.h"
+#include "brushes/managers/ground_wall_link.h"
+#include "brushes/wall/wall_brush.h"
 #include "palette/palette_window.h"
 #include "palette/panels/brush_palette_panel.h"
 #include "ui/gui.h"
@@ -72,6 +75,7 @@ VirtualBrushGrid::VirtualBrushGrid(wxWindow* parent, const DynamicTilesetDefinit
 	item_size = icon_size_px + 2 * ICON_OFFSET;
 
 	Bind(wxEVT_LEFT_DOWN, &VirtualBrushGrid::OnMouseDown, this);
+	Bind(wxEVT_RIGHT_UP, &VirtualBrushGrid::OnRightUp, this);
 	Bind(wxEVT_MOTION, &VirtualBrushGrid::OnMotion, this);
 	Bind(wxEVT_SIZE, &VirtualBrushGrid::OnSize, this);
 	Bind(wxEVT_TIMER, &VirtualBrushGrid::OnTimer, this);
@@ -378,6 +382,10 @@ void VirtualBrushGrid::DrawBrushItem(NVGcontext* vg, int i, const wxRect& rect) 
 			nvgText(vg, iconX + iconSize / 2.0f, iconY + iconSize / 2.0f, "?", nullptr);
 		}
 
+		if (brush == g_ground_wall_link.linkedWall()) {
+			DrawLinkedWallBadge(vg, iconX, iconY, iconSize);
+		}
+
 		if (display_mode == DisplayMode::List) {
 			nvgFontSize(vg, 14.0f);
 			nvgFontFace(vg, "sans");
@@ -650,6 +658,14 @@ void VirtualBrushGrid::OnMouseDown(wxMouseEvent& event) {
 	}
 }
 
+void VirtualBrushGrid::OnRightUp(wxMouseEvent& event) {
+	const int index = HitTest(event.GetX(), event.GetY());
+	Brush* clicked = (index >= 0 && static_cast<size_t>(index) < m_display_brushes.size()) ? m_display_brushes[index] : nullptr;
+	if (GroundWallLinkMenu::show(this, clicked)) {
+		Refresh();
+	}
+}
+
 void VirtualBrushGrid::OnMotion(wxMouseEvent& event) {
 	int index = HitTest(event.GetX(), event.GetY());
 
@@ -738,4 +754,17 @@ bool VirtualBrushGrid::SelectBrush(const Brush* brush) {
 	selected_index = -1;
 	Refresh();
 	return false;
+}
+
+void VirtualBrushGrid::DrawLinkedWallBadge(NVGcontext* vg, int iconX, int iconY, int iconSize) {
+	constexpr float kRadius = 5.0f;
+	const float cx = static_cast<float>(iconX + iconSize) - kRadius;
+	const float cy = static_cast<float>(iconY) + kRadius;
+	nvgBeginPath(vg);
+	nvgCircle(vg, cx, cy, kRadius);
+	nvgFillColor(vg, NvgUtils::ToNvColor(Theme::Get(Theme::Role::Accent)));
+	nvgFill(vg);
+	nvgStrokeColor(vg, NvgUtils::ToNvColor(Theme::Get(Theme::Role::TextOnAccent)));
+	nvgStrokeWidth(vg, 1.5f);
+	nvgStroke(vg);
 }
