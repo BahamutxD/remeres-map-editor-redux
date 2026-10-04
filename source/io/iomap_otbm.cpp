@@ -241,6 +241,7 @@ bool IOMapOTBM::loadMapFromDisk(Map& map, const FileName& filename) {
 		loadAux(MapXMLIO::loadSpawns, "spawn", map.spawnfile);
 	}
 	loadAux(MapXMLIO::loadHouses, "house", map.housefile);
+	loadAux(MapXMLIO::loadZones, "zones", map.zonefile);
 
 <	// Ensure all auxiliary filenames have defaults so converting between OTBM versions never encounters empty paths
 	if (map.spawnfile.empty()) {
@@ -641,9 +642,18 @@ bool IOMapOTBM::saveMapToDisk(Map& map, const FileName& identifier) {
 		return false;
 	}
 
-	const auto waypointFormat = static_cast<Config::WaypointStorageFormat>(
+<	const auto waypointFormat = static_cast<Config::WaypointStorageFormat>(
 		g_settings.getInteger(Config::WAYPOINT_STORAGE_FORMAT)
 	);
+
+	if (map.getVersion().otbm == MAP_OTBM_5) {
+		if (!map.zones.empty() && !MapXMLIO::saveZones(map, identifier)) {
+			spdlog::error("IOMapOTBM::saveMapToDisk: Failed to save zones");
+			return false;
+		}
+		// Waypoints for OTBM 5 live in the OTBM WAYPOINTS node (written in saveMap
+		// per waypointFormat); only fall through for the optional XML companion.
+	}
 
 	if (waypointFormat == Config::WaypointStorageFormat::XML || waypointFormat == Config::WaypointStorageFormat::BOTH) {
 		g_gui.SetLoadDone(99, "Saving waypoints...");
@@ -704,6 +714,9 @@ bool IOMapOTBM::saveMap(Map& map, NodeFileWriteHandle& f) {
 				addExtFile(OTBM_ATTR_EXT_SPAWN_FILE, map.spawnfile);
 			}
 			addExtFile(OTBM_ATTR_EXT_HOUSE_FILE, map.housefile);
+			if (mapVersion.otbm == MAP_OTBM_5 && !map.zones.empty()) {
+				addExtFile(OTBM_ATTR_EXT_ZONE_FILE, map.zonefile);
+			}
 
 			writeTileData(map, f);
 			writeTowns(map, f);

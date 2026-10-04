@@ -178,9 +178,16 @@ protected:
 	std::string monsterfile; // Monster spawnfile (<map>-monster.xml, for OTBM 5)
 	std::string housefile; // The housefile
 	std::string npcfile; // NPC spawnfile (<map>-npc.xml, for OTBM 5)
+	std::string zonefile; // Crystal Server zone names; tiles reference them by id
 	std::string waypointfile; // The waypoints file (stores extended waypoint information such as id, preferred icon and matching town)
 
 public:
+	struct Zone {
+		std::string name;
+		uint16_t id;
+	};
+	std::vector<Zone> zones;
+
 	Towns towns;
 	Houses houses;
 	Spawns spawns;

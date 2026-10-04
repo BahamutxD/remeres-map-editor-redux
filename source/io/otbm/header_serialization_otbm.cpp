@@ -110,12 +110,19 @@ bool HeaderSerializationOTBM::peekStartupInfo(NodeFileReadHandle& f, OTBMStartup
 				out_info.house_xml_file = wxstr(house_file);
 				break;
 			}
-			case OTBM_ATTR_EXT_SPAWN_NPC_FILE: {
+<			case OTBM_ATTR_EXT_SPAWN_NPC_FILE: {
 				std::string npc_file;
 				if (!map_header_node->getString(npc_file)) {
 					return false;
 				}
 				out_info.npc_xml_file = wxstr(npc_file);
+				break;
+			}
+			case OTBM_ATTR_EXT_ZONE_FILE: {
+				std::string ignored_string;
+				if (!map_header_node->getString(ignored_string)) {
+					return false;
+				}
 				break;
 			}
 			default:
@@ -160,9 +167,7 @@ bool HeaderSerializationOTBM::readMapAttributes(Map& map, FastOTBMStream& stream
 				break;
 			}
 			case OTBM_ATTR_EXT_ZONE_FILE: {
-				// compatibility: skip zone file tag
-				std::string stringToSkip;
-				if (!stream.getString(stringToSkip)) {
+				if (!stream.getString(map.zonefile)) {
 					spdlog::warn("Invalid map zonefile tag");
 					return true;
 				}

@@ -75,6 +75,10 @@ bool EditorPersistence::saveMap(Editor& editor, FileName filename, bool showdial
 		editor.map.setNpcFilename(nstr(_name.GetFullName()));
 		_name.SetName(filename.GetName() + "-house");
 		editor.map.setHouseFilename(nstr(_name.GetFullName()));
+		_name.SetName(filename.GetName() + "-npc");
+		editor.map.npcfile = nstr(_name.GetFullName());
+		_name.SetName(filename.GetName() + "-zones");
+		editor.map.zonefile = nstr(_name.GetFullName());
 		_name.SetName(filename.GetName() + "-waypoint");
 		editor.map.setWaypointFilename(nstr(_name.GetFullName()));
 
