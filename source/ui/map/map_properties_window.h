@@ -38,6 +38,7 @@ protected:
 	wxStaticText* npc_label;
 	wxTextCtrl* npc_filename_ctrl;
 	wxTextCtrl* waypoint_filename_ctrl;
+	wxTextCtrl* zone_filename_ctrl;
 };
 
 #endif
