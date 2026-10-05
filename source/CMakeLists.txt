@@ -54,6 +54,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/brushes/wall/wall_brush_items.h
     ${CMAKE_CURRENT_LIST_DIR}/brushes/wall/wall_brush_loader.h
     ${CMAKE_CURRENT_LIST_DIR}/brushes/waypoint/waypoint_brush.h
+    ${CMAKE_CURRENT_LIST_DIR}/brushes/zone/zone_brush.h
     ${CMAKE_CURRENT_LIST_DIR}/editor/action.h
     ${CMAKE_CURRENT_LIST_DIR}/editor/action_queue.h
     ${CMAKE_CURRENT_LIST_DIR}/editor/copybuffer.h
@@ -165,6 +166,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_common.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/hardcoded_palette_registry.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_waypoints.h
+    ${CMAKE_CURRENT_LIST_DIR}/palette/palette_zones.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/house/house_palette.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/house/edit_house_dialog.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_window.h
@@ -480,6 +482,7 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/brushes/wall/wall_brush_loader.cpp
     ${CMAKE_CURRENT_LIST_DIR}/brushes/wall/wall_brush_arrays.cpp
     ${CMAKE_CURRENT_LIST_DIR}/brushes/waypoint/waypoint_brush.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/brushes/zone/zone_brush.cpp
     ${CMAKE_CURRENT_LIST_DIR}/editor/action.cpp
     ${CMAKE_CURRENT_LIST_DIR}/editor/action_queue.cpp
     ${CMAKE_CURRENT_LIST_DIR}/editor/copybuffer.cpp
@@ -574,6 +577,7 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_common.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/hardcoded_palette_registry.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_waypoints.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/palette/palette_zones.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/house/house_palette.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/house/edit_house_dialog.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_window.cpp
