@@ -34,7 +34,7 @@
 Materials g_materials;
 
 namespace {
-	[[nodiscard]] std::string normalizedPathKey(const FileName& file) {
+	[[nodiscard]] std::string tilesetSourceKey(const FileName& file) {
 		return file.GetFullPath().ToStdString();
 	}
 }
@@ -154,7 +154,7 @@ bool Materials::loadTilesetSources(const FileName& filename, pugi::xml_node sect
 	std::vector<std::string> sourceKeys;
 	sourceKeys.reserve(tilesetFiles.size());
 	for (const FileName& tilesetFile : tilesetFiles) {
-		sourceKeys.push_back(normalizedPathKey(tilesetFile));
+		sourceKeys.push_back(tilesetSourceKey(tilesetFile));
 	}
 	database.setTilesetSources(std::move(sourceKeys));
 	return true;
@@ -403,7 +403,7 @@ bool Materials::loadTilesetInclude(const FileName& manifest, pugi::xml_node incl
 			error = "Missing tileset include file: " + includeFile.GetFullPath();
 			return false;
 		}
-		if (!database.isKnownTilesetSource(normalizedPathKey(includeFile))) {
+		if (!database.isKnownTilesetSource(tilesetSourceKey(includeFile))) {
 			error = "Tileset include is not declared in materials.xml <tilesets>: " + includeFile.GetFullPath();
 			return false;
 		}
@@ -417,7 +417,7 @@ bool Materials::loadTilesetInclude(const FileName& manifest, pugi::xml_node incl
 			return false;
 		}
 		for (const FileName& file : MaterialIncludeResolver::collectXmlFiles(folder, includeNode.attribute("subfolders").as_bool(false))) {
-			if (!database.isKnownTilesetSource(normalizedPathKey(file))) {
+			if (!database.isKnownTilesetSource(tilesetSourceKey(file))) {
 				error = "Tileset include is not declared in materials.xml <tilesets>: " + file.GetFullPath();
 				return false;
 			}
