@@ -75,6 +75,16 @@
       }
     },
     {
+      "name": "ninja-unity",
+      "displayName": "Ninja + vcpkg (Unity)",
+      "description": "Fastest clean build: ninja-dev with unity (jumbo) translation units; slower incremental rebuilds",
+      "inherits": "ninja-dev",
+      "binaryDir": "${sourceDir}/build-ninja-unity",
+      "cacheVariables": {
+        "CMAKE_UNITY_BUILD": "ON"
+      }
+    },
+    {
       "name": "vs2022-vcpkg",
       "displayName": "Visual Studio 2022 + vcpkg",
       "description": "Build using Visual Studio 2022 and vcpkg",
@@ -116,6 +126,11 @@
       "name": "ninja-dev",
       "displayName": "Ninja Dev",
       "configurePreset": "ninja-dev"
+    },
+    {
+      "name": "ninja-unity",
+      "displayName": "Ninja Unity",
+      "configurePreset": "ninja-unity"
     },
     {
       "name": "vs2022-release",
