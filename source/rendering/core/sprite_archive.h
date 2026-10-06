@@ -9,6 +9,7 @@
 #include <vector>
 
 struct ImageDimensions;
+class FileReadHandle;
 
 class SpriteArchive {
 public:
@@ -21,6 +22,8 @@ public:
 
 	[[nodiscard]] static std::shared_ptr<SpriteArchive> load(const std::filesystem::path& path, bool is_extended, std::string& error, std::vector<std::string>& warnings);
 	[[nodiscard]] static std::shared_ptr<SpriteArchive> loadProtobuf(const std::filesystem::path& catalog_path, std::string& error, std::vector<std::string>& warnings);
+	// Reads the .spr header sprite count (u32 when extended, u16 otherwise)
+	[[nodiscard]] static bool readSpriteCount(FileReadHandle& file, bool is_extended, uint32_t& sprite_count);
 
 	[[nodiscard]] uint32_t spriteCount() const {
 		return sprite_count_;
