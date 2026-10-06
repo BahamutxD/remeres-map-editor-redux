@@ -62,6 +62,7 @@
 #include "rendering/ui/selection_controller.h"
 #include "rendering/ui/drawing_controller.h"
 #include "rendering/ui/map_menu_handler.h"
+#include "ui/managers/gl_context_manager.h"
 
 #include "brushes/doodad/doodad_brush.h"
 #include "brushes/house/house_exit_brush.h"
@@ -77,18 +78,8 @@
 
 bool MapCanvas::processed[] = { 0 };
 
-// Helper to create attributes
-static wxGLAttributes& GetCoreProfileAttributes() {
-	static wxGLAttributes vAttrs = []() {
-		wxGLAttributes a;
-		a.PlatformDefaults().Defaults().RGBA().DoubleBuffer().Depth(24).Stencil(8).EndList();
-		return a;
-	}();
-	return vAttrs;
-}
-
 MapCanvas::MapCanvas(wxWindow* parent, Editor& editor, int* attriblist) :
-	wxGLCanvas(parent, GetCoreProfileAttributes(), wxID_ANY, wxDefaultPosition, wxDefaultSize, wxWANTS_CHARS),
+	wxGLCanvas(parent, GLContextManager::CanvasAttributes(), wxID_ANY, wxDefaultPosition, wxDefaultSize, wxWANTS_CHARS),
 	editor(editor),
 	floor(GROUND_LAYER),
 	zoom(1.0),
