@@ -64,6 +64,48 @@ namespace {
 		return fl ? &fl->locs[(tx & 3) * 4 + (ty & 3)] : nullptr;
 	}
 
+	bool isBakeableRegion(const AtlasRegion* reg) {
+		return reg && reg->debug_sprite_id != AtlasRegion::INVALID_SENTINEL;
+	}
+
+	// Writes the frame-dependent fields; house_id must already be set.
+	void writeRegionGeometry(TileInstance& inst, const AtlasRegion& reg, int draw_x, int draw_y) {
+		inst.x = static_cast<float>(draw_x);
+		inst.y = static_cast<float>(draw_y);
+		inst.w = (inst.house_id >= 1000000.0f) ? 32.0f : static_cast<float>(reg.pixel_width);
+		inst.h = (inst.house_id >= 1000000.0f) ? 32.0f : static_cast<float>(reg.pixel_height);
+		inst.sprite_id = static_cast<float>(reg.debug_sprite_id);
+	}
+
+	// Visits the atlas regions of one sprite occurrence in bake order, with their draw positions.
+	template <typename Visitor>
+	void forEachSpriteRegion(GameSprite* spr, const SpritePatterns& pat, int draw_base_x, int draw_base_y, Visitor&& visit) {
+		if (spr->width == 1 && spr->height == 1 && spr->layers == 1) {
+			const AtlasRegion* reg = nullptr;
+			if (spr->is_simple && pat.subtype == -1 && pat.x == 0 && pat.y == 0 && pat.z == 0 && pat.frame == 0) {
+				reg = spr->getCachedDefaultRegion();
+			}
+			if (!reg) {
+				reg = spr->getAtlasRegion(0, 0, 0, pat.subtype, pat.x, pat.y, pat.z, pat.frame);
+			}
+			visit(reg, draw_base_x, draw_base_y);
+			return;
+		}
+
+		const auto composite_metrics = spr->getPlainLayoutMetrics(pat.subtype, pat.x, pat.y, pat.z, pat.frame);
+		int x_offset = 0;
+		for (int cx = 0; cx < composite_metrics.num_columns; ++cx) {
+			int y_offset = 0;
+			for (int cy = 0; cy < composite_metrics.num_rows; ++cy) {
+				for (int cf = 0; cf < spr->layers; ++cf) {
+					visit(spr->getAtlasRegion(cx, cy, cf, pat.subtype, pat.x, pat.y, pat.z, pat.frame), draw_base_x - x_offset, draw_base_y - y_offset);
+				}
+				y_offset += composite_metrics.row_heights[cy];
+			}
+			x_offset += composite_metrics.column_widths[cx];
+		}
+	}
+
 } // namespace
 
 ChunkCacheManager::ChunkCacheManager() {
@@ -257,9 +299,8 @@ void ChunkCacheManager::uploadChunk(CachedChunk& chunk, const std::vector<TileIn
 void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const RenderFrameContext& ctx) {
 	bake_buffer_.clear();
 	chunk.clearDynamicTiles();
-	chunk.has_animated_terrain = false;
-	chunk.sample_animated_sprite = nullptr;
-	chunk.min_anim_duration = 350;
+	chunk.animated_sprites.clear();
+	chunk.animated_runs.clear();
 
 	const int32_t base_x = chunk.coord.cx * CHUNK_SIZE;
 	const int32_t base_y = chunk.coord.cy * CHUNK_SIZE;
@@ -270,17 +311,13 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 		chunk.is_empty = true;
 		chunk.is_dirty = false;
 		chunk.instance_count = 0;
+		chunk.animated_shadow.clear();
 		return;
 	}
 
 	auto pushRegionInstance = [&](const AtlasRegion* reg, int draw_x, int draw_y, float rf, float gf, float bf, float af, float house_id = 0.0f, float depth = 0.0f, float flags = TILE_INSTANCE_FLAG_TEXTURE) {
-		if (reg && reg->debug_sprite_id != AtlasRegion::INVALID_SENTINEL) {
+		if (isBakeableRegion(reg)) {
 			TileInstance inst;
-			inst.x = static_cast<float>(draw_x);
-			inst.y = static_cast<float>(draw_y);
-			inst.w = (house_id >= 1000000.0f) ? 32.0f : static_cast<float>(reg->pixel_width);
-			inst.h = (house_id >= 1000000.0f) ? 32.0f : static_cast<float>(reg->pixel_height);
-			inst.sprite_id = static_cast<float>(reg->debug_sprite_id);
 			inst.flags = flags;
 			inst.r = rf;
 			inst.g = gf;
@@ -288,53 +325,40 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 			inst.a = af;
 			inst.house_id = house_id;
 			inst.depth = depth;
+			writeRegionGeometry(inst, *reg, draw_x, draw_y);
 			bake_buffer_.push_back(inst);
 		}
 	};
 
-	auto pushColorRect = [&](int rx, int ry, int rw, int rh, float rf, float gf, float bf, float af, float depth = 0.0f) {
-		TileInstance inst;
-		inst.x = static_cast<float>(rx);
-		inst.y = static_cast<float>(ry);
-		inst.w = static_cast<float>(rw);
-		inst.h = static_cast<float>(rh);
-		inst.sprite_id = 0.0f;
-		inst.flags = TILE_INSTANCE_FLAG_SOLID_COLOR; // SOLID_COLOR: direct color quad, bypasses texture atlas and LUT
-		inst.r = rf;
-		inst.g = gf;
-		inst.b = bf;
-		inst.a = af;
-		inst.house_id = 0.0f;
-		inst.depth = depth;
-		bake_buffer_.push_back(inst);
+	auto emitSpriteInstances = [&](GameSprite* spr, const SpritePatterns& pat, int draw_base_x, int draw_base_y, float rf, float gf, float bf, float af, float house_id = 0.0f, float depth = 0.0f, float flags = TILE_INSTANCE_FLAG_TEXTURE) {
+		forEachSpriteRegion(spr, pat, draw_base_x, draw_base_y, [&](const AtlasRegion* reg, int draw_x, int draw_y) {
+			pushRegionInstance(reg, draw_x, draw_y, rf, gf, bf, af, house_id, depth, flags);
+		});
 	};
 
+	// Map items and grounds animate; their runs are tracked so frame changes can be patched in place.
 	auto pushSpriteInstances = [&](GameSprite* spr, const SpritePatterns& pat, int draw_base_x, int draw_base_y, float rf, float gf, float bf, float af, float house_id = 0.0f, float depth = 0.0f, float flags = TILE_INSTANCE_FLAG_TEXTURE) {
-		const bool is_simple = (spr->width == 1 && spr->height == 1 && spr->layers == 1);
-		if (is_simple) {
-			const AtlasRegion* reg = nullptr;
-			if (spr->is_simple && pat.subtype == -1 && pat.x == 0 && pat.y == 0 && pat.z == 0 && pat.frame == 0) {
-				reg = spr->getCachedDefaultRegion();
-			}
-			if (!reg) {
-				reg = spr->getAtlasRegion(0, 0, 0, pat.subtype, pat.x, pat.y, pat.z, pat.frame);
-			}
-			pushRegionInstance(reg, draw_base_x, draw_base_y, rf, gf, bf, af, house_id, depth, flags);
-		} else {
-			const auto composite_metrics = spr->getPlainLayoutMetrics(pat.subtype, pat.x, pat.y, pat.z, pat.frame);
-			int x_offset = 0;
-			for (int cx = 0; cx < composite_metrics.num_columns; ++cx) {
-				int y_offset = 0;
-				for (int cy = 0; cy < composite_metrics.num_rows; ++cy) {
-					for (int cf = 0; cf < spr->layers; ++cf) {
-						const AtlasRegion* reg = spr->getAtlasRegion(cx, cy, cf, pat.subtype, pat.x, pat.y, pat.z, pat.frame);
-						pushRegionInstance(reg, draw_base_x - x_offset, draw_base_y - y_offset, rf, gf, bf, af, house_id, depth, flags);
-					}
-					y_offset += composite_metrics.row_heights[cy];
-				}
-				x_offset += composite_metrics.column_widths[cx];
-			}
+		const size_t first_instance = bake_buffer_.size();
+		emitSpriteInstances(spr, pat, draw_base_x, draw_base_y, rf, gf, bf, af, house_id, depth, flags);
+		if (!spr->isAnimated()) {
+			return;
 		}
+
+		auto slot = std::ranges::find(chunk.animated_sprites, spr, &AnimatedSpriteFrame::sprite);
+		if (slot == chunk.animated_sprites.end()) {
+			slot = chunk.animated_sprites.insert(slot, AnimatedSpriteFrame { .sprite = spr, .frame = pat.frame });
+		}
+		chunk.animated_runs.push_back(AnimatedSpriteRun {
+			.first_instance = static_cast<uint32_t>(first_instance),
+			.instance_count = static_cast<uint32_t>(bake_buffer_.size() - first_instance),
+			.sprite_slot = static_cast<uint32_t>(slot - chunk.animated_sprites.begin()),
+			.draw_x = draw_base_x,
+			.draw_y = draw_base_y,
+			.pattern_x = static_cast<int16_t>(pat.x),
+			.pattern_y = static_cast<int16_t>(pat.y),
+			.pattern_z = static_cast<int16_t>(pat.z),
+			.subtype = static_cast<int16_t>(pat.subtype),
+		});
 	};
 
 	auto pushCreatureInstances = [&](const Creature* creature, int screenx, int screeny, float depth = 0.0f) {
@@ -361,7 +385,7 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 					const int item_x = screenx - draw_offset_x;
 					const int item_y = screeny - draw_offset_y;
 					const SpritePatterns pat { .x = 0, .y = 0, .z = 0, .frame = 0, .subtype = -1 };
-					pushSpriteInstances(ispr, pat, item_x, item_y, rf, gf, bf, af, 0.0f, depth);
+					emitSpriteInstances(ispr, pat, item_x, item_y, rf, gf, bf, af, 0.0f, depth);
 				}
 			}
 			return;
@@ -505,13 +529,6 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 				} else if (git && !git.isMetaItem()) {
 					GameSprite* gspr = ctx.gfx.getGameSprite(git.clientId());
 					if (gspr) {
-						if (gspr->isAnimated()) {
-							chunk.has_animated_terrain = true;
-							if (!chunk.sample_animated_sprite) {
-								chunk.sample_animated_sprite = gspr;
-							}
-						}
-
 						const SpritePatterns g_pat = PatternCalculator::Calculate(gspr, git, tile->ground.get(), tile, Position(x, y, z), ctx.elapsed_time);
 						if (!gspr->isSimpleAndLoaded()) {
 							rme::collectTileSprites(gspr, g_pat.x, g_pat.y, g_pat.z, g_pat.frame);
@@ -566,13 +583,6 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 				GameSprite* ispr = ctx.gfx.getGameSprite(it.clientId());
 				if (!ispr) {
 					continue;
-				}
-
-				if (ispr->isAnimated()) {
-					chunk.has_animated_terrain = true;
-					if (!chunk.sample_animated_sprite) {
-						chunk.sample_animated_sprite = ispr;
-					}
 				}
 
 				const SpritePatterns i_pat = PatternCalculator::Calculate(ispr, it, item.get(), tile, Position(x, y, z), ctx.elapsed_time);
@@ -672,21 +682,6 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 				if (!ispr) {
 					continue;
 				}
-				if (ispr->isAnimated()) {
-					chunk.has_animated_terrain = true;
-					if (!chunk.sample_animated_sprite) {
-						chunk.sample_animated_sprite = ispr;
-					}
-					if (ispr->animator) {
-						const FrameDuration* fd = ispr->animator->getFrameDuration(0);
-						if (fd) {
-							const int dur = fd->getDuration();
-							if (dur > 0 && dur < chunk.min_anim_duration) {
-								chunk.min_anim_duration = dur;
-							}
-						}
-					}
-				}
 
 				const auto [draw_offset_x, draw_offset_y] = ispr->getDrawOffset();
 				const int item_x = x * 32 - elev - draw_offset_x;
@@ -757,15 +752,80 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 	chunk.item_instance_count = static_cast<uint32_t>(bake_buffer_.size()) - chunk.terrain_instance_count;
 	chunk.instance_count = static_cast<uint32_t>(bake_buffer_.size());
 
-	chunk.last_baked_anim_time = ctx.elapsed_time;
-	if (chunk.sample_animated_sprite && chunk.sample_animated_sprite->animator) {
-		chunk.last_baked_frame = chunk.sample_animated_sprite->animator->getFrame(ctx.elapsed_time);
+	if (chunk.animated_runs.empty()) {
+		chunk.animated_shadow = {};
 	} else {
-		chunk.last_baked_frame = -1;
+		chunk.animated_shadow = bake_buffer_;
 	}
 
 	uploadChunk(chunk, bake_buffer_);
 	chunk.is_dirty = false;
+}
+
+bool ChunkCacheManager::refreshAnimatedFrames(CachedChunk& chunk, long elapsed_time) {
+	// ponytail: a chunk rarely holds more than a handful of distinct animated sprites, so a linear scan and a
+	// 64-bit changed mask are enough; chunks with more than 64 distinct animated sprites fall back to re-baking.
+	if (chunk.animated_sprites.size() > 64) {
+		return false;
+	}
+	uint64_t changed_slots = 0;
+	for (size_t slot = 0; slot < chunk.animated_sprites.size(); ++slot) {
+		AnimatedSpriteFrame& entry = chunk.animated_sprites[slot];
+		const int frame = entry.sprite->animator->getFrame(elapsed_time);
+		if (frame != entry.frame) {
+			entry.frame = frame;
+			changed_slots |= uint64_t { 1 } << slot;
+		}
+	}
+	if (changed_slots == 0) {
+		return true;
+	}
+
+	size_t patch_begin = chunk.animated_shadow.size();
+	size_t patch_end = 0;
+	for (const AnimatedSpriteRun& run : chunk.animated_runs) {
+		if ((changed_slots & (uint64_t { 1 } << run.sprite_slot)) == 0) {
+			continue;
+		}
+
+		GameSprite* spr = chunk.animated_sprites[run.sprite_slot].sprite;
+		const SpritePatterns pat {
+			.x = run.pattern_x,
+			.y = run.pattern_y,
+			.z = run.pattern_z,
+			.frame = chunk.animated_sprites[run.sprite_slot].frame,
+			.subtype = run.subtype,
+		};
+		if (!spr->isSimpleAndLoaded()) {
+			rme::collectTileSprites(spr, pat.x, pat.y, pat.z, pat.frame);
+		}
+
+		uint32_t written = 0;
+		bool layout_changed = false;
+		forEachSpriteRegion(spr, pat, run.draw_x, run.draw_y, [&](const AtlasRegion* reg, int draw_x, int draw_y) {
+			if (!isBakeableRegion(reg)) {
+				return;
+			}
+			if (written == run.instance_count) {
+				layout_changed = true;
+				return;
+			}
+			writeRegionGeometry(chunk.animated_shadow[run.first_instance + written], *reg, draw_x, draw_y);
+			++written;
+		});
+		if (layout_changed || written != run.instance_count) {
+			return false;
+		}
+
+		patch_begin = std::min<size_t>(patch_begin, run.first_instance);
+		patch_end = std::max<size_t>(patch_end, run.first_instance + run.instance_count);
+	}
+
+	if (patch_begin < patch_end) {
+		glNamedBufferSubData(chunk.vbo, static_cast<GLintptr>(patch_begin * sizeof(TileInstance)), static_cast<GLsizeiptr>((patch_end - patch_begin) * sizeof(TileInstance)), chunk.animated_shadow.data() + patch_begin);
+	}
+	++stats_.anim_patches;
+	return true;
 }
 
 void ChunkCacheManager::recordFrameStats() {
@@ -785,10 +845,10 @@ void ChunkCacheManager::recordFrameStats() {
 		return;
 	}
 	const double frames = static_cast<double>(stats_.frames);
-	spdlog::info("[ChunkCacheStats] {} frames | frame ms avg {:.2f} max {:.2f} | bake ms avg {:.3f} max {:.2f} | bakes new {} edit {} anim {} | draws/frame {:.0f} | instances/frame {:.0f}",
+	spdlog::info("[ChunkCacheStats] {} frames | frame ms avg {:.2f} max {:.2f} | bake ms avg {:.3f} max {:.2f} | bakes new {} edit {} anim {} | anim patches {} | draws/frame {:.0f} | instances/frame {:.0f}",
 		stats_.frames, stats_.frame_ms_total / frames, stats_.frame_ms_max,
 		stats_.bake_ms_total / frames, stats_.bake_ms_max,
-		stats_.baked_new, stats_.baked_edit, stats_.baked_anim,
+		stats_.baked_new, stats_.baked_edit, stats_.baked_anim, stats_.anim_patches,
 		static_cast<double>(stats_.draws) / frames, static_cast<double>(stats_.instances) / frames);
 	stats_ = {};
 }
@@ -856,21 +916,12 @@ void ChunkCacheManager::renderFloorTerrain(
 		const bool is_new = cached_chunks_.size() != cached_before;
 		const bool was_dirty = chunk.is_dirty;
 
-		if (chunk.has_animated_terrain && ctx.options.show_preview && ctx.view.zoom < 10.0) {
-			bool frame_changed = false;
-			if (chunk.sample_animated_sprite && chunk.sample_animated_sprite->animator) {
-				const int cur_frame = chunk.sample_animated_sprite->animator->getFrame(ctx.elapsed_time);
-				if (cur_frame != chunk.last_baked_frame) {
-					frame_changed = true;
-				}
-			}
-			const int check_interval = (chunk.min_anim_duration > 0) ? chunk.min_anim_duration : 200;
-			if (!frame_changed && std::abs(ctx.elapsed_time - chunk.last_baked_anim_time) >= check_interval) {
-				frame_changed = true;
-			}
-			if (frame_changed) {
+		if (!chunk.is_dirty && !chunk.animated_runs.empty() && ctx.options.show_preview && ctx.view.zoom < 10.0) {
+			const auto patch_start = std::chrono::steady_clock::now();
+			if (!refreshAnimatedFrames(chunk, ctx.elapsed_time)) {
 				chunk.is_dirty = true;
 			}
+			frame_bake_ms_ += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - patch_start).count();
 		}
 
 		if (chunk.is_dirty) {

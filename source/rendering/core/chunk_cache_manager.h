@@ -26,6 +26,24 @@ class GameSprite;
 struct RenderFrameContext;
 struct HardwareBudget;
 
+struct AnimatedSpriteFrame {
+	GameSprite* sprite = nullptr;
+	int frame = 0;
+};
+
+// One animated sprite occurrence: a contiguous run of instances in the chunk buffer.
+struct AnimatedSpriteRun {
+	uint32_t first_instance = 0;
+	uint32_t instance_count = 0;
+	uint32_t sprite_slot = 0; // index into CachedChunk::animated_sprites
+	int32_t draw_x = 0;
+	int32_t draw_y = 0;
+	int16_t pattern_x = 0;
+	int16_t pattern_y = 0;
+	int16_t pattern_z = 0;
+	int16_t subtype = -1;
+};
+
 struct CachedChunk {
 	ChunkCoord coord;
 	GLuint vbo = 0;
@@ -36,11 +54,10 @@ struct CachedChunk {
 	uint64_t last_accessed_frame = 0;
 	bool is_dirty = true;
 	bool is_empty = false;
-	bool has_animated_terrain = false;
-	const GameSprite* sample_animated_sprite = nullptr;
-	int last_baked_frame = -1;
-	long last_baked_anim_time = 0;
-	int min_anim_duration = 350;
+	std::vector<AnimatedSpriteFrame> animated_sprites;
+	std::vector<AnimatedSpriteRun> animated_runs;
+	// CPU copy of the instance buffer, kept only while animated_runs is non-empty so frames can be patched in place.
+	std::vector<TileInstance> animated_shadow;
 	std::array<uint64_t, 4> dynamic_tile_mask = {0, 0, 0, 0};
 
 	[[nodiscard]] bool hasDynamicTiles() const noexcept {
@@ -74,22 +91,15 @@ struct CachedChunk {
 		last_accessed_frame(other.last_accessed_frame),
 		is_dirty(other.is_dirty),
 		is_empty(other.is_empty),
-		has_animated_terrain(other.has_animated_terrain),
-		sample_animated_sprite(other.sample_animated_sprite),
-		last_baked_frame(other.last_baked_frame),
-		last_baked_anim_time(other.last_baked_anim_time),
-		min_anim_duration(other.min_anim_duration),
+		animated_sprites(std::move(other.animated_sprites)),
+		animated_runs(std::move(other.animated_runs)),
+		animated_shadow(std::move(other.animated_shadow)),
 		dynamic_tile_mask(other.dynamic_tile_mask) {
 		other.vbo = 0;
 		other.vbo_capacity = 0;
 		other.instance_count = 0;
 		other.terrain_instance_count = 0;
 		other.item_instance_count = 0;
-		other.has_animated_terrain = false;
-		other.sample_animated_sprite = nullptr;
-		other.last_baked_frame = -1;
-		other.last_baked_anim_time = 0;
-		other.min_anim_duration = 350;
 		other.dynamic_tile_mask.fill(0);
 	}
 
@@ -107,22 +117,15 @@ struct CachedChunk {
 			last_accessed_frame = other.last_accessed_frame;
 			is_dirty = other.is_dirty;
 			is_empty = other.is_empty;
-			has_animated_terrain = other.has_animated_terrain;
-			sample_animated_sprite = other.sample_animated_sprite;
-			last_baked_frame = other.last_baked_frame;
-			last_baked_anim_time = other.last_baked_anim_time;
-			min_anim_duration = other.min_anim_duration;
+			animated_sprites = std::move(other.animated_sprites);
+			animated_runs = std::move(other.animated_runs);
+			animated_shadow = std::move(other.animated_shadow);
 			dynamic_tile_mask = other.dynamic_tile_mask;
 			other.vbo = 0;
 			other.vbo_capacity = 0;
 			other.instance_count = 0;
 			other.terrain_instance_count = 0;
 			other.item_instance_count = 0;
-			other.has_animated_terrain = false;
-			other.sample_animated_sprite = nullptr;
-			other.last_baked_frame = -1;
-			other.last_baked_anim_time = 0;
-			other.min_anim_duration = 350;
 			other.dynamic_tile_mask.fill(0);
 		}
 		return *this;
@@ -142,6 +145,7 @@ struct ChunkRenderStats {
 	uint32_t baked_new = 0;
 	uint32_t baked_edit = 0;
 	uint32_t baked_anim = 0;
+	uint32_t anim_patches = 0;
 	uint64_t draws = 0;
 	uint64_t instances = 0;
 };
@@ -245,6 +249,8 @@ public:
 private:
 	void bakeChunk(CachedChunk& chunk, const Map& map, const RenderFrameContext& ctx);
 	void uploadChunk(CachedChunk& chunk, const std::vector<TileInstance>& instances);
+	// Returns false when the chunk needs a full re-bake instead.
+	bool refreshAnimatedFrames(CachedChunk& chunk, long elapsed_time);
 	CachedChunk& getOrCreateChunk(const ChunkCoord& coord);
 	void evictOldest(size_t count_to_remove);
 	void recordFrameStats();
