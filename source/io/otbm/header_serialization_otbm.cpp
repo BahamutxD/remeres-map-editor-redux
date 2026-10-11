@@ -95,7 +95,11 @@ bool HeaderSerializationOTBM::peekStartupInfo(NodeFileReadHandle& f, OTBMStartup
 				if (!map_header_node->getString(spawn_file)) {
 					return false;
 				}
-				out_info.spawn_xml_file = wxstr(spawn_file);
+				if (out_info.otbm_version == 5) {
+					out_info.monster_xml_file = wxstr(spawn_file);
+				} else {
+					out_info.spawn_xml_file = wxstr(spawn_file);
+				}
 				break;
 			}
 			case OTBM_ATTR_EXT_HOUSE_FILE: {
@@ -107,10 +111,11 @@ bool HeaderSerializationOTBM::peekStartupInfo(NodeFileReadHandle& f, OTBMStartup
 				break;
 			}
 			case OTBM_ATTR_EXT_SPAWN_NPC_FILE: {
-				std::string ignored_string;
-				if (!map_header_node->getString(ignored_string)) {
+				std::string npc_file;
+				if (!map_header_node->getString(npc_file)) {
 					return false;
 				}
+				out_info.npc_xml_file = wxstr(npc_file);
 				break;
 			}
 			default:
@@ -121,7 +126,7 @@ bool HeaderSerializationOTBM::peekStartupInfo(NodeFileReadHandle& f, OTBMStartup
 	return true;
 }
 
-bool HeaderSerializationOTBM::readMapAttributes(Map& map, FastOTBMStream& stream) {
+bool HeaderSerializationOTBM::readMapAttributes(Map& map, FastOTBMStream& stream, MapVersionID otbmVersion) {
 	uint8_t attribute;
 	while (stream.getU8(attribute)) {
 		switch (attribute) {
@@ -133,7 +138,8 @@ bool HeaderSerializationOTBM::readMapAttributes(Map& map, FastOTBMStream& stream
 				break;
 			}
 			case OTBM_ATTR_EXT_SPAWN_FILE: {
-				if (!stream.getString(map.spawnfile)) {
+				std::string& target = (otbmVersion == MAP_OTBM_5) ? map.monsterfile : map.spawnfile;
+				if (!stream.getString(target)) {
 					spdlog::warn("Invalid map spawnfile tag");
 					return true;
 				}
@@ -147,16 +153,14 @@ bool HeaderSerializationOTBM::readMapAttributes(Map& map, FastOTBMStream& stream
 				break;
 			}
 			case OTBM_ATTR_EXT_SPAWN_NPC_FILE: {
-				// compatibility: skip Canary RME NPC spawn file tag
-				std::string stringToSkip;
-				if (!stream.getString(stringToSkip)) {
+				if (!stream.getString(map.npcfile)) {
 					spdlog::warn("Invalid map NPC spawnfile tag");
 					return true;
 				}
 				break;
 			}
 			case OTBM_ATTR_EXT_ZONE_FILE: {
-				// compatibility: skip CrystalServer zone file tag
+				// compatibility: skip zone file tag
 				std::string stringToSkip;
 				if (!stream.getString(stringToSkip)) {
 					spdlog::warn("Invalid map zonefile tag");

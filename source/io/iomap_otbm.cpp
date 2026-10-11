@@ -156,6 +156,22 @@ bool IOMapOTBM::peekStartupInfo(const FileName& identifier, OTBMStartupPeekResul
 		return false;
 	}
 
+	if (out_info.otbm_version == 5) {
+		if (out_info.monster_xml_file.empty()) {
+			out_info.monster_xml_file = out_info.map_name + "-monster.xml";
+		}
+		if (out_info.npc_xml_file.empty()) {
+			out_info.npc_xml_file = out_info.map_name + "-npc.xml";
+		}
+	} else {
+		if (out_info.spawn_xml_file.empty()) {
+			out_info.spawn_xml_file = out_info.map_name + "-spawn.xml";
+		}
+	}
+	if (out_info.house_xml_file.empty()) {
+		out_info.house_xml_file = out_info.map_name + "-house.xml";
+	}
+
 	return true;
 }
 
@@ -218,8 +234,27 @@ bool IOMapOTBM::loadMapFromDisk(Map& map, const FileName& filename) {
 		}
 	};
 
-	loadAux(MapXMLIO::loadSpawns, "spawn", map.spawnfile);
+	if (version.otbm == MAP_OTBM_5) {
+		loadAux(MapXMLIO::loadMonsterSpawns, "monster", map.monsterfile);
+		loadAux(MapXMLIO::loadNpcSpawns, "npc", map.npcfile);
+	} else {
+		loadAux(MapXMLIO::loadSpawns, "spawn", map.spawnfile);
+	}
 	loadAux(MapXMLIO::loadHouses, "house", map.housefile);
+
+	// Ensure all auxiliary filenames have defaults so converting between OTBM versions never encounters empty paths
+	if (map.spawnfile.empty()) {
+		map.spawnfile = nstr(filename.GetName()) + "-spawn.xml";
+	}
+	if (map.monsterfile.empty()) {
+		map.monsterfile = nstr(filename.GetName()) + "-monster.xml";
+	}
+	if (map.npcfile.empty()) {
+		map.npcfile = nstr(filename.GetName()) + "-npc.xml";
+	}
+	if (map.housefile.empty()) {
+		map.housefile = nstr(filename.GetName()) + "-house.xml";
+	}
 
 	// Waypoints handling: if OTBM has waypoints, it is the authority and XML is ignored entirely.
 	// Only load from companion XML if OTBM has no waypoints.
@@ -303,7 +338,7 @@ bool IOMapOTBM::loadMapFast(Map& map, const uint8_t* data, size_t size) {
 	}
 
 	// Read header attributes
-	if (!HeaderSerializationOTBM::readMapAttributes(map, stream)) {
+	if (!HeaderSerializationOTBM::readMapAttributes(map, stream, version.otbm)) {
 		return false;
 	}
 	stream.skipRemainingProps();
@@ -656,7 +691,12 @@ bool IOMapOTBM::saveMap(Map& map, NodeFileWriteHandle& f) {
 				f.addString(fname.empty() ? path_str : fname);
 			};
 
-			addExtFile(OTBM_ATTR_EXT_SPAWN_FILE, map.spawnfile);
+			if (mapVersion.otbm == MAP_OTBM_5) {
+				addExtFile(OTBM_ATTR_EXT_SPAWN_FILE, map.monsterfile);
+				addExtFile(OTBM_ATTR_EXT_SPAWN_NPC_FILE, map.npcfile);
+			} else {
+				addExtFile(OTBM_ATTR_EXT_SPAWN_FILE, map.spawnfile);
+			}
 			addExtFile(OTBM_ATTR_EXT_HOUSE_FILE, map.housefile);
 
 			writeTileData(map, f);
@@ -669,7 +709,7 @@ bool IOMapOTBM::saveMap(Map& map, NodeFileWriteHandle& f) {
 			if (waypointFormat == Config::WaypointStorageFormat::OTBM || waypointFormat == Config::WaypointStorageFormat::BOTH) {
 				writeWaypoints(map, f, mapVersion);
 			} else if (mapVersion.otbm == MAP_OTBM_5) {
-				// Crystal Server loader requires the OTBM_WAYPOINTS node to be present even if empty
+				// OTBM 5 loaders require the OTBM_WAYPOINTS node to be present even if empty
 				f.addNode(OTBM_WAYPOINTS);
 				f.endNode();
 			}
