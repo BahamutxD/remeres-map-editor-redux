@@ -647,12 +647,16 @@ bool IOMapOTBM::saveMapToDisk(Map& map, const FileName& identifier) {
 		return false;
 	}
 
-<	const auto waypointFormat = static_cast<Config::WaypointStorageFormat>(
+	const auto waypointFormat = static_cast<Config::WaypointStorageFormat>(
 		g_settings.getInteger(Config::WAYPOINT_STORAGE_FORMAT)
 	);
 
-	if (map.getVersion().otbm == MAP_OTBM_5) {
-		if (!map.zones.empty() && !MapXMLIO::saveZones(map, identifier)) {
+	if (map.getVersion().otbm == MAP_OTBM_5 && !map.zones.empty()) {
+		if (map.zonefile.empty()) {
+			map.zonefile = identifier.GetName() + "-zones.xml";
+			spdlog::info("Auto-created zone file: {}", map.zonefile);
+		}
+		if (!MapXMLIO::saveZones(map, identifier)) {
 			spdlog::error("IOMapOTBM::saveMapToDisk: Failed to save zones");
 			return false;
 		}
