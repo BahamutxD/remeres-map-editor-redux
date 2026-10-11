@@ -43,11 +43,11 @@ bool TechnicalIdFilter::matches(uint32_t sid, uint32_t cid) const noexcept {
 	// Server and client id spaces diverge on newer clients (e.g. 15.25 uses
 	// client id 469 for stairs while 459 is a different server-side id), so a
 	// server-only hit must not classify an item whose known client id disagrees.
-	// The client id is authoritative when known and different; server ids are a
-	// fallback for unknown client ids (cid == 0) and for clients where both
-	// spaces still agree (cid == sid).
-	if (cid != 0 && cid != sid) {
-		return !client_ids.empty() && std::ranges::binary_search(client_ids, cid);
+	// The client id is authoritative when known, different, and the filter
+	// defines client ids; server ids cover unknown client ids (cid == 0),
+	// clients where both spaces agree (cid == sid), and server-only filters.
+	if (cid != 0 && cid != sid && !client_ids.empty()) {
+		return std::ranges::binary_search(client_ids, cid);
 	}
 	if (sid != 0 && !server_ids.empty() && std::ranges::binary_search(server_ids, sid)) {
 		return true;

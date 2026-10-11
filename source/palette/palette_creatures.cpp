@@ -17,6 +17,8 @@
 
 #include <algorithm>
 
+#include <algorithm>
+
 CreaturePalettePanel::CreaturePalettePanel(wxWindow* parent, bool npc, wxWindowID id) :
 	PalettePanel(parent, id), npc(npc) {
 	auto* sidesizer = newd wxStaticBoxSizer(wxVERTICAL, this, npc ? "Npcs" : "Monsters");
@@ -95,6 +97,11 @@ bool CreaturePalettePanel::supportsSpawns() const {
 
 void CreaturePalettePanel::refreshList() {
 	const std::string query = nstr(search_text->GetValue().Lower());
+	CreatureType* previous = nullptr;
+	const int prevSel = creature_list->GetSelection();
+	if (prevSel != wxNOT_FOUND && static_cast<size_t>(prevSel) < shown_.size()) {
+		previous = shown_[static_cast<size_t>(prevSel)];
+	}
 	creature_list->Freeze();
 	creature_list->Clear();
 	shown_.clear();
@@ -115,7 +122,8 @@ void CreaturePalettePanel::refreshList() {
 		creature_list->Append(wxstr(type->name), type);
 	}
 	if (!shown_.empty()) {
-		creature_list->SetSelection(0);
+		const auto it = std::ranges::find(shown_, previous);
+		creature_list->SetSelection(it != shown_.end() ? static_cast<int>(it - shown_.begin()) : 0);
 	}
 	creature_list->Thaw();
 }
