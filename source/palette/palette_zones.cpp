@@ -31,6 +31,7 @@ ZonePalettePanel::ZonePalettePanel(wxWindow* parent, wxWindowID id) :
 	zone_list = newd wxListCtrl(box, PALETTE_ZONE_LISTBOX, wxDefaultPosition, wxDefaultSize, wxLC_REPORT | wxLC_SINGLE_SEL);
 	zone_list->InsertColumn(0, "Id", wxLIST_FORMAT_RIGHT, 50);
 	zone_list->InsertColumn(1, "Name", wxLIST_FORMAT_LEFT, 150);
+	zone_list->InsertColumn(2, "Tiles", wxLIST_FORMAT_RIGHT, 70);
 	sidesizer->Add(zone_list, 1, wxEXPAND);
 
 	auto* buttons = newd wxBoxSizer(wxHORIZONTAL);
@@ -74,8 +75,15 @@ bool ZonePalettePanel::supportsZones() const {
 }
 
 uint16_t ZonePalettePanel::selectedZoneId() const {
+	return selectedRow().zone;
+}
+
+ZonePalettePanel::RowRef ZonePalettePanel::selectedRow() const {
 	const long item = zone_list->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
-	return item == -1 ? 0 : static_cast<uint16_t>(zone_list->GetItemData(item));
+	if (item < 0 || static_cast<size_t>(item) >= rows_.size()) {
+		return {};
+	}
+	return rows_[static_cast<size_t>(item)];
 }
 
 Brush* ZonePalettePanel::GetSelectedBrush() const {
@@ -95,13 +103,25 @@ void ZonePalettePanel::OnUpdate() {
 	refreshing = true;
 	zone_list->Freeze();
 	zone_list->DeleteAllItems();
+	rows_.clear();
 	if (enabled) {
 		for (const auto& zone : map->zones) {
+			const size_t total_tiles = map->getZoneTilePositions(zone.id).size();
 			const long item = zone_list->InsertItem(zone_list->GetItemCount(), wxString::Format("%u", zone.id));
 			zone_list->SetItem(item, 1, wxstr(zone.name));
-			zone_list->SetItemData(item, zone.id);
+			zone_list->SetItem(item, 2, wxString::Format("%zu", total_tiles));
+			rows_.push_back({ zone.id, -1 });
 			if (zone.id == keep) {
 				zone_list->SetItemState(item, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED);
+			}
+			// Detached regions of the same zone as sub-rows so each room can
+			// be jumped to individually (8-connected clusters from ZoneIndex).
+			const auto& clusters = map->getZoneClusters(zone.id);
+			for (size_t ci = 0; ci < clusters.size(); ++ci) {
+				const long room = zone_list->InsertItem(zone_list->GetItemCount(), wxEmptyString);
+				zone_list->SetItem(room, 1, wxstr(std::format("\u21B3 Room {} \u00B7 {} tiles", ci + 1, clusters[ci].tile_count)));
+				zone_list->SetItem(room, 2, wxString::Format("%u", clusters[ci].tile_count));
+				rows_.push_back({ zone.id, static_cast<int>(ci) });
 			}
 		}
 	}
@@ -141,17 +161,23 @@ void ZonePalettePanel::OnZoneContextMenu(wxListEvent& event) {
 }
 
 void ZonePalettePanel::OnGoToZone(wxCommandEvent& /*event*/) {
-	const uint16_t id = supportsZones() ? selectedZoneId() : 0;
-	if (id == 0) {
+	const RowRef row = supportsZones() ? selectedRow() : RowRef{};
+	if (row.zone == 0) {
 		return;
 	}
 	wxBusyCursor busy;
-	const auto& clusters = map->getZoneClusters(id);
+	const auto& clusters = map->getZoneClusters(row.zone);
 	if (!clusters.empty()) {
-		const auto it = std::ranges::max_element(clusters, {}, &ZoneCluster::tile_count);
-		g_gui.SetScreenCenterPosition(it->centroid_pos);
-		const size_t total_tiles = map->getZoneTilePositions(id).size();
-		g_gui.SetStatusText(wxstr(std::format("Zone {}: {} tiles across {} room(s)", id, total_tiles, clusters.size())));
+		if (row.cluster >= 0 && static_cast<size_t>(row.cluster) < clusters.size()) {
+			const auto& room = clusters[static_cast<size_t>(row.cluster)];
+			g_gui.SetScreenCenterPosition(room.centroid_pos);
+			g_gui.SetStatusText(wxstr(std::format("Zone {} room {}/{}: {} tiles", row.zone, row.cluster + 1, clusters.size(), room.tile_count)));
+		} else {
+			const auto it = std::ranges::max_element(clusters, {}, &ZoneCluster::tile_count);
+			g_gui.SetScreenCenterPosition(it->centroid_pos);
+			const size_t total_tiles = map->getZoneTilePositions(row.zone).size();
+			g_gui.SetStatusText(wxstr(std::format("Zone {}: {} tiles across {} room(s)", row.zone, total_tiles, clusters.size())));
+		}
 	} else {
 		g_gui.SetStatusText("This zone has no tiles yet.");
 	}
