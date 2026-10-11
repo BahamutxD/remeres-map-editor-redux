@@ -19,6 +19,7 @@ class SpriteBatch;
 class TileRenderer;
 #include <array>
 #include <bit>
+#include <chrono>
 #include <cstdint>
 
 class GameSprite;
@@ -131,6 +132,20 @@ struct CachedChunk {
 	CachedChunk& operator=(const CachedChunk&) = delete;
 };
 
+// Aggregated over one PRUNE_INTERVAL_FRAMES window and logged by advanceFrame().
+struct ChunkRenderStats {
+	uint32_t frames = 0;
+	double frame_ms_total = 0.0;
+	double frame_ms_max = 0.0;
+	double bake_ms_total = 0.0;
+	double bake_ms_max = 0.0;
+	uint32_t baked_new = 0;
+	uint32_t baked_edit = 0;
+	uint32_t baked_anim = 0;
+	uint64_t draws = 0;
+	uint64_t instances = 0;
+};
+
 /**
  * High-performance Chunk Cache Manager.
  *
@@ -232,6 +247,7 @@ private:
 	void uploadChunk(CachedChunk& chunk, const std::vector<TileInstance>& instances);
 	CachedChunk& getOrCreateChunk(const ChunkCoord& coord);
 	void evictOldest(size_t count_to_remove);
+	void recordFrameStats();
 
 	GLuint vao_ = 0;
 	ShaderProgram shader_;
@@ -247,6 +263,10 @@ private:
 	size_t max_cached_chunks_ = 65536;
 	size_t target_cached_chunks_ = 49152;
 	uint64_t far_floor_frame_threshold_ = 60;
+
+	ChunkRenderStats stats_;
+	double frame_bake_ms_ = 0.0;
+	std::chrono::steady_clock::time_point last_frame_start_ {};
 };
 
 #endif
