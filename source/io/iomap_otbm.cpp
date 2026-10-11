@@ -610,8 +610,23 @@ bool IOMapOTBM::saveMapToDisk(Map& map, const FileName& identifier) {
 	const std::string magic = g_settings.getInteger(Config::SAVE_WITH_OTB_MAGIC_NUMBER) ? "OTBM" : std::string(4, '\0');
 
 	// Zones created in the editor on a map that had none still need a file for the header to reference
-	if (map.getVersion().otbm == MAP_OTBM_5 && !map.zones.empty() && map.zonefile.empty()) {
-		map.zonefile = nstr(identifier.GetName() + "-zones.xml");
+	if (map.getVersion().otbm == MAP_OTBM_5 && !map.zones.empty()) {
+		if (map.zonefile.empty()) {
+			map.zonefile = nstr(identifier.GetName() + "-zones.xml");
+		} else {
+			const std::filesystem::path zone_p(map.zonefile);
+			if (zone_p.is_absolute()) {
+				std::error_code ec;
+				const auto rel = std::filesystem::relative(zone_p, toPath(identifier).parent_path(), ec);
+				if (!ec && !rel.empty() && !rel.is_absolute() && rel.generic_string().find("..") == std::string::npos) {
+					map.zonefile = rel.generic_string();
+				} else {
+					map.zonefile = zone_p.filename().generic_string();
+				}
+			} else if (zone_p.is_relative() && map.zonefile.find("..") == std::string::npos) {
+				map.zonefile = zone_p.generic_string();
+			}
+		}
 	}
 
 	const bool is_compressed = (map.getCompression() == OtbmCompression::Gzip);
@@ -714,10 +729,18 @@ bool IOMapOTBM::saveMap(Map& map, NodeFileWriteHandle& f) {
 			f.addString(map.description);
 
 			auto addExtFile = [&](uint8_t attr, const std::string& path_str) {
-				std::filesystem::path path(path_str);
-				auto fname = path.filename().string();
+				if (path_str.empty()) {
+					return;
+				}
+				const std::filesystem::path path(path_str);
+				std::string serialized_path;
+				if (path.is_relative() && path_str.find("..") == std::string::npos) {
+					serialized_path = path.generic_string();
+				} else {
+					serialized_path = path.filename().generic_string();
+				}
 				f.addU8(attr);
-				f.addString(fname.empty() ? path_str : fname);
+				f.addString(serialized_path.empty() ? path_str : serialized_path);
 			};
 
 			if (mapVersion.otbm == MAP_OTBM_5) {
@@ -728,6 +751,18 @@ bool IOMapOTBM::saveMap(Map& map, NodeFileWriteHandle& f) {
 			}
 			addExtFile(OTBM_ATTR_EXT_HOUSE_FILE, map.housefile);
 			if (mapVersion.otbm == MAP_OTBM_5 && !map.zones.empty()) {
+				const std::filesystem::path zone_p(map.zonefile);
+				if (zone_p.is_absolute() && !map.filename.empty()) {
+					std::error_code ec;
+					const auto rel = std::filesystem::relative(zone_p, std::filesystem::path(map.filename).parent_path(), ec);
+					if (!ec && !rel.empty() && !rel.is_absolute() && rel.generic_string().find("..") == std::string::npos) {
+						map.zonefile = rel.generic_string();
+					} else {
+						map.zonefile = zone_p.filename().generic_string();
+					}
+				} else if (zone_p.is_relative() && map.zonefile.find("..") == std::string::npos) {
+					map.zonefile = zone_p.generic_string();
+				}
 				addExtFile(OTBM_ATTR_EXT_ZONE_FILE, map.zonefile);
 			}
 

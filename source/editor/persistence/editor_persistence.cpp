@@ -21,6 +21,7 @@
 
 #include <fstream>
 #include <format>
+#include <algorithm>
 #include <unordered_map>
 #include <spdlog/spdlog.h>
 
@@ -634,13 +635,16 @@ bool EditorPersistence::importMap(Editor& editor, FileName filename, int import_
 		import_tile->spawn.reset();
 
 		if (editor.map.getVersion().otbm == MAP_OTBM_5) {
-			if (!zone_id_map.empty() && import_tile->hasZones()) {
+			if (import_tile->hasZones()) {
 				std::vector<uint16_t> remapped_zones;
 				for (const uint16_t zid : import_tile->getZoneIds()) {
 					if (auto it = zone_id_map.find(zid); it != zone_id_map.end()) {
 						remapped_zones.push_back(it->second);
 					}
 				}
+				std::sort(remapped_zones.begin(), remapped_zones.end());
+				const auto last = std::unique(remapped_zones.begin(), remapped_zones.end());
+				remapped_zones.erase(last, remapped_zones.end());
 				import_tile->setZoneIds(remapped_zones);
 			}
 		} else if (import_tile->hasZones()) {

@@ -17,6 +17,7 @@
 #include <spdlog/spdlog.h>
 #include <algorithm>
 #include <format>
+#include <filesystem>
 #include <sstream>
 #include <ranges>
 
@@ -525,6 +526,8 @@ bool MapXMLIO::saveZones(const Map& map, const wxFileName& dir) {
 		zoneNode.append_attribute("name") = zone.name.c_str();
 		zoneNode.append_attribute("zoneid") = zone.id;
 	}
+	std::error_code ec;
+	std::filesystem::create_directories(std::filesystem::path(paths.second).parent_path(), ec);
 	return doc.save_file(paths.second.c_str(), "\t", pugi::format_default, pugi::encoding_utf8);
 }
 
