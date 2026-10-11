@@ -243,7 +243,7 @@ bool IOMapOTBM::loadMapFromDisk(Map& map, const FileName& filename) {
 	loadAux(MapXMLIO::loadHouses, "house", map.housefile);
 	loadAux(MapXMLIO::loadZones, "zones", map.zonefile);
 
-<	// Ensure all auxiliary filenames have defaults so converting between OTBM versions never encounters empty paths
+	// Ensure all auxiliary filenames have defaults so converting between OTBM versions never encounters empty paths
 	if (map.spawnfile.empty()) {
 		map.spawnfile = nstr(filename.GetName()) + "-spawn.xml";
 	}
@@ -256,12 +256,6 @@ bool IOMapOTBM::loadMapFromDisk(Map& map, const FileName& filename) {
 	if (map.housefile.empty()) {
 		map.housefile = nstr(filename.GetName()) + "-house.xml";
 	}
-
-	// Waypoints handling
-	if (map.getVersion().otbm == MAP_OTBM_5) {
-		// Crystal Server only reads waypoints from the OTBM, so they are neither migrated to nor merged with XML
-	} else if (map.waypoints.size() > 0) {
-		// Case 1: OTBM has waypoints
 
 	// Waypoints handling: if OTBM has waypoints, it is the authority and XML is ignored entirely.
 	// Only load from companion XML if OTBM has no waypoints.
@@ -286,7 +280,6 @@ bool IOMapOTBM::loadMapFromDisk(Map& map, const FileName& filename) {
 	} else if (map.waypointfile.empty()) {
 		map.waypointfile = nstr(filename.GetName()) + "-waypoint.xml";
 	}
-
 	map.getChangeTracker().markAllDirty();
 	return true;
 }

@@ -110,7 +110,7 @@ bool HeaderSerializationOTBM::peekStartupInfo(NodeFileReadHandle& f, OTBMStartup
 				out_info.house_xml_file = wxstr(house_file);
 				break;
 			}
-<			case OTBM_ATTR_EXT_SPAWN_NPC_FILE: {
+			case OTBM_ATTR_EXT_SPAWN_NPC_FILE: {
 				std::string npc_file;
 				if (!map_header_node->getString(npc_file)) {
 					return false;
