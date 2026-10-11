@@ -2,6 +2,7 @@
 
 #include "app/main.h"
 #include "palette/house/house_palette.h"
+#include "palette/palette_creatures.h"
 #include "palette/palette_waypoints.h"
 #include "palette/palette_zones.h"
 
@@ -37,6 +38,20 @@ void updateZoneMap(PalettePanel* panel, Map* map) {
 	}
 }
 
+PalettePanel* createMonsterPanel(wxWindow* parent) {
+	return newd CreaturePalettePanel(parent, false);
+}
+
+PalettePanel* createNpcPanel(wxWindow* parent) {
+	return newd CreaturePalettePanel(parent, true);
+}
+
+void updateCreatureMap(PalettePanel* panel, Map* map) {
+	if (auto* creaturePanel = dynamic_cast<CreaturePalettePanel*>(panel)) {
+		creaturePanel->SetMap(map);
+	}
+}
+
 } // namespace
 
 const std::vector<HardcodedPaletteProvider>& GetHardcodedPaletteProviders() {
@@ -44,6 +59,8 @@ const std::vector<HardcodedPaletteProvider>& GetHardcodedPaletteProviders() {
 		{ "House", createHousePanel, updateHouseMap },
 		{ "Waypoint", createWaypointPanel, updateWaypointMap },
 		{ "Zone", createZonePanel, updateZoneMap },
+		{ "Monster", createMonsterPanel, updateCreatureMap },
+		{ "Npc", createNpcPanel, updateCreatureMap },
 	};
 	return providers;
 }

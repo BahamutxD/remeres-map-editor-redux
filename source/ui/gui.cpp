@@ -421,6 +421,12 @@ void GUI::SetSpawnTime(int time) {
 		tool_options->ReloadSettings();
 	}
 }
+int GUI::GetDefaultCreatureWeight() const {
+	return g_brush_manager.GetDefaultCreatureWeight();
+}
+void GUI::SetDefaultCreatureWeight(int weight) {
+	g_brush_manager.SetDefaultCreatureWeight(weight);
+}
 void GUI::SetLightIntensity(int v) {
 	g_brush_manager.SetLightIntensity(std::clamp(v, 0, 255));
 	g_settings.notifyObservers(Config::SHOW_LIGHTS);

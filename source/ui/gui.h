@@ -234,6 +234,9 @@ public:
 	// Additional brush parameters
 	void SetSpawnTime(int time);
 
+	int GetDefaultCreatureWeight() const;
+	void SetDefaultCreatureWeight(int weight);
+
 	void SetLightIntensity(int v);
 	int GetLightIntensity() const;
 

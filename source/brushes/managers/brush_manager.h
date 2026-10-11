@@ -73,6 +73,14 @@ public:
 		creature_spawntime = time;
 	}
 
+	// Default weight applied to newly placed creatures (0 = no weight attribute)
+	void SetDefaultCreatureWeight(int weight) {
+		creature_default_weight = weight;
+	}
+	[[nodiscard]] int GetDefaultCreatureWeight() const {
+		return creature_default_weight;
+	}
+
 	void SetLightIntensity(int v) {
 		light_intensity = v;
 	}
@@ -155,6 +163,7 @@ private:
 	bool aspect_ratio_locked;
 	int brush_variation;
 	int creature_spawntime;
+	int creature_default_weight = 0;
 
 	void UpdateDoodadPreview();
 	void NotifyBrushSizeChanged();
