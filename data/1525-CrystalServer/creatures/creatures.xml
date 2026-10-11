@@ -12,6 +12,7 @@
     <creature name="Acolyte of the Cult" looktype="194" lookhead="95" lookbody="100" looklegs="100" lookfeet="19" type="monster" />
     <creature name="Adept of the Cult" looktype="194" lookhead="95" lookbody="94" looklegs="94" lookfeet="19" type="monster" />
     <creature name="Adlerauge" looktype="1901" lookaddons="2" lookhead="94" lookbody="38" looklegs="67" lookfeet="19" type="monster" />
+    <creature name="Adrian" type="npc" looktype="931" lookhead="76" lookbody="70" looklegs="89" lookfeet="41" />
     <creature name="Adult Goanna" looktype="1195" type="monster" />
     <creature name="Adventurer" looktype="129" lookhead="93" lookbody="15" looklegs="72" lookfeet="80" type="monster" />
     <creature name="Adventurer Group" lookitem="52836" type="monster" />
@@ -77,6 +78,7 @@
     <creature name="Askarak Prince" looktype="419" type="monster" />
     <creature name="Aspect of Power" looktype="1306" type="monster" />
     <creature name="Assassin" looktype="152" lookaddons="3" lookhead="95" lookbody="95" looklegs="95" lookfeet="95" type="monster" />
+    <creature name="Aurelia" type="npc" looktype="1246" lookaddons="1" lookhead="77" lookbody="86" looklegs="94" lookfeet="60" />
     <creature name="Avalanche" looktype="261" type="monster" />
     <creature name="Axeitus Headbanger" looktype="71" type="monster" />
     <creature name="Ayana the crimson curse" looktype="1647" lookhead="132" lookbody="132" looklegs="57" lookfeet="76" type="monster" />
@@ -197,10 +199,12 @@
     <creature name="Burster Spectre" looktype="1122" lookhead="9" lookbody="10" looklegs="86" lookfeet="79" type="monster" />
     <creature name="Butterfly" looktype="213" type="monster" />
     <creature name="Calamary" looktype="451" type="monster" />
+    <creature name="Camilla" type="npc" looktype="1385" lookhead="78" lookbody="94" looklegs="67" lookfeet="79" />
     <creature name="Candy Floss Elemental" looktype="1749" type="monster" />
     <creature name="Candy Horror" looktype="1739" type="monster" />
     <creature name="Canopic Jar" looktype="598" type="monster" />
     <creature name="Capricious Phantom" looktype="1298" lookhead="81" lookbody="114" looklegs="85" lookfeet="83" type="monster" />
+    <creature name="Captain Indigo" type="npc" looktype="155" lookaddons="3" lookhead="85" looklegs="76" lookfeet="126" />
     <creature name="Captain Jones" looktype="196" type="monster" />
     <creature name="Captured Dwarf" looktype="538" type="monster" />
     <creature name="Carniphila" looktype="120" type="monster" />
@@ -498,6 +502,7 @@
     <creature name="Ember Beast" looktype="498" type="monster" />
     <creature name="Emerald Damselfly" looktype="528" type="monster" />
     <creature name="Emerald Tortoise" looktype="1550" lookaddons="3" lookhead="85" lookbody="1" looklegs="85" lookfeet="105" type="monster" />
+    <creature name="Emiliana" type="npc" looktype="1024" lookaddons="1" lookhead="59" lookbody="28" looklegs="19" lookfeet="28" />
     <creature name="Empowered Glooth Horror" looktype="677" type="monster" />
     <creature name="Energetic Book" looktype="1061" lookhead="15" lookbody="91" looklegs="85" type="monster" />
     <creature name="Energised Raubritter" looktype="1901" lookhead="94" lookbody="14" looklegs="72" lookfeet="129" type="monster" />
@@ -599,6 +604,7 @@
     <creature name="Freed Soul" looktype="294" type="monster" />
     <creature name="Freegoiz" looktype="12" lookhead="38" lookbody="114" lookfeet="94" type="monster" />
     <creature name="Frenzy" looktype="290" type="monster" />
+    <creature name="Freshwater Turtle" type="monster" looktype="197" />
     <creature name="Frost Dragon" looktype="248" type="monster" />
     <creature name="Frost Dragon Hatchling" looktype="283" type="monster" />
     <creature name="Frost Flower Asura" looktype="150" lookaddons="3" lookfeet="86" type="monster" />
@@ -673,6 +679,7 @@
     <creature name="Golden Servant Replica" looktype="396" type="monster" />
     <creature name="Goldhanded Cultist" looktype="132" lookaddons="2" lookhead="114" lookbody="79" looklegs="62" lookfeet="94" type="monster" />
     <creature name="Goldhanded Cultist Bride" looktype="140" lookaddons="2" lookhead="114" lookbody="79" looklegs="62" lookfeet="94" type="monster" />
+    <creature name="Golem Servant" type="npc" looktype="304" />
     <creature name="Golgordan" looktype="12" lookhead="52" lookbody="99" looklegs="52" lookfeet="91" type="monster" />
     <creature name="Gore Horn" looktype="1548" lookaddons="3" lookhead="85" lookbody="1" looklegs="85" lookfeet="105" type="monster" />
     <creature name="Gorerilla" looktype="1559" lookaddons="3" lookhead="85" lookbody="1" looklegs="85" lookfeet="105" type="monster" />
@@ -800,6 +807,9 @@
     <creature name="Infernal Phantom" looktype="1298" lookhead="114" lookbody="80" looklegs="94" lookfeet="78" type="monster" />
     <creature name="Infernalist" looktype="130" lookaddons="2" lookhead="78" lookbody="76" looklegs="94" lookfeet="39" type="monster" />
     <creature name="Infernatil" looktype="35" type="monster" />
+    <creature name="Infernoid Blob" type="monster" looktype="49" />
+    <creature name="Infernoid Hound" type="monster" looktype="414" />
+    <creature name="Infernoid Soul" type="monster" looktype="242" />
     <creature name="Ink Blob" looktype="1064" type="monster" />
     <creature name="Ink Splash" looktype="1064" type="monster" />
     <creature name="Inkwing" looktype="1850" lookaddons="3" lookhead="19" lookbody="95" looklegs="68" lookfeet="86" type="monster" />
@@ -863,6 +873,7 @@
     <creature name="Lavaworm" looktype="1394" type="monster" />
     <creature name="Leaf Golem" looktype="567" type="monster" />
     <creature name="Leiden" looktype="988" type="monster" />
+    <creature name="Leonora" type="npc" looktype="1861" lookhead="114" lookbody="94" looklegs="86" />
     <creature name="Lersatio" looktype="287" type="monster" />
     <creature name="Lesser Death Minion" looktype="33" type="monster" />
     <creature name="Lesser Fire Devil" looktype="40" type="monster" />
@@ -884,15 +895,21 @@
     <creature name="Little Corym Charlatan" looktype="532" lookbody="79" looklegs="80" type="monster" />
     <creature name="Lizard Abomination" looktype="364" type="monster" />
     <creature name="Lizard Chosen" looktype="344" type="monster" />
+    <creature name="Lizard Commander" type="monster" looktype="1930" lookhead="117" lookbody="6" looklegs="11" lookfeet="79" />
     <creature name="Lizard Dragon Priest" looktype="339" type="monster" />
+    <creature name="Lizard Executioner" type="monster" looktype="1929" lookhead="114" lookbody="57" looklegs="75" lookfeet="75" />
+    <creature name="Lizard Henchman" type="monster" looktype="1927" lookhead="117" lookbody="4" looklegs="56" lookfeet="11" />
     <creature name="Lizard High Guard" looktype="337" type="monster" />
     <creature name="Lizard Legionnaire" looktype="338" type="monster" />
+    <creature name="Lizard Magician" type="monster" looktype="1928" lookhead="117" lookbody="4" looklegs="20" lookfeet="57" />
     <creature name="Lizard Magistratus" looktype="115" type="monster" />
     <creature name="Lizard Noble" looktype="115" type="monster" />
     <creature name="Lizard Sentinel" looktype="114" type="monster" />
     <creature name="Lizard Snakecharmer" looktype="115" type="monster" />
+    <creature name="Lizard Swordmaster" type="monster" looktype="1929" lookhead="117" lookbody="4" looklegs="11" lookfeet="6" />
     <creature name="Lizard Templar" looktype="113" type="monster" />
     <creature name="Lizard Zaogun" looktype="343" type="monster" />
+    <creature name="Lizzie" type="npc" looktype="965" lookhead="40" lookbody="23" looklegs="38" lookfeet="39" />
     <creature name="Lloyd" looktype="940" type="monster" />
     <creature name="Lokathmor" looktype="1062" lookhead="22" lookbody="57" looklegs="79" lookfeet="77" type="monster" />
     <creature name="Lokathmor Stuck" looktype="1062" lookhead="22" lookbody="22" looklegs="79" lookfeet="97" type="monster" />
@@ -1048,6 +1065,7 @@
     <creature name="Morgaroth" looktype="12" lookhead="2" lookbody="94" looklegs="78" lookfeet="79" type="monster" />
     <creature name="Morguthis" looktype="84" type="monster" />
     <creature name="Morik the Gladiator" looktype="131" lookaddons="1" lookhead="38" lookbody="19" looklegs="19" lookfeet="95" type="monster" />
+    <creature name="Morla" type="npc" looktype="197" />
     <creature name="Mornenion" looktype="64" type="monster" />
     <creature name="Morshabaal" looktype="1468" type="monster" />
     <creature name="Mould Phantom" looktype="1298" lookhead="106" lookbody="60" looklegs="131" lookfeet="116" type="monster" />
@@ -1197,10 +1215,14 @@
     <creature name="Pirat Mate" looktype="1346" lookaddons="3" lookbody="95" looklegs="95" lookfeet="113" type="monster" />
     <creature name="Pirat Scoundrel" looktype="1346" lookhead="97" lookbody="119" looklegs="80" lookfeet="80" type="monster" />
     <creature name="Pirate Buccaneer" looktype="97" type="monster" />
+    <creature name="Pirate Cook" type="monster" looktype="96" />
     <creature name="Pirate Corsair" looktype="98" type="monster" />
     <creature name="Pirate Cutthroat" looktype="96" type="monster" />
     <creature name="Pirate Ghost" looktype="196" type="monster" />
+    <creature name="Pirate Gunner" type="monster" looktype="97" />
     <creature name="Pirate Marauder" looktype="93" type="monster" />
+    <creature name="Pirate Navigator" type="monster" looktype="93" />
+    <creature name="Pirate Quartermaster" type="monster" looktype="151" lookaddons="2" lookhead="114" lookbody="19" looklegs="23" lookfeet="40" />
     <creature name="Pirate Skeleton" looktype="195" type="monster" />
     <creature name="Pixie" looktype="982" type="monster" />
     <creature name="Plagirath" looktype="862" lookaddons="1" lookhead="84" lookbody="62" looklegs="60" lookfeet="79" type="monster" />
@@ -1339,6 +1361,7 @@
     <creature name="Schiach" looktype="1162" lookaddons="2" lookbody="10" looklegs="38" lookfeet="57" type="monster" />
     <creature name="Scorn of the Emperor" looktype="351" type="monster" />
     <creature name="Scorpion" looktype="43" type="monster" />
+    <creature name="Sea Captain" type="monster" looktype="98" />
     <creature name="Sea Serpent" looktype="275" type="monster" />
     <creature name="Seacrest Serpent" looktype="675" type="monster" />
     <creature name="Seagull" looktype="223" type="monster" />
@@ -2720,6 +2743,7 @@
     <creature name="Spectulus" looktype="130" lookitem="0" lookaddons="0" lookhead="0" lookbody="77" looklegs="78" lookfeet="97" type="npc" />
     <creature name="Squeekquek" looktype="532" lookitem="0" lookaddons="0" lookhead="0" lookbody="113" looklegs="95" lookfeet="0" type="npc" />
     <creature name="Stan" looktype="12" lookitem="0" lookaddons="0" lookhead="94" lookbody="128" looklegs="81" lookfeet="128" type="npc" />
+    <creature name="Sterling" type="npc" looktype="151" lookaddons="3" lookhead="39" lookbody="25" looklegs="38" lookfeet="26" />
     <creature name="Steven" looktype="133" lookaddons="1" lookhead="40" lookbody="9" looklegs="10" lookfeet="76" type="npc" />
     <creature name="Storkus" looktype="69" lookitem="0" lookaddons="0" lookhead="57" lookbody="59" looklegs="118" lookfeet="114" type="npc" />
     <creature name="Strange Pipe" looktype="668" lookitem="0" lookaddons="0" lookhead="0" lookbody="0" looklegs="0" lookfeet="0" type="npc" />
