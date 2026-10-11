@@ -30,7 +30,9 @@ CreaturePalettePanel::CreaturePalettePanel(wxWindow* parent, bool npc, wxWindowI
 	searchSizer->Add(search_button, 0, wxEXPAND);
 	sidesizer->Add(searchSizer, 0, wxEXPAND | wxBOTTOM, 4);
 
-	creature_list = newd wxListBox(box, PALETTE_CREATURE_LISTBOX, wxDefaultPosition, wxDefaultSize, 0, nullptr, wxLB_SINGLE | wxLB_SORT);
+	// NB: no wxLB_SORT here: shown_ is pre-sorted and list rows must stay
+	// index-aligned with it (GetSelectedBrush/SelectBrush use row indices).
+	creature_list = newd wxListBox(box, PALETTE_CREATURE_LISTBOX, wxDefaultPosition, wxDefaultSize, 0, nullptr, wxLB_SINGLE);
 	sidesizer->Add(creature_list, 1, wxEXPAND);
 
 	auto* brushSizer = newd wxStaticBoxSizer(wxVERTICAL, box, "Brushes");
@@ -128,13 +130,23 @@ void CreaturePalettePanel::selectSpawnMode() {
 	spawn_button->SetValue(true);
 }
 
+void CreaturePalettePanel::applySpinValues() {
+	g_gui.SetBrushSize(spawns_size_spin->GetValue());
+	g_gui.SetSpawnTime(spawntime_spin->GetValue());
+	if (weight_spin) {
+		g_gui.SetDefaultCreatureWeight(weight_spin->GetValue());
+	}
+}
+
 Brush* CreaturePalettePanel::GetSelectedBrush() const {
+	// NB: side-effect free on purpose. The framework calls this getter
+	// reentrantly (tool options refresh queries the selected creature brush),
+	// so applying spin values here recursed into SelectBrush until the stack
+	// overflowed. Spins are applied in the click/change handlers instead.
 	if (!supportsSpawns()) {
 		return nullptr;
 	}
 	if (spawn_button->GetValue()) {
-		g_gui.SetBrushSize(spawns_size_spin->GetValue());
-		g_gui.SetSpawnTime(spawntime_spin->GetValue());
 		return g_brush_manager.spawn_brush;
 	}
 	const int sel = creature_list->GetSelection();
@@ -144,10 +156,6 @@ Brush* CreaturePalettePanel::GetSelectedBrush() const {
 	CreatureType* type = shown_[static_cast<size_t>(sel)];
 	if (!type || !type->brush) {
 		return nullptr;
-	}
-	g_gui.SetSpawnTime(spawntime_spin->GetValue());
-	if (weight_spin) {
-		g_gui.SetDefaultCreatureWeight(weight_spin->GetValue());
 	}
 	return type->brush;
 }
@@ -202,18 +210,20 @@ void CreaturePalettePanel::OnSearch(wxCommandEvent& /*event*/) {
 void CreaturePalettePanel::OnSelectCreature(wxCommandEvent& /*event*/) {
 	if (!refreshing) {
 		selectPlaceMode();
+		applySpinValues();
 		g_gui.SelectBrush();
 	}
 }
 
 void CreaturePalettePanel::OnClickPlaceButton(wxCommandEvent& /*event*/) {
 	selectPlaceMode();
+	applySpinValues();
 	g_gui.SelectBrush();
 }
 
 void CreaturePalettePanel::OnClickSpawnButton(wxCommandEvent& /*event*/) {
 	selectSpawnMode();
-	g_gui.SetBrushSize(spawns_size_spin->GetValue());
+	applySpinValues();
 	g_gui.SelectBrush();
 }
 

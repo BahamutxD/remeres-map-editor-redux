@@ -41,6 +41,7 @@ private:
 	void refreshList();
 	void selectPlaceMode();
 	void selectSpawnMode();
+	void applySpinValues();
 
 	void OnSearch(wxCommandEvent& event);
 	void OnSelectCreature(wxCommandEvent& event);
