@@ -208,7 +208,10 @@ uint16_t Map::addZone(std::string name) {
 		return 0;
 	}
 	uint16_t id = 1;
-	while (findZone(id)) {
+	// Skip IDs referenced by tiles too: a sidecar may omit a zone the tiles
+	// still point at, and handing that ID to a new zone would silently adopt
+	// those tiles.
+	while (findZone(id) || zone_index.hasZone(id)) {
 		if (id == UINT16_MAX) {
 			return 0;
 		}
