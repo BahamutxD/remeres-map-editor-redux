@@ -26,6 +26,7 @@ public:
 	}
 	bool SelectBrush(const Brush* whatbrush) override;
 	void OnUpdate() override;
+	void OnSwitchIn() override;
 
 	void SetMap(Map* map);
 
@@ -34,7 +35,7 @@ private:
 	[[nodiscard]] uint16_t selectedZoneId() const;
 
 	// Row metadata parallel to zone_list rows: zone rows carry cluster = -1,
-	// room rows carry the index into Map::getZoneClusters(zone).
+	// region rows carry the index into Map::getZoneClusters(zone).
 	struct RowRef {
 		uint16_t zone = 0;
 		int cluster = -1;

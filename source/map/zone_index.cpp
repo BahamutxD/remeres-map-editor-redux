@@ -159,6 +159,19 @@ void ZoneIndex::updateClusters(const ZoneData& data) const {
 			});
 		}
 	}
+
+	std::ranges::sort(data.clusters, [](const ZoneCluster& a, const ZoneCluster& b) {
+		if (a.tile_count != b.tile_count) {
+			return a.tile_count > b.tile_count;
+		}
+		if (a.centroid_pos.z != b.centroid_pos.z) {
+			return a.centroid_pos.z < b.centroid_pos.z;
+		}
+		if (a.centroid_pos.y != b.centroid_pos.y) {
+			return a.centroid_pos.y < b.centroid_pos.y;
+		}
+		return a.centroid_pos.x < b.centroid_pos.x;
+	});
 }
 
 void ZoneIndex::addTile(uint16_t zoneId, const Position& pos) {

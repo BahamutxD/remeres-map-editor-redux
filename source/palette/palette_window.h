@@ -79,6 +79,8 @@ protected:
 	HousePalette* house_palette;
 	WaypointPalettePanel* waypoint_palette;
 	ZonePalettePanel* zone_palette = nullptr;
+
+	void updateZonePage(Map* map);
 };
 
 #endif

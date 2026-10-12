@@ -28,6 +28,7 @@
 #include "brushes/wall/wall_brush.h"
 #include "brushes/waypoint/waypoint_brush.h"
 #include "brushes/door/door_brush.h"
+#include "brushes/zone/zone_brush.h"
 
 DrawingController::DrawingController(MapCanvas* canvas, Editor& editor) :
 	canvas(canvas),
@@ -124,6 +125,10 @@ void DrawingController::HandleClick(const Position& mouse_map_pos, bool shift_do
 					}
 
 					editor.draw(mouse_map_pos, shift_down || alt_down);
+
+					if (brush->is<ZoneBrush>()) {
+						g_gui.RefreshPalettes();
+					}
 
 					if (will_show_spawn) {
 						Tile* tile = editor.map.getTile(mouse_map_pos);
@@ -379,6 +384,11 @@ void DrawingController::HandleRelease(const Position& mouse_map_pos, bool shift_
 				}
 			}
 		}
+	}
+
+	Brush* brush = g_gui.GetCurrentBrush();
+	if (brush && brush->is<ZoneBrush>()) {
+		g_gui.RefreshPalettes();
 	}
 
 	editor.actionQueue->resetTimer();
