@@ -32,6 +32,8 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/brushes/carpet/carpet_brush_loader.h
     ${CMAKE_CURRENT_LIST_DIR}/brushes/carpet/carpet_border_calculator.h
     ${CMAKE_CURRENT_LIST_DIR}/brushes/creature/creature_brush.h
+    ${CMAKE_CURRENT_LIST_DIR}/brushes/creature/monster_brush.h
+    ${CMAKE_CURRENT_LIST_DIR}/brushes/creature/npc_brush.h
     ${CMAKE_CURRENT_LIST_DIR}/brushes/doodad/doodad_brush.h
     ${CMAKE_CURRENT_LIST_DIR}/brushes/doodad/doodad_brush_items.h
     ${CMAKE_CURRENT_LIST_DIR}/brushes/doodad/doodad_brush_loader.h
@@ -168,7 +170,6 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/palette/hardcoded_palette_registry.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_waypoints.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_zones.h
-    ${CMAKE_CURRENT_LIST_DIR}/palette/palette_creatures.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/house/house_palette.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/house/edit_house_dialog.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_window.h
@@ -460,6 +461,8 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/brushes/carpet/carpet_brush_loader.cpp
     ${CMAKE_CURRENT_LIST_DIR}/brushes/carpet/carpet_border_calculator.cpp
     ${CMAKE_CURRENT_LIST_DIR}/brushes/creature/creature_brush.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/brushes/creature/monster_brush.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/brushes/creature/npc_brush.cpp
     ${CMAKE_CURRENT_LIST_DIR}/brushes/doodad/doodad_brush.cpp
     ${CMAKE_CURRENT_LIST_DIR}/brushes/doodad/doodad_brush_items.cpp
     ${CMAKE_CURRENT_LIST_DIR}/brushes/doodad/doodad_brush_loader.cpp
@@ -582,7 +585,6 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/palette/hardcoded_palette_registry.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_waypoints.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_zones.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/palette/palette_creatures.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/house/house_palette.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/house/edit_house_dialog.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_window.cpp

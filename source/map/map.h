@@ -155,6 +155,10 @@ public:
 		}
 	}
 
+	[[nodiscard]] bool supportsZones() const noexcept override {
+		return mapVersion.otbm == MAP_OTBM_5;
+	}
+
 	// OTBM 5 zone registry (Canary / Crystal Server); ids stay stable on rename because tiles reference them
 	[[nodiscard]] const Zone* findZone(uint16_t id) const;
 	[[nodiscard]] const Zone* findZone(std::string_view name) const;

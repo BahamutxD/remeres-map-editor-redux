@@ -8,6 +8,7 @@
 #include "brushes/flag/flag_brush.h"
 #include "map/tile.h"
 #include "game/sprites.h"
+#include "app/managers/version_manager.h"
 
 #include <toml++/toml.h>
 #include <algorithm>
@@ -40,19 +41,13 @@ namespace {
 }
 
 bool TechnicalIdFilter::matches(uint32_t sid, uint32_t cid) const noexcept {
-	// Server and client id spaces diverge on newer clients (e.g. 15.25 uses
-	// client id 469 for stairs while 459 is a different server-side id), so a
-	// server-only hit must not classify an item whose known client id disagrees.
-	// The client id is authoritative when known, different, and the filter
-	// defines client ids; server ids cover unknown client ids (cid == 0),
-	// clients where both spaces agree (cid == sid), and server-only filters.
-	if (cid != 0 && cid != sid && !client_ids.empty()) {
+	if (cid != 0 && !client_ids.empty()) {
 		return std::ranges::binary_search(client_ids, cid);
 	}
-	if (sid != 0 && !server_ids.empty() && std::ranges::binary_search(server_ids, sid)) {
-		return true;
+	if (g_version.lastLoadHasOtb() && sid != 0 && !server_ids.empty()) {
+		return std::ranges::binary_search(server_ids, sid);
 	}
-	return cid != 0 && !client_ids.empty() && std::ranges::binary_search(client_ids, cid);
+	return false;
 }
 
 void TechnicalIdFilter::sort_and_dedup() {

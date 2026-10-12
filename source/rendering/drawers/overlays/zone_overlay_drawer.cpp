@@ -515,7 +515,7 @@ void ZoneOverlayDrawer::drawFloorZones(SpriteBatch& sprite_batch,
                                        const BaseMap* secondary_map,
                                        const DrawingOptions& options,
                                        const AtlasManager& atlas) {
-	if (options.ingame || !options.show_zones || map.zones.empty() || view.zoom > kZoomLODCutoff) {
+	if (!map.supportsZones() || options.ingame || !options.show_zones || map.zones.empty() || view.zoom > kZoomLODCutoff) {
 		return;
 	}
 

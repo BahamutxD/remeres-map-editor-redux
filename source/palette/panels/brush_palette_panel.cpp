@@ -286,7 +286,7 @@ BrushPalettePanel::BrushPalettePanel(wxWindow* parent, const DynamicPaletteDefin
 	}
 
 	for (const auto& tileset : palette.tilesets) {
-		if (tileset.size() > 0 || tileset.creatureImportTarget != CreatureImportTarget::None) {
+		if (tileset.size() > 0 || tileset.is_import_target) {
 			BrushPanel* panel = newd BrushPanel(tmp_choicebook);
 			// PaletteCatalog keeps tileset objects stable while allowing their brush membership to grow.
 			panel->AssignTileset(&tileset);

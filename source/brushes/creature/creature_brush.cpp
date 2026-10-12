@@ -114,9 +114,6 @@ void CreatureBrush::draw_creature(BaseMap* map, Tile* tile) {
 			}
 			tile->creature = std::make_unique<Creature>(creature_type);
 			tile->creature->setSpawnTime(g_gui.GetSpawnTime());
-			if (const int weight = g_gui.GetDefaultCreatureWeight(); weight > 0 && !creature_type->isNpc) {
-				tile->creature->setWeight(static_cast<uint32_t>(weight));
-			}
 		}
 	}
 }

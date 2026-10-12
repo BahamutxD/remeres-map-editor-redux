@@ -12,9 +12,11 @@
 #include "palette/hardcoded_palette_registry.h"
 #include "palette/house/house_palette.h"
 #include "palette/palette_waypoints.h"
+#include "palette/palette_zones.h"
 #include "palette/panels/brush_palette_panel.h"
 #include "rendering/ui/map_display.h"
 #include "game/materials.h"
+#include "map/map.h"
 #include "ui/gui.h"
 
 #include <algorithm>
@@ -72,6 +74,8 @@ PaletteWindow::PaletteWindow(wxWindow* parent, const PaletteCatalog& catalog) :
 			g_gui.house_palette = house_palette;
 		} else if (auto* waypointPanel = dynamic_cast<WaypointPalettePanel*>(panel)) {
 			waypoint_palette = waypointPanel;
+		} else if (auto* zonePanel = dynamic_cast<ZonePalettePanel*>(panel)) {
+			zone_palette = zonePanel;
 		}
 		choicebook->AddPage(panel, wxstr(provider.name));
 	}
@@ -81,7 +85,7 @@ PaletteWindow::PaletteWindow(wxWindow* parent, const PaletteCatalog& catalog) :
 	sizer->Add(choicebook, 1, wxEXPAND);
 	SetSizer(sizer);
 
-	LoadCurrentContents();
+	ReloadSettings(g_gui.IsEditorOpen() ? &g_gui.GetCurrentMap() : nullptr);
 	Fit();
 }
 
@@ -106,6 +110,24 @@ void PaletteWindow::ReloadSettings(Map* map) {
 	for (const auto& hardcodedPage : hardcoded_pages) {
 		hardcodedPage.provider->updateMap(hardcodedPage.panel, map);
 	}
+
+	if (zone_palette) {
+		const bool supports_zones = map && map->supportsZones();
+		int zone_page_idx = wxNOT_FOUND;
+		for (size_t i = 0; i < choicebook->GetPageCount(); ++i) {
+			if (choicebook->GetPage(i) == zone_palette) {
+				zone_page_idx = static_cast<int>(i);
+				break;
+			}
+		}
+
+		if (supports_zones && zone_page_idx == wxNOT_FOUND) {
+			choicebook->AddPage(zone_palette, "Zone");
+		} else if (!supports_zones && zone_page_idx != wxNOT_FOUND) {
+			choicebook->RemovePage(static_cast<size_t>(zone_page_idx));
+		}
+	}
+
 	InvalidateContents();
 }
 
