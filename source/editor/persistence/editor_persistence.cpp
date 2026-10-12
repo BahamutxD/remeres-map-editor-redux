@@ -638,9 +638,39 @@ bool EditorPersistence::importMap(Editor& editor, FileName filename, int import_
 			if (import_tile->hasZones()) {
 				std::vector<uint16_t> remapped_zones;
 				for (const uint16_t zid : import_tile->getZoneIds()) {
-					if (auto it = zone_id_map.find(zid); it != zone_id_map.end()) {
-						remapped_zones.push_back(it->second);
+					auto it = zone_id_map.find(zid);
+					if (it == zone_id_map.end()) {
+						// Orphan: referenced by the source tile but missing from the
+						// source sidecar. Reserve a fresh destination ID (without
+						// creating a zone definition) and reuse it for every
+						// occurrence, so the reference survives the import.
+						uint16_t fresh = 1;
+						for (;;) {
+							if (!editor.map.findZone(fresh) && editor.map.getZoneTilePositions(fresh).empty()) {
+								bool taken = false;
+								for (const auto& [src, dst] : zone_id_map) {
+									if (dst == fresh) {
+										taken = true;
+										break;
+									}
+								}
+								if (!taken) {
+									break;
+								}
+							}
+							if (fresh == UINT16_MAX) {
+								fresh = 0;
+								break;
+							}
+							++fresh;
+						}
+						if (fresh == 0) {
+							spdlog::warn("Map import: zone ID space exhausted, dropping orphan zone reference {}", zid);
+							continue;
+						}
+						it = zone_id_map.emplace(zid, fresh).first;
 					}
+					remapped_zones.push_back(it->second);
 				}
 				std::sort(remapped_zones.begin(), remapped_zones.end());
 				const auto last = std::unique(remapped_zones.begin(), remapped_zones.end());
