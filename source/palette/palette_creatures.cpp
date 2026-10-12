@@ -138,6 +138,12 @@ void CreaturePalettePanel::selectSpawnMode() {
 	spawn_button->SetValue(true);
 }
 
+void CreaturePalettePanel::syncBrushFromSelection() {
+	selectPlaceMode();
+	applySpinValues();
+	g_gui.SelectBrush();
+}
+
 void CreaturePalettePanel::applySpinValues() {
 	g_gui.SetBrushSize(spawns_size_spin->GetValue());
 	g_gui.SetSpawnTime(spawntime_spin->GetValue());
@@ -212,14 +218,15 @@ void CreaturePalettePanel::OnUpdate() {
 void CreaturePalettePanel::OnSearch(wxCommandEvent& /*event*/) {
 	if (!refreshing) {
 		refreshList();
+		// Filtering reselects row 0 (or the preserved row); sync the brush so
+		// the active brush matches the visible selection.
+		syncBrushFromSelection();
 	}
 }
 
 void CreaturePalettePanel::OnSelectCreature(wxCommandEvent& /*event*/) {
 	if (!refreshing) {
-		selectPlaceMode();
-		applySpinValues();
-		g_gui.SelectBrush();
+		syncBrushFromSelection();
 	}
 }
 

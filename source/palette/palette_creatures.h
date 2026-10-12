@@ -42,6 +42,7 @@ private:
 	void selectPlaceMode();
 	void selectSpawnMode();
 	void applySpinValues();
+	void syncBrushFromSelection();
 
 	void OnSearch(wxCommandEvent& event);
 	void OnSelectCreature(wxCommandEvent& event);
