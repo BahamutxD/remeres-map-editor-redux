@@ -87,6 +87,43 @@ public:
 		return (index < cells_.size()) ? cells_[index].cell.get() : nullptr;
 	}
 
+	/**
+	 * Caller-owned single-entry cache for sequential lookups.
+	 *
+	 * Consecutive coordinates in the same 64x64 cell then reuse one binary search
+	 * instead of paying for one per call. The state lives on the caller's stack,
+	 * so const readers share nothing and stay free of data races (unlike the
+	 * grid-owned cache used by the mutating accessors).
+	 */
+	struct CellCursor {
+		uint64_t key = 0;
+		size_t index = 0;
+		bool valid = false;
+	};
+
+	/**
+	 * Const variant of getLeaf that skips the binary search when the previous
+	 * lookup already resolved the containing cell.
+	 */
+	[[nodiscard]] const MapNode* getLeafCached(int x, int y, CellCursor& cursor) const noexcept {
+		const uint64_t key = makeKey(x, y);
+		if (!cursor.valid || cursor.key != key) {
+			cursor.key = key;
+			cursor.index = findCellIndex(key);
+			cursor.valid = true;
+		}
+		if (cursor.index >= cells_.size()) {
+			return nullptr;
+		}
+		const GridCell* cell = cells_[cursor.index].cell.get();
+		if (!cell) {
+			return nullptr;
+		}
+		const int nx = (x >> NODE_SHIFT) & (NODES_PER_CELL - 1);
+		const int ny = (y >> NODE_SHIFT) & (NODES_PER_CELL - 1);
+		return cell->nodes[ny * NODES_PER_CELL + nx].get();
+	}
+
 	template <typename CellType = GridCell>
 	[[nodiscard]] static bool chunkHasFloor(const CellType& cell, int chunk_ix, int chunk_iy, int map_z) noexcept {
 		if (map_z < 0 || map_z >= MAP_LAYERS) {

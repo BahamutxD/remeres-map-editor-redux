@@ -108,6 +108,12 @@ public:
 	const TileLocation* getTileL(int x, int y, int z) const;
 	const TileLocation* getTileL(const Position& pos) const;
 
+	// Sequential-scan variants: reuse a caller-owned cell cursor so a row sweep
+	// performs one binary search per 64x64 cell instead of one per tile.
+	// See SpatialHashGrid::CellCursor.
+	const Tile* getTile(int x, int y, int z, SpatialHashGrid::CellCursor& cursor) const;
+	const TileLocation* getTileL(int x, int y, int z, SpatialHashGrid::CellCursor& cursor) const;
+
 	// Get a Map Node from the map
 	MapNode* getLeaf(int x, int y) {
 		return grid.getLeaf(x, y);
@@ -204,6 +210,23 @@ inline const Tile* BaseMap::getTile(int x, int y, int z) const {
 
 inline const Tile* BaseMap::getTile(const Position& pos) const {
 	const TileLocation* l = getTileL(pos);
+	return l ? l->get() : nullptr;
+}
+
+inline const TileLocation* BaseMap::getTileL(int x, int y, int z, SpatialHashGrid::CellCursor& cursor) const {
+	ASSERT(z < MAP_LAYERS);
+	const MapNode* leaf = grid.getLeafCached(x, y, cursor);
+	if (leaf) {
+		const Floor* floor = leaf->getFloor(z);
+		if (floor) {
+			return &floor->locs[(x & 3) * 4 + (y & 3)];
+		}
+	}
+	return nullptr;
+}
+
+inline const Tile* BaseMap::getTile(int x, int y, int z, SpatialHashGrid::CellCursor& cursor) const {
+	const TileLocation* l = getTileL(x, y, z, cursor);
 	return l ? l->get() : nullptr;
 }
 
