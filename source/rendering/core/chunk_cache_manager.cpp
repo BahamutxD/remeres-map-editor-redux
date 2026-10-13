@@ -939,6 +939,15 @@ void ChunkCacheManager::renderFloorTerrain(
 		}
 		chunk.last_accessed_frame = current_frame_;
 
+		// Off-screen margin chunks are still baked and kept warm for pan-ahead,
+		// but are not drawn and do not join the active list, so their items and
+		// dynamic overlays are skipped as well.
+		const int chunk_screen_x = cx * (CHUNK_SIZE * TILE_SIZE) + static_cast<int>(translation.x);
+		const int chunk_screen_y = cy * (CHUNK_SIZE * TILE_SIZE) + static_cast<int>(translation.y);
+		if (!ctx.view.IsRectVisible(chunk_screen_x, chunk_screen_y, CHUNK_SIZE * TILE_SIZE, CHUNK_SIZE * TILE_SIZE)) {
+			return;
+		}
+
 		if (!chunk.is_empty && chunk.terrain_instance_count > 0 && chunk.vbo != 0) {
 			glVertexArrayVertexBuffer(vao_, 1, chunk.vbo, 0, sizeof(TileInstance));
 			glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr, static_cast<GLsizei>(chunk.terrain_instance_count));
