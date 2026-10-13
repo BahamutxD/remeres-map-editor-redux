@@ -81,12 +81,16 @@ void ZoneOverlayDrawer::drawFloor(SpriteBatch& sprite_batch,
 		const int max_x = bounds.end_x + 1;
 		const int row_width = max_x - min_x + 1;
 
+		// Caller-owned cell cursors: consecutive x in a row share the containing
+		// 64x64 cell, so this collapses a binary search per tile into one per run.
+		SpatialHashGrid::CellCursor secondary_cursor;
+		SpatialHashGrid::CellCursor primary_cursor;
 		auto fetchRow = [&](int ry, std::vector<CachedRowTile>& row) {
 			row.resize(row_width);
 			for (int x = min_x; x <= max_x; ++x) {
-				const Tile* t = secondary_map ? secondary_map->getTile(x, ry, z) : nullptr;
+				const Tile* t = secondary_map ? secondary_map->getTile(x, ry, z, secondary_cursor) : nullptr;
 				if (!t) {
-					t = map.getTile(x, ry, z);
+					t = map.getTile(x, ry, z, primary_cursor);
 				}
 				CachedRowTile& ct = row[x - min_x];
 				ct.tile = t;
@@ -344,12 +348,14 @@ void ZoneOverlayDrawer::drawFloorBlocking(SpriteBatch& sprite_batch,
 
 	blocking_border_quads_.clear();
 
+	SpatialHashGrid::CellCursor secondary_cursor;
+	SpatialHashGrid::CellCursor primary_cursor;
 	auto fetchRow = [&](int ry, std::vector<uint8_t>& row) {
 		row.resize(row_width);
 		for (int x = min_x; x <= max_x; ++x) {
-			const Tile* t = secondary_map ? secondary_map->getTile(x, ry, z) : nullptr;
+			const Tile* t = secondary_map ? secondary_map->getTile(x, ry, z, secondary_cursor) : nullptr;
 			if (!t) {
-				t = map.getTile(x, ry, z);
+				t = map.getTile(x, ry, z, primary_cursor);
 			}
 			row[x - min_x] = (t && IsTilePathBlocking(t)) ? 1 : 0;
 		}
@@ -438,12 +444,14 @@ void ZoneOverlayDrawer::drawFloorHouses(SpriteBatch& sprite_batch,
 
 	house_border_quads_.clear();
 
+	SpatialHashGrid::CellCursor secondary_cursor;
+	SpatialHashGrid::CellCursor primary_cursor;
 	auto fetchRow = [&](int ry, std::vector<uint32_t>& row) {
 		row.resize(row_width);
 		for (int x = min_x; x <= max_x; ++x) {
-			const Tile* t = secondary_map ? secondary_map->getTile(x, ry, z) : nullptr;
+			const Tile* t = secondary_map ? secondary_map->getTile(x, ry, z, secondary_cursor) : nullptr;
 			if (!t) {
-				t = map.getTile(x, ry, z);
+				t = map.getTile(x, ry, z, primary_cursor);
 			}
 			row[x - min_x] = (t && t->isHouseTile()) ? static_cast<uint32_t>(t->getHouseID()) : 0u;
 		}
@@ -514,11 +522,13 @@ void ZoneOverlayDrawer::drawFloorHighlightItems(SpriteBatch& sprite_batch,
 
 	highlight_quads_.clear();
 
+	SpatialHashGrid::CellCursor secondary_cursor;
+	SpatialHashGrid::CellCursor primary_cursor;
 	for (int y = bounds.start_y; y <= bounds.end_y; ++y) {
 		for (int x = bounds.start_x; x <= bounds.end_x; ++x) {
-			const Tile* t = secondary_map ? secondary_map->getTile(x, y, z) : nullptr;
+			const Tile* t = secondary_map ? secondary_map->getTile(x, y, z, secondary_cursor) : nullptr;
 			if (!t) {
-				t = map.getTile(x, y, z);
+				t = map.getTile(x, y, z, primary_cursor);
 			}
 			if (!t || t->items.empty() || t->items.back()->isBorder()) {
 				continue;
