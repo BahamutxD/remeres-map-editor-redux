@@ -845,10 +845,10 @@ void ChunkCacheManager::recordFrameStats() {
 		return;
 	}
 	const double frames = static_cast<double>(stats_.frames);
-	spdlog::info("[ChunkCacheStats] {} frames | frame ms avg {:.2f} max {:.2f} | bake ms avg {:.3f} max {:.2f} | bakes new {} edit {} anim {} | anim patches {} | draws/frame {:.0f} | instances/frame {:.0f}",
+	spdlog::info("[ChunkCacheStats] {} frames | frame ms avg {:.2f} max {:.2f} | bake ms avg {:.3f} max {:.2f} | bakes new {} edit {} anim {} deferred {} | anim patches {} | draws/frame {:.0f} | instances/frame {:.0f}",
 		stats_.frames, stats_.frame_ms_total / frames, stats_.frame_ms_max,
 		stats_.bake_ms_total / frames, stats_.bake_ms_max,
-		stats_.baked_new, stats_.baked_edit, stats_.baked_anim, stats_.anim_patches,
+		stats_.baked_new, stats_.baked_edit, stats_.baked_anim, stats_.baked_deferred, stats_.anim_patches,
 		static_cast<double>(stats_.draws) / frames, static_cast<double>(stats_.instances) / frames);
 	stats_ = {};
 }
@@ -925,17 +925,23 @@ void ChunkCacheManager::renderFloorTerrain(
 		}
 
 		if (chunk.is_dirty) {
-			const auto bake_start = std::chrono::steady_clock::now();
-			bakeChunk(chunk, map, ctx);
-			frame_bake_ms_ += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - bake_start).count();
-			if (is_new) {
-				++stats_.baked_new;
-			} else if (was_dirty) {
-				++stats_.baked_edit;
+			if (frame_bake_ms_ >= MAX_BAKE_MS_PER_FRAME) {
+				// Budget for this frame is spent; leave the chunk dirty so it bakes
+				// on a following frame instead of stalling this one.
+				++stats_.baked_deferred;
 			} else {
-				++stats_.baked_anim;
+				const auto bake_start = std::chrono::steady_clock::now();
+				bakeChunk(chunk, map, ctx);
+				frame_bake_ms_ += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - bake_start).count();
+				if (is_new) {
+					++stats_.baked_new;
+				} else if (was_dirty) {
+					++stats_.baked_edit;
+				} else {
+					++stats_.baked_anim;
+				}
+				++baked_count;
 			}
-			++baked_count;
 		}
 		chunk.last_accessed_frame = current_frame_;
 

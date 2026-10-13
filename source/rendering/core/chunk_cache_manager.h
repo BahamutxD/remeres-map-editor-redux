@@ -145,6 +145,7 @@ struct ChunkRenderStats {
 	uint32_t baked_new = 0;
 	uint32_t baked_edit = 0;
 	uint32_t baked_anim = 0;
+	uint32_t baked_deferred = 0;
 	uint32_t anim_patches = 0;
 	uint64_t draws = 0;
 	uint64_t instances = 0;
@@ -162,6 +163,11 @@ public:
 	static constexpr int CHUNK_SIZE = 16;
 	static constexpr uint64_t PRUNE_INTERVAL_FRAMES = 120;         // 2.0 seconds at 60 FPS
 	static constexpr int VIEWPORT_MARGIN_CHUNKS = 32;              // 512 tiles
+	// Per-frame bake time budget. A pan or zoom-out can make dozens of chunks
+	// dirty at once; baking them all in one frame caused multi-hundred-ms
+	// hitches. Chunks left over stay dirty and drain on following frames while
+	// keeping their previous VBO content.
+	static constexpr double MAX_BAKE_MS_PER_FRAME = 8.0;
 
 	ChunkCacheManager();
 	~ChunkCacheManager();
