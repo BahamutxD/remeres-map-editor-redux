@@ -205,7 +205,12 @@ void MapLayerDrawer::Draw(SpriteBatch& sprite_batch, int map_z, LiveClient* live
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(GL_LEQUAL);
 		glDepthMask(GL_TRUE);
-		chunk_cache->renderFloorItems(map_z, ctx, view.projectionMatrix, ctx.atlas);
+		// Items are subpixel once zoomed far out. Honor the existing LOD setting (same rule as
+		// the ghosted lower-floor pass) and skip the whole pass; the dynamic overlay pass already
+		// skips animated items at this zoom, so this makes static and animated items consistent.
+		if (view.zoom <= 10.0f || !options.hide_items_when_zoomed) {
+			chunk_cache->renderFloorItems(map_z, ctx, view.projectionMatrix, ctx.atlas);
+		}
 
 		// 6. Dynamic overlay pass: ONLY tiles recorded with dynamic elements!
 		chunk_cache->renderDynamicOverlays(map_z, map, ctx, sprite_batch, *tile_renderer);
