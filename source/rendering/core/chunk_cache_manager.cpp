@@ -924,10 +924,15 @@ void ChunkCacheManager::renderFloorTerrain(
 			frame_bake_ms_ += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - patch_start).count();
 		}
 
+		// On-screen test drives both the bake budget and the draw cull below.
+		const int chunk_screen_x = cx * (CHUNK_SIZE * TILE_SIZE) + static_cast<int>(translation.x);
+		const int chunk_screen_y = cy * (CHUNK_SIZE * TILE_SIZE) + static_cast<int>(translation.y);
+		const bool chunk_visible = ctx.view.IsRectVisible(chunk_screen_x, chunk_screen_y, CHUNK_SIZE * TILE_SIZE, CHUNK_SIZE * TILE_SIZE);
+
 		if (chunk.is_dirty) {
-			if (frame_bake_ms_ >= MAX_BAKE_MS_PER_FRAME) {
-				// Budget for this frame is spent; leave the chunk dirty so it bakes
-				// on a following frame instead of stalling this one.
+			// Never defer an on-screen chunk: leaving it un-baked shows a black hole
+			// while the user pans. Only the off-screen bake-ahead margin is budgeted.
+			if (!chunk_visible && frame_bake_ms_ >= MAX_BAKE_MS_PER_FRAME) {
 				++stats_.baked_deferred;
 			} else {
 				const auto bake_start = std::chrono::steady_clock::now();
@@ -945,12 +950,10 @@ void ChunkCacheManager::renderFloorTerrain(
 		}
 		chunk.last_accessed_frame = current_frame_;
 
-		// Off-screen margin chunks are still baked and kept warm for pan-ahead,
-		// but are not drawn and do not join the active list, so their items and
-		// dynamic overlays are skipped as well.
-		const int chunk_screen_x = cx * (CHUNK_SIZE * TILE_SIZE) + static_cast<int>(translation.x);
-		const int chunk_screen_y = cy * (CHUNK_SIZE * TILE_SIZE) + static_cast<int>(translation.y);
-		if (!ctx.view.IsRectVisible(chunk_screen_x, chunk_screen_y, CHUNK_SIZE * TILE_SIZE, CHUNK_SIZE * TILE_SIZE)) {
+		// Off-screen margin chunks are still kept warm for pan-ahead, but are not
+		// drawn and do not join the active list, so their items and dynamic overlays
+		// are skipped as well.
+		if (!chunk_visible) {
 			return;
 		}
 
