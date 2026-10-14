@@ -438,6 +438,9 @@ void MapCanvas::OnPaint(wxPaintEvent& event) {
 		SwapBuffers();
 	}
 
+	// Close the frame scope explicitly so its sample is folded into the profiler window
+	// that this frame belongs to; endFrame() runs before the scope's destructor.
+	frame_scope.end();
 	rme::prof::endFrame();
 	fps_counter.Update();
 	if (g_settings.getBoolean(Config::SHOW_FPS_COUNTER) && fps_counter.HasChanged()) {

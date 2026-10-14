@@ -10,15 +10,31 @@ from __future__ import annotations
 
 import csv
 import os
+import shutil
 import subprocess
 import sys
 
 import numpy as np
 from PIL import Image, ImageDraw
 
-FFMPEG = r"C:\Users\user\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0-full_build\bin\ffmpeg.exe"
+# Last-resort location used only when ffmpeg is neither on PATH nor given via RME_FFMPEG.
+_FALLBACK_FFMPEG = r"C:\Users\user\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0-full_build\bin\ffmpeg.exe"
 FPS = 15
 SCALE_W = 960
+
+
+def _resolve_ffmpeg() -> str:
+    """Find ffmpeg: RME_FFMPEG env var first, then PATH, then a known winget location."""
+    candidate = os.environ.get("RME_FFMPEG", "")
+    if candidate and (shutil.which(candidate) or os.path.isfile(candidate)):
+        return candidate
+    found = shutil.which("ffmpeg")
+    if found:
+        return found
+    return _FALLBACK_FFMPEG
+
+
+FFMPEG = _resolve_ffmpeg()
 
 
 def run(cmd: list[str]) -> None:
@@ -61,8 +77,15 @@ def metrics(frames_dir: str) -> list[dict]:
 
 def contact_sheet(frames_dir: str, rows: list[dict], out: str, cols: int = 8, rows_n: int = 6) -> None:
     count = cols * rows_n
-    step = max(1, len(rows) // count)
-    picks = [rows[i] for i in range(0, len(rows), step)][:count]
+    n = len(rows)
+    if n <= count:
+        picks = list(rows)
+    else:
+        # Stratified picks over the whole session (floor(i * n / count) is strictly
+        # increasing for i in [0, count)), plus the final frame, so a session slightly
+        # longer than the sheet never loses its tail.
+        indices = sorted({(i * n) // count for i in range(count)} | {n - 1})
+        picks = [rows[i] for i in indices]
     cell_w, cell_h = 232, 132
     sheet = Image.new("RGB", (cols * cell_w, rows_n * (cell_h + 14)), (12, 12, 16))
     draw = ImageDraw.Draw(sheet)
@@ -78,8 +101,12 @@ def contact_sheet(frames_dir: str, rows: list[dict], out: str, cols: int = 8, ro
 
 
 def full_frame(video: str, index: int, out: str) -> None:
-    run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-i", video,
-         "-vf", f"select='eq(n\\,{index})'", "-frames:v", "1", "-q:v", "2", out])
+    # metrics() frames come from an fps=FPS re-encode, so sampled frame `index` sits at
+    # index / FPS seconds in the source; sample the original video by that timestamp
+    # instead of by the original stream's frame index (which is a different frame rate).
+    timestamp = index / FPS
+    run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-ss", f"{timestamp:.3f}", "-i", video,
+         "-frames:v", "1", "-q:v", "2", out])
 
 
 def main() -> None:
@@ -88,6 +115,9 @@ def main() -> None:
     frames_dir = os.path.join(work, "frames")
     extract(video, frames_dir)
     rows = metrics(frames_dir)
+    if not rows:
+        print(f"no analyzable frames: ffmpeg produced no decodable frames from {video}", file=sys.stderr)
+        return 1
     print(f"frames: {len(rows)}")
     with open(os.path.join(work, "video_metrics.csv"), "w", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))

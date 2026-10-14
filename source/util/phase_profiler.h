@@ -24,6 +24,7 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
+#include <format>
 #include <numeric>
 #include <string>
 #include <string_view>
@@ -120,13 +121,21 @@ namespace rme::prof {
 		}
 
 		~Scope() {
-			if (on_) {
-				add(phase_, std::chrono::duration<double, std::milli>(Clock::now() - start_).count());
-			}
+			end();
 		}
 
 		Scope(const Scope&) = delete;
 		Scope& operator=(const Scope&) = delete;
+
+		// Closes the scope early with the same recording the destructor performs, so its
+		// sample lands before code that folds the profiler window (endFrame) instead of
+		// leaking the leftover time into the next window.
+		void end() noexcept {
+			if (on_) {
+				add(phase_, std::chrono::duration<double, std::milli>(Clock::now() - start_).count());
+				on_ = false;
+			}
+		}
 
 	private:
 		using Clock = std::chrono::steady_clock;

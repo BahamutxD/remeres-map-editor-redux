@@ -307,6 +307,15 @@ std::shared_ptr<std::vector<uint8_t>> SpriteArchive::decodeSheetPixels(const std
 	for (uint8_t byte_index = 0; byte_index < 4; ++byte_index) {
 		dictionary_size += static_cast<uint32_t>(buffer[position++]) << (byte_index * 8);
 	}
+	// The dictionary size comes from the sheet header, so a crafted sheet could request an
+	// arbitrarily large allocation (eight concurrent sheet decoders make the worst case worse).
+	// Real client sheets compress a few hundred KB with well under 1 MB of dictionary; anything
+	// larger cannot be a legitimate sprite sheet.
+	constexpr uint32_t kMaxLzmaDictSize = 64u * 1024u * 1024u;
+	if (dictionary_size > kMaxLzmaDictSize) {
+		spdlog::error("SpriteArchive: protobuf sprite sheet {} requests a {} byte LZMA dictionary, rejecting it", path, dictionary_size);
+		return nullptr;
+	}
 	options.dict_size = dictionary_size;
 
 	position += 8; // Skip compressed-size field.
@@ -431,7 +440,16 @@ bool SpriteArchive::readProtobufRgba(uint32_t sprite_id, std::unique_ptr<uint8_t
 	}
 
 	if (own_decode) {
-		auto decoded = decodeSheetPixels(sheet_path);
+		std::shared_ptr<std::vector<uint8_t>> decoded;
+		try {
+			decoded = decodeSheetPixels(sheet_path);
+		} catch (const std::exception& e) {
+			// A decode that throws must be treated like a failed decode: clearing the cached
+			// future (below) is what lets a later call decode the sheet again. Leaving
+			// decode_future set would make waiters keep failing on a broken promise forever.
+			spdlog::warn("SpriteArchive: decoding sheet {} failed: {}", sheet_path, e.what());
+			decoded.reset();
+		}
 		{
 			std::lock_guard<std::mutex> lock(protobuf_mutex_);
 			auto& sheet = protobuf_sheets_[static_cast<size_t>(sheet_index)];

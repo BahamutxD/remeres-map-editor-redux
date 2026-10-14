@@ -66,19 +66,34 @@ public:
 	int getFrame(long elapsed_time = -1);
 	void setFrame(int frame);
 
-	// Average time one frame of this animation is shown, i.e. how often the sprite's image
-	// actually changes. Zero when the animation has no usable duration.
+	// Shortest time any frame of this animation can be on screen, i.e. the repaint cadence at
+	// which no animation frame can be skipped. Zero when the animation has no usable duration.
 	[[nodiscard]] int getFrameStepMs() const {
 		if (frame_count <= 0) {
 			return 0;
 		}
-		int total = total_duration;
-		if (total <= 0) {
-			for (const auto& entry : durations) {
-				total += entry.max;
+		// A frame is shown for uniform_random(min, max) ms, so pacing at the mean duration can
+		// land every repaint outside a shorter frame's window and skip it forever (phase offset
+		// between the wall clock and the animation cycle). Pacing at the shortest minimum shows
+		// every frame; the 60 Hz floor keeps a pathological tiny duration from spinning the
+		// repaint loop far above its useful rate.
+		int shortest = 0;
+		for (const auto& entry : durations) {
+			if (entry.min > 0 && (shortest == 0 || entry.min < shortest)) {
+				shortest = entry.min;
 			}
 		}
-		return total > 0 ? std::max(1, total / frame_count) : 0;
+		if (shortest == 0) {
+			// No positive minima available: fall back to the running mean.
+			int total = total_duration;
+			if (total <= 0) {
+				for (const auto& entry : durations) {
+					total += entry.max;
+				}
+			}
+			return total > 0 ? std::max(1, total / frame_count) : 0;
+		}
+		return std::max(16, shortest);
 	}
 
 	void reset();

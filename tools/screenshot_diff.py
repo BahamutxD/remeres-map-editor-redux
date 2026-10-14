@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """Pixel-by-pixel screenshot comparison for renderer parity checks.
 
 Usage:
@@ -29,11 +29,16 @@ def compare(before: str, after: str, tolerance: int, diff_out: str | None) -> tu
 
     # A pixel differs when any channel exceeds tolerance. Collapse the
     # per-channel difference to a single mask via lighter().
-    if tolerance > 0:
-        diff = diff.point(lambda v: 0 if v <= tolerance else v)
     r, g, b = diff.split()
-    gray = ImageChops.lighter(ImageChops.lighter(r, g), b)
-    differing = total - gray.histogram()[0]
+    gray_raw = ImageChops.lighter(ImageChops.lighter(r, g), b)
+
+    if tolerance > 0:
+        # The tolerance filter only decides WHICH pixels count as differing; the delta
+        # statistics below must describe the unfiltered difference, not the filtered one.
+        mask = gray_raw.point(lambda v: 255 if v > tolerance else 0)
+        differing = total - mask.histogram()[0]
+    else:
+        differing = total - gray_raw.histogram()[0]
 
     extrema = diff.getextrema()
     max_delta = max(mx for _, mx in extrema)

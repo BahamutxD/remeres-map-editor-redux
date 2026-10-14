@@ -932,11 +932,21 @@ void ChunkCacheManager::recordFrameStats() {
 		return;
 	}
 	const double frames = static_cast<double>(stats_.frames);
-	spdlog::info("[ChunkCacheStats] {} frames | frame ms avg {:.2f} max {:.2f} | bake ms avg {:.3f} max {:.2f} | bakes new {} edit {} anim {} deferred {} | anim patches {} | draws/frame {:.0f} | instances/frame {:.0f}",
-		stats_.frames, stats_.frame_ms_total / frames, stats_.frame_ms_max,
-		stats_.bake_ms_total / frames, stats_.bake_ms_max,
-		stats_.baked_new, stats_.baked_edit, stats_.baked_anim, stats_.baked_deferred, stats_.anim_patches,
-		static_cast<double>(stats_.draws) / frames, static_cast<double>(stats_.instances) / frames);
+	if (rme::prof::enabled()) {
+		spdlog::info("[ChunkCacheStats] {} frames | frame ms avg {:.2f} max {:.2f} | bake ms avg {:.3f} max {:.2f} | bakes new {} edit {} anim {} deferred {} | anim patches {} | draws/frame {:.0f} | instances/frame {:.0f}",
+			stats_.frames, stats_.frame_ms_total / frames, stats_.frame_ms_max,
+			stats_.bake_ms_total / frames, stats_.bake_ms_max,
+			stats_.baked_new, stats_.baked_edit, stats_.baked_anim, stats_.baked_deferred, stats_.anim_patches,
+			static_cast<double>(stats_.draws) / frames, static_cast<double>(stats_.instances) / frames);
+	} else {
+		// Not profiling: the same numbers are still useful when debugging (debug level) but
+		// must not write a log line every 2 s in a user's normal session.
+		spdlog::debug("[ChunkCacheStats] {} frames | frame ms avg {:.2f} max {:.2f} | bake ms avg {:.3f} max {:.2f} | bakes new {} edit {} anim {} deferred {} | anim patches {} | draws/frame {:.0f} | instances/frame {:.0f}",
+			stats_.frames, stats_.frame_ms_total / frames, stats_.frame_ms_max,
+			stats_.bake_ms_total / frames, stats_.bake_ms_max,
+			stats_.baked_new, stats_.baked_edit, stats_.baked_anim, stats_.baked_deferred, stats_.anim_patches,
+			static_cast<double>(stats_.draws) / frames, static_cast<double>(stats_.instances) / frames);
+	}
 	stats_ = {};
 }
 
@@ -1206,8 +1216,14 @@ void ChunkCacheManager::renderFloorItems(
 
 	{
 		rme::prof::Scope items_scope(rme::prof::Phase::ItemDraw);
+		// Far-zoom gating is per chunk. Chunks baked without items hold only the town/waypoint/
+		// house-exit indicators and creature instances in their item range, which must stay
+		// visible at every zoom; only a chunk still carrying baked items (its re-bake at this
+		// zoom is pending) keeps the range suppressed so stale subpixel items never appear.
+		const bool item_range_visible = !(ctx.view.zoom > 10.0f && ctx.options.hide_items_when_zoomed);
 		for (const CachedChunk* chunk_ptr : active_visible_chunks_) {
-			if (!chunk_ptr || chunk_ptr->is_empty || chunk_ptr->item_instance_count == 0 || chunk_ptr->vbo == 0) {
+			if (!chunk_ptr || chunk_ptr->is_empty || chunk_ptr->item_instance_count == 0 || chunk_ptr->vbo == 0
+				|| (!item_range_visible && chunk_ptr->baked_with_items)) {
 				continue;
 			}
 
