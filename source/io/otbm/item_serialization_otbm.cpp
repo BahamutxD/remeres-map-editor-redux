@@ -100,23 +100,17 @@ bool ItemSerializationOTBM::readAttribute(const IOMap& maphandle, OTBM_ItemAttri
 				return false;
 			}
 
-			// Compatibility: some legacy editors (e.g. Remere's Map Editor 3.8.0
-			// and older) write the item count/subtype as a 2-byte little-endian
-			// value instead of the standard single byte. If that padding byte
-			// is left unread, every attribute that follows becomes misaligned
-			// and the item is silently dropped on the next save.
-			//
-			// Auto-detect this regardless of the LEGACY_ITEM_COUNT_FORMAT
-			// setting (that setting only controls what *we* write): peek at
-			// the next byte in the node. Attribute tags (OTBM_ItemAttribute)
-			// are never 0, so a literal 0x00 here can only be the high byte
-			// of a legacy uint16 count/subtype (real subtypes are always
-			// <= 255) and is safe to consume.
+			// Some editors and servers (e.g. Remere's Map Editor 3.8.0) store
+			// the count as a 2-byte little-endian value. Attribute tags are
+			// never 0, so a 0x00 right after the low byte can only be the high
+			// byte of such a count: consume it and remember that this map uses
+			// the 2-byte format, so saving writes it back the same way.
 			auto raw = stream->rawData();
 			size_t offset = stream->getReadOffset();
 			if (offset < raw.size() && static_cast<uint8_t>(raw[offset]) == 0x00) {
 				uint8_t highByte;
-				stream->getU8(highByte); // always 0, just consume the padding
+				stream->getU8(highByte);
+				maphandle.detected_wide_item_count.store(true, std::memory_order_relaxed);
 			}
 
 			item.setSubtype(subtype);
@@ -343,12 +337,11 @@ bool ItemSerializationOTBM::readAttribute(const IOMap& maphandle, OTBM_ItemAttri
 			if (!stream.getU8(subtype)) {
 				return false;
 			}
-			// Legacy 2-byte count/subtype compatibility (see the BinaryNode
-			// overload above): attribute tags are never 0, so a 0x00 here is
-			// the high byte of a legacy uint16 count and must be consumed.
+			// 2-byte count (see the BinaryNode overload above).
 			if (stream.remaining() > 0 && stream.peekByte() == 0x00) {
 				uint8_t highByte;
 				stream.getU8(highByte);
+				maphandle.detected_wide_item_count.store(true, std::memory_order_relaxed);
 			}
 			item.setSubtype(subtype);
 			break;
@@ -518,11 +511,11 @@ void ItemSerializationOTBM::serializeItemAttributes(const IOMap& maphandle, Node
 		const auto iType = item.getDefinition();
 		if (iType.hasFlag(ItemFlag::Stackable) || iType.isSplash() || iType.isFluidContainer()) {
 			f.addU8(OTBM_ATTR_COUNT);
-			// Standard OTBM writes this as 1 byte. Some legacy editors
-			// (e.g. Remere's Map Editor 3.8.0) instead expect 2 bytes;
-			// enable Config::LEGACY_ITEM_COUNT_FORMAT for compatibility
-			// with maps that will still be opened in such an editor.
-			if (g_settings.getBoolean(Config::LEGACY_ITEM_COUNT_FORMAT)) {
+			// Write the count in the same width the map was loaded with, so a
+			// map from a 2-byte-count editor/server stays readable by them.
+			// The setting forces 2 bytes for maps that weren't detected
+			// (new maps, or maps already re-saved in the 1-byte format).
+			if (maphandle.version.wide_item_count || g_settings.getBoolean(Config::LEGACY_ITEM_COUNT_FORMAT)) {
 				f.addU16(static_cast<uint16_t>(item.getSubtype()));
 			} else {
 				f.addU8(item.getSubtype());
