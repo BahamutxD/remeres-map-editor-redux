@@ -12,6 +12,7 @@
 #include <wx/textctrl.h>
 #include <wx/dataview.h>
 #include <wx/bitmap.h>
+#include <wx/icon.h>
 #include "brushes/brush.h"
 #include <wx/tglbtn.h>
 #include <wx/timer.h>
@@ -68,8 +69,8 @@ protected:
 	wxButton* edit_button;
 	wxButton* remove_button;
 
-	wxBitmap guild_icon;
-	wxBitmap no_guild_icon;
+	wxIcon guild_icon;
+	wxIcon no_guild_icon;
 };
 
 #endif

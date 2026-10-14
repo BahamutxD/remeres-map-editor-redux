@@ -11,10 +11,14 @@
 #include "game/town.h"
 #include "ui/gui.h"
 #include "ui/dialog_util.h"
+#include "util/image_manager.h"
 
 #include "brushes/managers/brush_manager.h"
 #include "brushes/house/house_brush.h"
 #include "brushes/house/house_exit_brush.h"
+
+#include <wx/dcclient.h>
+#include <wx/stattext.h>
 
 #include <algorithm>
 
@@ -36,14 +40,17 @@ HousePalette::HousePalette(wxWindow* parent) :
 	wxBoxSizer* main_sizer = newd wxBoxSizer(wxVERTICAL);
 
 	// Header section (Town & Search)
-	wxStaticBoxSizer* filter_sizer = newd wxStaticBoxSizer(wxVERTICAL, this, "Filter / Search");
+	wxBoxSizer* filter_sizer = newd wxBoxSizer(wxVERTICAL);
 
-	town_choice = newd wxChoice(filter_sizer->GetStaticBox(), ID_TOWN_CHOICE);
-	filter_sizer->Add(town_choice, 0, wxEXPAND | wxALL, 2);
+	wxBoxSizer* town_row = newd wxBoxSizer(wxHORIZONTAL);
+	town_row->Add(newd wxStaticText(this, wxID_ANY, "Town:"), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 4);
+	town_choice = newd wxChoice(this, ID_TOWN_CHOICE);
+	town_row->Add(town_choice, 1, wxEXPAND);
+	filter_sizer->Add(town_row, 0, wxEXPAND | wxBOTTOM, 4);
 
-	search_ctrl = newd wxTextCtrl(filter_sizer->GetStaticBox(), ID_SEARCH_CTRL, "", wxDefaultPosition, wxDefaultSize, 0);
+	search_ctrl = newd wxTextCtrl(this, ID_SEARCH_CTRL, "", wxDefaultPosition, wxDefaultSize, 0);
 	search_ctrl->SetHint("Search houses...");
-	filter_sizer->Add(search_ctrl, 0, wxEXPAND | wxALL, 2);
+	filter_sizer->Add(search_ctrl, 0, wxEXPAND);
 
 	main_sizer->Add(filter_sizer, 0, wxEXPAND | wxALL, 5);
 
@@ -53,6 +60,7 @@ HousePalette::HousePalette(wxWindow* parent) :
 	house_list->AppendTextColumn("ID", wxDATAVIEW_CELL_INERT, 40, wxALIGN_LEFT, wxDATAVIEW_COL_SORTABLE | wxDATAVIEW_COL_RESIZABLE);
 	house_list->AppendTextColumn("Name", wxDATAVIEW_CELL_INERT, 120, wxALIGN_LEFT, wxDATAVIEW_COL_SORTABLE | wxDATAVIEW_COL_RESIZABLE);
 	house_list->AppendTextColumn("Rent", wxDATAVIEW_CELL_INERT, 60, wxALIGN_LEFT, wxDATAVIEW_COL_SORTABLE | wxDATAVIEW_COL_RESIZABLE);
+	house_list->AppendTextColumn("Size", wxDATAVIEW_CELL_INERT, 50, wxALIGN_LEFT, wxDATAVIEW_COL_SORTABLE | wxDATAVIEW_COL_RESIZABLE);
 
 	main_sizer->Add(house_list, 1, wxEXPAND | wxLEFT | wxRIGHT, 5);
 
@@ -69,38 +77,31 @@ HousePalette::HousePalette(wxWindow* parent) :
 	main_sizer->Add(action_sizer, 0, wxEXPAND | wxALL, 5);
 
 	// Brush buttons (House tiles, Select Exit)
-	wxStaticBoxSizer* brush_sizer = newd wxStaticBoxSizer(wxVERTICAL, this, "Brushes");
+	wxBoxSizer* brush_sizer = newd wxBoxSizer(wxHORIZONTAL);
 
-	house_brush_button = newd wxToggleButton(brush_sizer->GetStaticBox(), ID_HOUSE_BRUSH, "House tiles");
-	select_exit_button = newd wxToggleButton(brush_sizer->GetStaticBox(), ID_EXIT_BRUSH, "Select Exit");
+	house_brush_button = newd wxToggleButton(this, ID_HOUSE_BRUSH, "House tiles");
+	select_exit_button = newd wxToggleButton(this, ID_EXIT_BRUSH, "Select Exit");
 
-	brush_sizer->Add(house_brush_button, 0, wxEXPAND | wxBOTTOM, 2);
-	brush_sizer->Add(select_exit_button, 0, wxEXPAND);
+	brush_sizer->Add(house_brush_button, 1, wxEXPAND | wxRIGHT, 2);
+	brush_sizer->Add(select_exit_button, 1, wxEXPAND);
 
-	main_sizer->Add(brush_sizer, 0, wxEXPAND | wxALL, 5);
+	main_sizer->Add(brush_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 5);
 
 	SetSizer(main_sizer);
 
-	// Initialize icons
-	guild_icon = wxBitmap(16, 16);
-	{
+	// Initialize icons from the standard SVG asset pipeline
+	guild_icon = wxIcon();
+	guild_icon.CopyFromBitmap(IMAGE_MANAGER.GetBitmap(ICON_HOUSE_USER, wxSize(16, 16)));
+	no_guild_icon = wxIcon();
+	no_guild_icon.CopyFromBitmap([] {
+		wxBitmap empty(16, 16);
 		wxMemoryDC dc;
-		dc.SelectObject(guild_icon);
-		dc.SetBackground(*wxTRANSPARENT_BRUSH);
-		dc.Clear();
-		dc.SetPen(*wxGREEN_PEN);
-		dc.SetBrush(*wxGREEN_BRUSH);
-		dc.DrawCircle(8, 8, 6);
-		dc.SelectObject(wxNullBitmap);
-	}
-	no_guild_icon = wxBitmap(16, 16);
-	{
-		wxMemoryDC dc;
-		dc.SelectObject(no_guild_icon);
+		dc.SelectObject(empty);
 		dc.SetBackground(*wxTRANSPARENT_BRUSH);
 		dc.Clear();
 		dc.SelectObject(wxNullBitmap);
-	}
+		return empty;
+	}());
 
 	search_ctrl->Bind(wxEVT_CHAR_HOOK, &HousePalette::OnSearchCharHook, this);
 
@@ -189,16 +190,13 @@ void HousePalette::FilterHouses() {
 
 		if (search_match && town_match) {
 			wxVector<wxVariant> data;
-			wxIcon icon;
-			icon.CopyFromBitmap(house->guildhall ? guild_icon : no_guild_icon);
-			data.push_back(wxVariant(wxDataViewIconText("", icon)));
+			data.push_back(wxVariant(wxDataViewIconText("", house->guildhall ? guild_icon : no_guild_icon)));
 			data.push_back(wxVariant(wxstr(std::to_string(house->getID()))));
 			data.push_back(wxVariant(wxstr(house->name)));
 			data.push_back(wxVariant(wxstr(std::to_string(house->rent))));
+			data.push_back(wxVariant(wxstr(std::to_string(house->size()))));
 
-			// Store pointer to house as client data if possible?
-			// wxDataViewListCtrl doesn't directly store client data per row easily like wxListBox.
-			// We can use the ID to find it.
+			// Store the house pointer as row data; wxDataViewListCtrl supports it.
 			house_list->AppendItem(data, (wxUIntPtr)house);
 		}
 	}
