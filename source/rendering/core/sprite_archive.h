@@ -55,6 +55,9 @@ private:
 		std::string path;
 		mutable std::shared_ptr<std::vector<uint8_t>> decoded_pixels;
 		mutable uint64_t last_access_tick = 0;
+		// Set while one thread is decoding this sheet, so concurrent requests wait for that
+		// decode instead of each running their own (LZMA over the whole sheet is expensive).
+		mutable std::shared_future<std::shared_ptr<std::vector<uint8_t>>> decode_future;
 
 		void releaseDecodedPixels() const {
 			decoded_pixels.reset();

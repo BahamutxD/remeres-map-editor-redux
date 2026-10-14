@@ -16,6 +16,8 @@
 #include <span>
 #include <utility>
 #include <lzma.h>
+#include <future>
+#include <exception>
 
 namespace {
 	constexpr uint32_t kLegacySpriteDataOffset = 3;
@@ -396,13 +398,18 @@ bool SpriteArchive::readProtobufRgba(uint32_t sprite_id, std::unique_ptr<uint8_t
 	}
 
 	// The decoded sheet is immutable once built, so a local shared_ptr keeps it alive for
-	// this call even if the cache evicts it meanwhile. Holding the lock only for cache
-	// bookkeeping lets the preloader's workers decode different sheets in parallel; the
-	// decode itself is done outside the lock.
+	// this call even if the cache evicts it meanwhile. The lock only guards cache bookkeeping;
+	// decoding happens outside it so workers decode different sheets concurrently, and a sheet
+	// that several workers miss at once is decoded by exactly one of them.
 	std::shared_ptr<std::vector<uint8_t>> pixels;
 	uint32_t sheet_first_id = 0;
 	ProtobufSpriteLayout sheet_layout = ProtobufSpriteLayout::OneByOne;
 	std::string sheet_path;
+	bool own_decode = false;
+	std::shared_future<std::shared_ptr<std::vector<uint8_t>>> pending_decode;
+	// Only allocated when this call is the one that decodes: std::promise creates its shared
+	// state eagerly, and this is the per-sprite path.
+	std::unique_ptr<std::promise<std::shared_ptr<std::vector<uint8_t>>>> own_promise;
 	{
 		std::lock_guard<std::mutex> lock(protobuf_mutex_);
 		auto& sheet = protobuf_sheets_[static_cast<size_t>(sheet_index)];
@@ -413,24 +420,45 @@ bool SpriteArchive::readProtobufRgba(uint32_t sprite_id, std::unique_ptr<uint8_t
 		if (pixels) {
 			sheet.last_access_tick = ++protobuf_sheet_access_tick_;
 			pruneDecodedSheetCache(sheet_index);
+		} else if (sheet.decode_future.valid()) {
+			pending_decode = sheet.decode_future;
+		} else {
+			own_promise = std::make_unique<std::promise<std::shared_ptr<std::vector<uint8_t>>>>();
+			pending_decode = own_promise->get_future().share();
+			sheet.decode_future = pending_decode;
+			own_decode = true;
+		}
+	}
+
+	if (own_decode) {
+		auto decoded = decodeSheetPixels(sheet_path);
+		{
+			std::lock_guard<std::mutex> lock(protobuf_mutex_);
+			auto& sheet = protobuf_sheets_[static_cast<size_t>(sheet_index)];
+			if (decoded) {
+				sheet.decoded_pixels = std::move(decoded);
+				++decoded_sheet_count_;
+			}
+			// Cleared whether or not the decode worked, so a failed sheet can be retried.
+			sheet.decode_future = {};
+			pixels = sheet.decoded_pixels;
+			if (pixels) {
+				sheet.last_access_tick = ++protobuf_sheet_access_tick_;
+				pruneDecodedSheetCache(sheet_index);
+			}
+		}
+		own_promise->set_value(pixels);
+	} else if (pending_decode.valid()) {
+		try {
+			pixels = pending_decode.get();
+		} catch (const std::exception& e) {
+			spdlog::warn("SpriteArchive: waiting for sheet {} failed: {}", sheet_path, e.what());
+			pixels.reset();
 		}
 	}
 
 	if (!pixels) {
-		auto decoded = decodeSheetPixels(sheet_path);
-		if (!decoded) {
-			return false;
-		}
-
-		std::lock_guard<std::mutex> lock(protobuf_mutex_);
-		auto& sheet = protobuf_sheets_[static_cast<size_t>(sheet_index)];
-		if (!sheet.decoded_pixels) {
-			sheet.decoded_pixels = std::move(decoded);
-			++decoded_sheet_count_;
-		}
-		pixels = sheet.decoded_pixels;
-		sheet.last_access_tick = ++protobuf_sheet_access_tick_;
-		pruneDecodedSheetCache(sheet_index);
+		return false;
 	}
 
 	const auto [source_width, source_height] = protobufSourceDimensions(sheet_layout);
