@@ -79,8 +79,11 @@ public:
 		// repaint loop far above its useful rate.
 		int shortest = 0;
 		for (const auto& entry : durations) {
-			if (entry.min > 0 && (shortest == 0 || entry.min < shortest)) {
-				shortest = entry.min;
+			// A zero minimum means the frame can roll a near-instant display, so it still
+			// needs fast repaints; its maximum is the best available estimate for it.
+			const int candidate = entry.min > 0 ? entry.min : entry.max;
+			if (candidate > 0 && (shortest == 0 || candidate < shortest)) {
+				shortest = candidate;
 			}
 		}
 		if (shortest == 0) {
