@@ -156,6 +156,10 @@ public:
 	[[nodiscard]] uint32_t VisibleAnimationStepMs() const {
 		return chunk_cache_manager.visibleAnimationStepMs();
 	}
+	// Whether the last frame drew chunks that were still waiting for sprites.
+	[[nodiscard]] bool HasIncompleteChunks() const {
+		return chunk_cache_manager.hasIncompleteChunks();
+	}
 	const RenderView& getView() const {
 		return view;
 	}

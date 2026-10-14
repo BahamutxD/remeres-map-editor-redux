@@ -63,7 +63,9 @@ struct CachedChunk {
 	// Bounded retries: a sprite that can never be loaded must not cause an endless re-bake
 	// loop, and the last attempt is allowed to load inline so no sprite can stay missing.
 	uint32_t rebake_attempts = 0;
-	uint64_t rebake_at_frame = 0;
+	// Steady-clock deadline for the next retry. Time based, not frame based, so the recovery
+	// does not depend on the repaint cadence.
+	uint64_t rebake_at_ms = 0;
 	bool force_load = false;
 	// Average duration of one frame of the creature's sprite animation in the chunk, or 0
 	// when the chunk holds no creature. Creatures animate, so a visible chunk that has one
@@ -109,7 +111,7 @@ struct CachedChunk {
 		baked_with_items(other.baked_with_items),
 		is_complete(other.is_complete),
 		rebake_attempts(other.rebake_attempts),
-		rebake_at_frame(other.rebake_at_frame),
+		rebake_at_ms(other.rebake_at_ms),
 		force_load(other.force_load),
 		creature_animation_step_ms(other.creature_animation_step_ms),
 		animated_sprites(std::move(other.animated_sprites)),
@@ -141,7 +143,7 @@ struct CachedChunk {
 			baked_with_items = other.baked_with_items;
 			is_complete = other.is_complete;
 			rebake_attempts = other.rebake_attempts;
-			rebake_at_frame = other.rebake_at_frame;
+			rebake_at_ms = other.rebake_at_ms;
 			force_load = other.force_load;
 			creature_animation_step_ms = other.creature_animation_step_ms;
 			animated_sprites = std::move(other.animated_sprites);
@@ -198,9 +200,26 @@ public:
 	// A chunk whose bake skipped not-yet-loaded sprites is retried this many times, then one
 	// final bake with inline loading is allowed so a sprite can never stay missing.
 	static constexpr uint32_t MAX_INCOMPLETE_REBAKES = 2;
-	// Frames to wait before retrying an incomplete chunk, so the preloader's workers have had
-	// time to decode the sprites it asked for.
-	static constexpr uint64_t INCOMPLETE_REBAKE_DELAY_FRAMES = 4;
+	// Milliseconds to wait before retrying an incomplete chunk: enough for the preloader's
+	// workers to decode the sheets they were asked for, and independent of the frame rate so
+	// the hole cannot linger when the editor is repainting slowly (or not at all).
+	static constexpr uint64_t INCOMPLETE_REBAKE_DELAY_MS = 60;
+	// Budget for finishing the chunks that ended a bake incomplete, applied once per frame before
+	// anything is drawn: base plus a per-chunk allowance, capped. The loop stops as soon as the
+	// preloader has no work left, so a pan (one or two new chunks) costs almost nothing while a
+	// relocation or a map load pays what the sprites actually need.
+	static constexpr uint64_t INCOMPLETE_DRAIN_BASE_MS = 12;
+	static constexpr uint64_t INCOMPLETE_DRAIN_PER_CHUNK_MS = 4;
+	static constexpr uint64_t INCOMPLETE_DRAIN_CAP_MS = 220;
+	// More incomplete visible chunks than this in one frame means a whole screen of new content
+	// arrived at once (a relocation, or the first frame of a map) rather than a pan revealing a
+	// couple of chunks, and is handled as a burst.
+	static constexpr size_t INCOMPLETE_BURST_CHUNKS = 8;
+	// On the first frame of a freshly opened map every visible chunk is new and their sprites are
+	// the ones a player would see first: it is worth a short loading pause to have the map appear
+	// complete (instead of filling in, most visibly on water and its borders) - the same work the
+	// editor used to do inline, but once and without flicker.
+	static constexpr uint64_t COLD_START_DRAIN_CAP_MS = 3000;
 
 	ChunkCacheManager();
 	~ChunkCacheManager();
@@ -299,9 +318,26 @@ public:
 		return visible_animation_step_ms_;
 	}
 
+	// Advances the graphics clock every frame and drains the preloader. Called from the canvas.
+	[[nodiscard]] static uint64_t steadyNowMs() noexcept {
+		return static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count());
+	}
+
+	// True after a frame that drew chunks still waiting for sprites. The canvas then keeps the
+	// repaint loop alive so the retry can re-bake them even when nothing animates.
+	[[nodiscard]] bool hasIncompleteChunks() const noexcept {
+		return incomplete_chunks_ != 0;
+	}
+
 private:
 	void bakeChunk(CachedChunk& chunk, const Map& map, const RenderFrameContext& ctx, bool allow_upload);
 
+	uint32_t incomplete_chunks_ = 0;
+	// Set by advanceFrame: true when the cache was empty at the start of this frame, i.e. the
+	// first frame of a freshly opened map.
+	bool cold_start_frame_ = false;
+	// Visible chunks whose last bake skipped not-yet-loaded sprites; finished after the bake pass.
+	std::vector<CachedChunk*> incomplete_visible_;
 	uint32_t visible_animation_step_ms_ = 0;
 	void uploadChunk(CachedChunk& chunk, const std::vector<TileInstance>& instances);
 	// Returns false when the chunk needs a full re-bake instead.

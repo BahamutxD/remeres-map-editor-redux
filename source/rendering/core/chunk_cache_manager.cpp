@@ -23,12 +23,14 @@
 #include "rendering/utilities/pattern_calculator.h"
 #include "rendering/core/sprite_preloader.h"
 #include "util/phase_profiler.h"
+#include <thread>
 #include "rendering/shaders/chunk_shader.h"
 #include "rendering/indicators/technical_item_registry.h"
 #include "rendering/core/render_depth.h"
 #include <spdlog/spdlog.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 
 namespace {
@@ -810,7 +812,7 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 	if (skipped && !allow_upload) {
 		chunk.is_complete = false;
 		chunk.rebake_attempts = std::min(chunk.rebake_attempts + 1, MAX_INCOMPLETE_REBAKES);
-		chunk.rebake_at_frame = current_frame_ + INCOMPLETE_REBAKE_DELAY_FRAMES;
+		chunk.rebake_at_ms = steadyNowMs() + INCOMPLETE_REBAKE_DELAY_MS;
 	} else {
 		// Complete, or baked with loading allowed: nothing is left to wait for.
 		chunk.is_complete = true;
@@ -914,6 +916,8 @@ void ChunkCacheManager::advanceFrame(int current_floor) {
 	recordFrameStats();
 	// Recomputed by the floors rendered this frame (see renderFloorTerrain).
 	visible_animation_step_ms_ = 0;
+	incomplete_chunks_ = 0;
+	cold_start_frame_ = cached_chunks_.empty();
 	++current_frame_;
 	if (current_frame_ % PRUNE_INTERVAL_FRAMES == 0) {
 		prune(current_floor);
@@ -969,6 +973,17 @@ void ChunkCacheManager::renderFloorTerrain(
 
 	// Sparse Query: Touches ONLY populated chunks on map_z!
 	const bool profile_enabled = rme::prof::enabled();
+	incomplete_visible_.clear();
+	auto drawChunk = [&](CachedChunk& chunk) {
+		if (chunk.is_empty || chunk.terrain_instance_count == 0 || chunk.vbo == 0) {
+			return;
+		}
+		rme::prof::Scope draw_scope(rme::prof::Phase::TerrainDraw);
+		glVertexArrayVertexBuffer(vao_, 1, chunk.vbo, 0, sizeof(TileInstance));
+		glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr, static_cast<GLsizei>(chunk.terrain_instance_count));
+		++rendered_chunk_count;
+		rendered_instance_count += chunk.terrain_instance_count;
+	};
 	const auto query_start = std::chrono::steady_clock::now();
 	map.visitPopulatedChunks(min_cx, min_cy, max_cx, max_cy, map_z, [&](int cx, int cy) {
 		const ChunkCoord coord{ cx, cy, map_z };
@@ -1007,7 +1022,7 @@ void ChunkCacheManager::renderFloorTerrain(
 			if (chunk.rebake_attempts >= MAX_INCOMPLETE_REBAKES) {
 				chunk.force_load = true;
 				chunk.is_dirty = true;
-			} else if (current_frame_ >= chunk.rebake_at_frame) {
+			} else if (steadyNowMs() >= chunk.rebake_at_ms) {
 				chunk.is_dirty = true;
 			}
 		}
@@ -1041,15 +1056,20 @@ void ChunkCacheManager::renderFloorTerrain(
 			return;
 		}
 
-		if (!chunk.is_empty && chunk.terrain_instance_count > 0 && chunk.vbo != 0) {
-			rme::prof::Scope draw_scope(rme::prof::Phase::TerrainDraw);
-			glVertexArrayVertexBuffer(vao_, 1, chunk.vbo, 0, sizeof(TileInstance));
-			glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr, static_cast<GLsizei>(chunk.terrain_instance_count));
-			++rendered_chunk_count;
-			rendered_instance_count += chunk.terrain_instance_count;
+		if (!chunk.is_complete) {
+			// The bake skipped sprites that were not uploaded yet, which leaves a hole - most
+			// visible where water and its borders should be. Do not draw this chunk yet: the
+			// pass below drains the preloader and bakes these chunks again, with the sprites in
+			// place, so the hole is never shown.
+			incomplete_visible_.push_back(&chunk);
+		} else {
+			drawChunk(chunk);
 		}
 
 		active_visible_chunks_.push_back(&chunk);
+		if (!chunk.is_complete) {
+			++incomplete_chunks_;
+		}
 		// Animations are only drawn inside the LOD range. When they are, the shortest visible
 		// animation frame decides how often the view can actually change, which is what the
 		// repaint loop should follow instead of repainting at 60 Hz.
@@ -1075,6 +1095,36 @@ void ChunkCacheManager::renderFloorTerrain(
 			}
 		}
 	});
+
+	// Chunks whose bake had to skip not-yet-loaded sprites are finished here, before anything is
+	// drawn: the bake already queued every sprite they need, so drain the preloader (its workers
+	// decode sheets in parallel) and bake them again with the sprites in place. This is what keeps
+	// water and its borders from flickering while the map loads or while panning into new area;
+	// the wait ends as soon as the queue is empty and is capped so a single frame stays bounded.
+	if (!incomplete_visible_.empty()) {
+		auto& preloader = SpritePreloader::get();
+		const auto drain_start = std::chrono::steady_clock::now();		// A trickle (panning reveals one or two chunks) must not cost a frame; a burst (a freshly
+		// opened map, a relocation, which make a whole screen of chunks new at once) is worth
+		// finishing before drawing, because that is exactly when the missing sprites would show as
+		// water and borders flickering in. The loop stops as soon as the preloader has no work.
+		const bool burst = cold_start_frame_ || incomplete_visible_.size() > INCOMPLETE_BURST_CHUNKS;
+		const auto cap = burst ? COLD_START_DRAIN_CAP_MS : INCOMPLETE_DRAIN_CAP_MS;
+		const auto budget = std::chrono::milliseconds(std::min<uint64_t>(
+			cap,
+			INCOMPLETE_DRAIN_BASE_MS + INCOMPLETE_DRAIN_PER_CHUNK_MS * incomplete_visible_.size()));
+		while (preloader.hasPendingWork() && std::chrono::steady_clock::now() - drain_start < budget) {
+			preloader.update();
+			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		}
+		for (CachedChunk* chunk : incomplete_visible_) {
+			bakeChunk(*chunk, map, ctx, false);
+		}
+		frame_bake_ms_ += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - drain_start).count();
+		for (CachedChunk* chunk : incomplete_visible_) {
+			drawChunk(*chunk);
+		}
+	}
+
 	if (profile_enabled) {
 		rme::prof::add(rme::prof::Phase::ChunkQuery, std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - query_start).count());
 	}

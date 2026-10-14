@@ -318,6 +318,11 @@ void SpritePreloader::update() {
 	cv.notify_all();
 }
 
+bool SpritePreloader::hasPendingWork() const {
+	std::lock_guard<std::mutex> lock(queue_mutex);
+	return !task_queue.empty() || !result_queue.empty() || !pending_ids.empty();
+}
+
 namespace rme {
 	void collectTileSprites(GameSprite* spr, int pattern_x, int pattern_y, int pattern_z, int frame) {
 		SpritePreloader::get().preload(spr, pattern_x, pattern_y, pattern_z, frame);

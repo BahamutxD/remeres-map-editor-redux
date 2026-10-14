@@ -51,7 +51,12 @@
 #include "ui/dialog_helper.h"
 #include "ui/map_tab.h"
 #include "game/animation_timer.h"
-#include "util/phase_profiler.h"#include "ui/map_popup_menu.h"
+#include "rendering/core/sprite_preloader.h"
+#include "util/phase_profiler.h"
+#include <chrono>
+#include <thread>
+
+#include "ui/map_popup_menu.h"
 #include "brushes/brush_utility.h"
 #include "rendering/ui/clipboard_handler.h"
 #include "rendering/ui/keyboard_handler.h"
@@ -213,7 +218,9 @@ void MapCanvas::RequestAnimationRepaint() {
 	// Nothing that animates is on screen (no sprite frame runs, no creatures inside the
 	// animation LOD range), so an idle editor should not keep redrawing the map at 60 Hz.
 	// Any real change (input, edit, bake, option change) repaints through its own path.
-	if (!drawer->HasVisibleAnimation()) {
+	// Chunks that are still waiting for sprites are an exception: they need the repaint to
+	// re-bake, otherwise the hole they left would stay on screen until the next input.
+	if (!drawer->HasVisibleAnimation() && !drawer->HasIncompleteChunks()) {
 		return;
 	}
 
