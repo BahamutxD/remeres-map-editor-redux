@@ -147,6 +147,15 @@ public:
 	const ChunkCacheManager& getChunkCacheManager() const {
 		return chunk_cache_manager;
 	}
+	// Whether the last frame drew something that animates, i.e. whether the editor still
+	// needs to repaint on the animation timer.
+	[[nodiscard]] bool HasVisibleAnimation() const {
+		return chunk_cache_manager.hasVisibleAnimation();
+	}
+	// Average duration of the shortest animation frame on screen; 0 when nothing animates.
+	[[nodiscard]] uint32_t VisibleAnimationStepMs() const {
+		return chunk_cache_manager.visibleAnimationStepMs();
+	}
 	const RenderView& getView() const {
 		return view;
 	}

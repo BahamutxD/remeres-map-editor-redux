@@ -7,6 +7,7 @@
 #include "rendering/core/graphics.h"
 #include "rendering/core/normal_image.h"
 #include "rendering/core/sprite_archive.h"
+#include "util/phase_profiler.h"
 
 #include <algorithm>
 #include <cassert>
@@ -229,6 +230,8 @@ void SpritePreloader::workerLoop(std::stop_token stop_token) {
 void SpritePreloader::update() {
 	// CRITICAL: This method MUST only be called from the main GUI/OpenGL thread.
 	assert(isMainThread());
+
+	rme::prof::Scope apply_scope(rme::prof::Phase::AtlasApply);
 
 	// Move results to a local queue under lock to minimize holding time.
 	std::queue<Result> results;

@@ -396,6 +396,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/util/json.h
     ${CMAKE_CURRENT_LIST_DIR}/util/nanovg_canvas.h
     ${CMAKE_CURRENT_LIST_DIR}/util/nanovg_listbox.h
+    ${CMAKE_CURRENT_LIST_DIR}/util/phase_profiler.h
     ${CMAKE_CURRENT_LIST_DIR}/util/virtual_item_grid.h
 )
 

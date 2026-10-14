@@ -6,6 +6,7 @@
 #include "rendering/indicators/zone_flags.h"
 #include "rendering/indicators/technical_item_registry.h"
 #include "rendering/core/render_depth.h"
+#include "util/phase_profiler.h"
 #include "map/map.h"
 #include "map/basemap.h"
 #include "map/tile.h"
@@ -65,6 +66,8 @@ void ZoneOverlayDrawer::drawFloor(SpriteBatch& sprite_batch,
 	if (view.zoom > kZoomLODCutoff) {
 		return;
 	}
+
+	rme::prof::Scope zone_scope(rme::prof::Phase::ZoneOverlay);
 
 	const AtlasRegion* white_pixel = atlas.getWhitePixel();
 	if (!white_pixel) {
@@ -329,6 +332,7 @@ void ZoneOverlayDrawer::drawFloorBlocking(SpriteBatch& sprite_batch,
 	if (options.ingame || !options.show_blocking || view.zoom > kZoomLODCutoff) {
 		return;
 	}
+	rme::prof::Scope blocking_scope(rme::prof::Phase::BlockingOverlay);
 
 	const AtlasRegion* white_pixel = atlas.getWhitePixel();
 	if (!white_pixel) {
@@ -432,6 +436,7 @@ void ZoneOverlayDrawer::drawFloorHouses(SpriteBatch& sprite_batch,
 	if (options.ingame || !options.show_houses || !options.show_zone_borders || view.zoom > kZoomLODCutoff) {
 		return;
 	}
+	rme::prof::Scope houses_scope(rme::prof::Phase::HouseOverlay);
 
 	const AtlasRegion* white_pixel = atlas.getWhitePixel();
 	if (!white_pixel) {
@@ -515,6 +520,7 @@ void ZoneOverlayDrawer::drawFloorHighlightItems(SpriteBatch& sprite_batch,
 	if (options.ingame || !options.highlight_items || view.zoom > kZoomLODCutoff) {
 		return;
 	}
+	rme::prof::Scope highlight_scope(rme::prof::Phase::HighlightOverlay);
 
 	const AtlasRegion* white_pixel = atlas.getWhitePixel();
 	if (!white_pixel) {
@@ -570,6 +576,7 @@ void ZoneOverlayDrawer::drawFloorBadges(SpriteBatch& sprite_batch,
 	if (!white_pixel) {
 		return;
 	}
+	rme::prof::Scope badges_scope(rme::prof::Phase::BadgeOverlay);
 
 	const ViewBounds bounds = view.getBoundsForFloor(z);
 	const float floor_alpha = 1.0f;

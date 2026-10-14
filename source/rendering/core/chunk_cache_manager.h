@@ -65,6 +65,10 @@ struct CachedChunk {
 	uint32_t rebake_attempts = 0;
 	uint64_t rebake_at_frame = 0;
 	bool force_load = false;
+	// Average duration of one frame of the creature's sprite animation in the chunk, or 0
+	// when the chunk holds no creature. Creatures animate, so a visible chunk that has one
+	// keeps the animation repaint loop alive.
+	uint16_t creature_animation_step_ms = 0;
 	std::vector<AnimatedSpriteFrame> animated_sprites;
 	std::vector<AnimatedSpriteRun> animated_runs;
 	// CPU copy of the instance buffer, kept only while animated_runs is non-empty so frames can be patched in place.
@@ -107,6 +111,7 @@ struct CachedChunk {
 		rebake_attempts(other.rebake_attempts),
 		rebake_at_frame(other.rebake_at_frame),
 		force_load(other.force_load),
+		creature_animation_step_ms(other.creature_animation_step_ms),
 		animated_sprites(std::move(other.animated_sprites)),
 		animated_runs(std::move(other.animated_runs)),
 		animated_shadow(std::move(other.animated_shadow)),
@@ -138,6 +143,7 @@ struct CachedChunk {
 			rebake_attempts = other.rebake_attempts;
 			rebake_at_frame = other.rebake_at_frame;
 			force_load = other.force_load;
+			creature_animation_step_ms = other.creature_animation_step_ms;
 			animated_sprites = std::move(other.animated_sprites);
 			animated_runs = std::move(other.animated_runs);
 			animated_shadow = std::move(other.animated_shadow);
@@ -279,8 +285,24 @@ public:
 		return vao_ != 0 && shader_initialized_;
 	}
 
+	// True when the last rendered frame drew something that animates with time (sprite frame
+	// runs or creatures inside the animation LOD range). The editor only needs to keep
+	// repainting while this holds; a static view can sit still instead of redrawing at 60 Hz.
+	[[nodiscard]] bool hasVisibleAnimation() const noexcept {
+		return visible_animation_step_ms_ != 0;
+	}
+
+	// Average duration in milliseconds of the shortest animation frame on screen, i.e. how
+	// often the view can actually change. Zero when nothing on screen animates. The repaint
+	// loop uses this to repaint at the animation's own pace instead of at 60 Hz.
+	[[nodiscard]] uint32_t visibleAnimationStepMs() const noexcept {
+		return visible_animation_step_ms_;
+	}
+
 private:
 	void bakeChunk(CachedChunk& chunk, const Map& map, const RenderFrameContext& ctx, bool allow_upload);
+
+	uint32_t visible_animation_step_ms_ = 0;
 	void uploadChunk(CachedChunk& chunk, const std::vector<TileInstance>& instances);
 	// Returns false when the chunk needs a full re-bake instead.
 	bool refreshAnimatedFrames(CachedChunk& chunk, long elapsed_time);

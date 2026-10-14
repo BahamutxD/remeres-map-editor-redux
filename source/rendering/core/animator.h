@@ -19,6 +19,7 @@
 #define RME_ANIMATOR_H_
 
 #include <vector>
+#include <algorithm>
 #include "util/common.h"
 
 enum AnimationDirection {
@@ -64,6 +65,21 @@ public:
 
 	int getFrame(long elapsed_time = -1);
 	void setFrame(int frame);
+
+	// Average time one frame of this animation is shown, i.e. how often the sprite's image
+	// actually changes. Zero when the animation has no usable duration.
+	[[nodiscard]] int getFrameStepMs() const {
+		if (frame_count <= 0) {
+			return 0;
+		}
+		int total = total_duration;
+		if (total <= 0) {
+			for (const auto& entry : durations) {
+				total += entry.max;
+			}
+		}
+		return total > 0 ? std::max(1, total / frame_count) : 0;
+	}
 
 	void reset();
 

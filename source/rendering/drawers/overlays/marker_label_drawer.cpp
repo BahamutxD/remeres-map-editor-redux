@@ -6,6 +6,7 @@
 #include "game/town.h"
 #include "game/house.h"
 #include <nanovg.h>
+#include "util/phase_profiler.h"
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -55,6 +56,7 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 	if (!show_wp && !show_towns && !show_houses) {
 		return;
 	}
+	rme::prof::Scope labels_scope(rme::prof::Phase::MarkerLabels);
 
 	// Beyond LOD threshold (when zoomed out beyond 10% zoom, text is sub-legible)
 	if (view.zoom > 10.0f) {

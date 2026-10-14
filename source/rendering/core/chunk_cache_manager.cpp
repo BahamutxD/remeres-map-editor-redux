@@ -22,6 +22,7 @@
 #include "game/outfit.h"
 #include "rendering/utilities/pattern_calculator.h"
 #include "rendering/core/sprite_preloader.h"
+#include "util/phase_profiler.h"
 #include "rendering/shaders/chunk_shader.h"
 #include "rendering/indicators/technical_item_registry.h"
 #include "rendering/core/render_depth.h"
@@ -308,6 +309,9 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 	// Set when the bake had to skip a sprite that is not uploaded yet (only possible while
 	// allow_upload is false). Such a chunk is marked incomplete and retried later.
 	bool skipped = false;
+	// Creatures animate independently of sprite frame runs, so the chunk records the frame
+	// step of the creature animation it baked (0 when it holds none).
+	uint16_t creature_step_ms = 0;
 	bake_buffer_.clear();
 	chunk.clearDynamicTiles();
 	chunk.animated_sprites.clear();
@@ -423,6 +427,15 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 		}
 		if (!spr) {
 			return;
+		}
+
+		// The creature's sprite animation determines how often this chunk can change.
+		if (spr->animator) {
+			int step = spr->animator->getFrameStepMs();
+			if (step <= 0) {
+				step = ITEM_FRAME_DURATION;
+			}
+			creature_step_ms = static_cast<uint16_t>(std::min(step, 65000));
 		}
 
 		int pattern_z = 0;
@@ -786,7 +799,7 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 	uploadChunk(chunk, bake_buffer_);
 	chunk.is_dirty = false;
 	chunk.baked_with_items = bake_items;
-
+	chunk.creature_animation_step_ms = creature_step_ms;
 	if (skipped && !allow_upload) {
 		chunk.is_complete = false;
 		chunk.rebake_attempts = std::min(chunk.rebake_attempts + 1, MAX_INCOMPLETE_REBAKES);
@@ -892,6 +905,8 @@ void ChunkCacheManager::recordFrameStats() {
 
 void ChunkCacheManager::advanceFrame(int current_floor) {
 	recordFrameStats();
+	// Recomputed by the floors rendered this frame (see renderFloorTerrain).
+	visible_animation_step_ms_ = 0;
 	++current_frame_;
 	if (current_frame_ % PRUNE_INTERVAL_FRAMES == 0) {
 		prune(current_floor);
@@ -946,6 +961,8 @@ void ChunkCacheManager::renderFloorTerrain(
 	uint32_t rendered_instance_count = 0;
 
 	// Sparse Query: Touches ONLY populated chunks on map_z!
+	const bool profile_enabled = rme::prof::enabled();
+	const auto query_start = std::chrono::steady_clock::now();
 	map.visitPopulatedChunks(min_cx, min_cy, max_cx, max_cy, map_z, [&](int cx, int cy) {
 		const ChunkCoord coord{ cx, cy, map_z };
 		const size_t cached_before = cached_chunks_.size();
@@ -956,6 +973,7 @@ void ChunkCacheManager::renderFloorTerrain(
 		// An incomplete chunk must not be animated-patched: the patch path assumes a complete
 		// layout, so a missing sprite would fail it and force a full re-bake every frame.
 		if (!chunk.is_dirty && chunk.is_complete && !chunk.animated_runs.empty() && ctx.options.show_preview && ctx.view.zoom < 10.0) {
+			rme::prof::Scope patch_scope(rme::prof::Phase::AnimPatch);
 			const auto patch_start = std::chrono::steady_clock::now();
 			if (!refreshAnimatedFrames(chunk, ctx.elapsed_time)) {
 				chunk.is_dirty = true;
@@ -993,6 +1011,7 @@ void ChunkCacheManager::renderFloorTerrain(
 			if (!chunk_visible && frame_bake_ms_ >= MAX_BAKE_MS_PER_FRAME) {
 				++stats_.baked_deferred;
 			} else {
+				rme::prof::Scope bake_scope(rme::prof::Phase::ChunkBake);
 				const auto bake_start = std::chrono::steady_clock::now();
 				bakeChunk(chunk, map, ctx, chunk.force_load);
 				frame_bake_ms_ += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - bake_start).count();
@@ -1016,6 +1035,7 @@ void ChunkCacheManager::renderFloorTerrain(
 		}
 
 		if (!chunk.is_empty && chunk.terrain_instance_count > 0 && chunk.vbo != 0) {
+			rme::prof::Scope draw_scope(rme::prof::Phase::TerrainDraw);
 			glVertexArrayVertexBuffer(vao_, 1, chunk.vbo, 0, sizeof(TileInstance));
 			glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr, static_cast<GLsizei>(chunk.terrain_instance_count));
 			++rendered_chunk_count;
@@ -1023,7 +1043,34 @@ void ChunkCacheManager::renderFloorTerrain(
 		}
 
 		active_visible_chunks_.push_back(&chunk);
+		// Animations are only drawn inside the LOD range. When they are, the shortest visible
+		// animation frame decides how often the view can actually change, which is what the
+		// repaint loop should follow instead of repainting at 60 Hz.
+		if (ctx.view.zoom < 10.0) {
+			if (chunk.creature_animation_step_ms > 0) {
+				const uint32_t step = chunk.creature_animation_step_ms;
+				if (visible_animation_step_ms_ == 0 || step < visible_animation_step_ms_) {
+					visible_animation_step_ms_ = step;
+				}
+			}
+			for (const AnimatedSpriteFrame& entry : chunk.animated_sprites) {
+				if (!entry.sprite || !entry.sprite->animator) {
+					continue;
+				}
+				const int step = entry.sprite->animator->getFrameStepMs();
+				if (step <= 0) {
+					continue;
+				}
+				const uint32_t clamped = static_cast<uint32_t>(step);
+				if (visible_animation_step_ms_ == 0 || clamped < visible_animation_step_ms_) {
+					visible_animation_step_ms_ = clamped;
+				}
+			}
+		}
 	});
+	if (profile_enabled) {
+		rme::prof::add(rme::prof::Phase::ChunkQuery, std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - query_start).count());
+	}
 
 	stats_.draws += rendered_chunk_count;
 	stats_.instances += rendered_instance_count;
@@ -1069,16 +1116,19 @@ void ChunkCacheManager::renderFloorItems(
 
 	glBindVertexArray(vao_);
 
-	for (const CachedChunk* chunk_ptr : active_visible_chunks_) {
-		if (!chunk_ptr || chunk_ptr->is_empty || chunk_ptr->item_instance_count == 0 || chunk_ptr->vbo == 0) {
-			continue;
-		}
+	{
+		rme::prof::Scope items_scope(rme::prof::Phase::ItemDraw);
+		for (const CachedChunk* chunk_ptr : active_visible_chunks_) {
+			if (!chunk_ptr || chunk_ptr->is_empty || chunk_ptr->item_instance_count == 0 || chunk_ptr->vbo == 0) {
+				continue;
+			}
 
-		const GLintptr byte_offset = static_cast<GLintptr>(chunk_ptr->terrain_instance_count * sizeof(TileInstance));
-		glVertexArrayVertexBuffer(vao_, 1, chunk_ptr->vbo, byte_offset, sizeof(TileInstance));
-		glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr, static_cast<GLsizei>(chunk_ptr->item_instance_count));
-		++stats_.draws;
-		stats_.instances += chunk_ptr->item_instance_count;
+			const GLintptr byte_offset = static_cast<GLintptr>(chunk_ptr->terrain_instance_count * sizeof(TileInstance));
+			glVertexArrayVertexBuffer(vao_, 1, chunk_ptr->vbo, byte_offset, sizeof(TileInstance));
+			glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr, static_cast<GLsizei>(chunk_ptr->item_instance_count));
+			++stats_.draws;
+			stats_.instances += chunk_ptr->item_instance_count;
+		}
 	}
 
 	glBindVertexArray(0);
@@ -1194,6 +1244,8 @@ void ChunkCacheManager::renderDynamicOverlays(
 	if (active_floor_ != map_z) {
 		return;
 	}
+
+	rme::prof::Scope dynamic_scope(rme::prof::Phase::DynamicOverlay);
 
 	const int offset = (map_z <= GROUND_LAYER)
 		? (GROUND_LAYER - map_z) * TILE_SIZE

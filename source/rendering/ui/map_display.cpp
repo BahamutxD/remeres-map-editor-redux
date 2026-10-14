@@ -51,7 +51,7 @@
 #include "ui/dialog_helper.h"
 #include "ui/map_tab.h"
 #include "game/animation_timer.h"
-#include "ui/map_popup_menu.h"
+#include "util/phase_profiler.h"#include "ui/map_popup_menu.h"
 #include "brushes/brush_utility.h"
 #include "rendering/ui/clipboard_handler.h"
 #include "rendering/ui/keyboard_handler.h"
@@ -113,6 +113,9 @@ MapCanvas::MapCanvas(wxWindow* parent, Editor& editor, int* attriblist) :
 	last_mmb_click_x(-1),
 	last_mmb_click_y(-1),
 	m_last_gc_time(0) {
+	// Enable the phase profiler when RME_PROFILE is set (see util/phase_profiler.h).
+	rme::prof::configureFromEnv();
+
 	// Context creation must happen on the main/UI thread
 	m_glContext = std::make_unique<wxGLContext>(this, g_gui.GetGLContext(this));
 	if (!m_glContext->IsOK()) {
@@ -173,11 +176,17 @@ bool MapCanvas::IsAnimationEnabled() const {
 }
 
 int MapCanvas::GetAnimationRefreshIntervalMs() const noexcept {
-	// Repaint rate is governed by the animation timer (60 Hz) and then by the user's
-	// vsync / frame-rate settings. The old far-zoom cap of 20 FPS only made panning
-	// feel choppy: at max zoom-out the main thread is ~86% idle and the frame is
-	// GPU/draw-bound at ~22 ms, so the cap was masking a renderer that had headroom.
-	return 1000 / 60;
+	// Repaint only as often as the fastest animation on screen can actually change: a view
+	// whose animations step every 500 ms has nothing new to show at 60 Hz, and the sprite
+	// frames are derived from the wall clock, so repainting at the animation's own pace draws
+	// exactly the same images. The old far-zoom cap was different - it throttled a view that
+	// did have work to do (see below). When nothing animates, RequestAnimationRepaint returns
+	// before this is used.
+	const uint32_t step = drawer->VisibleAnimationStepMs();
+	if (step == 0) {
+		return 1000 / 60;
+	}
+	return static_cast<int>(std::clamp<uint32_t>(step, 1000 / 60, 1000));
 }
 
 void MapCanvas::QueueNativeRefresh(bool immediate) {
@@ -198,6 +207,13 @@ void MapCanvas::RequestSharedMapRefresh(bool immediate) {
 
 void MapCanvas::RequestAnimationRepaint() {
 	if (!IsAnimationEnabled()) {
+		return;
+	}
+
+	// Nothing that animates is on screen (no sprite frame runs, no creatures inside the
+	// animation LOD range), so an idle editor should not keep redrawing the map at 60 Hz.
+	// Any real change (input, edit, bake, option change) repaints through its own path.
+	if (!drawer->HasVisibleAnimation()) {
 		return;
 	}
 
@@ -325,6 +341,7 @@ void MapCanvas::PerformGarbageCollection() {
 }
 
 void MapCanvas::OnPaint(wxPaintEvent& event) {
+	rme::prof::Scope frame_scope(rme::prof::Phase::Frame);
 	wxPaintDC dc(this); // validates the paint event
 	if (m_glContext) {
 		g_gl_context.EnsureContextCurrent(*m_glContext, this);
@@ -401,13 +418,20 @@ void MapCanvas::OnPaint(wxPaintEvent& event) {
 		drawer->Release();
 
 		// Draw UI (Tooltips, Overlays & HUD) using NanoVG
-		DrawOverlays(m_nvg.get(), options);
+		{
+			rme::prof::Scope nvg_scope(rme::prof::Phase::NanoVg);
+			DrawOverlays(m_nvg.get(), options);
+		}
 
 		drawer->ClearFrameOverlays();
 	}
 
-	SwapBuffers();
+	{
+		rme::prof::Scope present_scope(rme::prof::Phase::Present);
+		SwapBuffers();
+	}
 
+	rme::prof::endFrame();
 	fps_counter.Update();
 	if (g_settings.getBoolean(Config::SHOW_FPS_COUNTER) && fps_counter.HasChanged()) {
 		MapStatusUpdater::UpdateFPS(fps_counter.GetStatusString());
