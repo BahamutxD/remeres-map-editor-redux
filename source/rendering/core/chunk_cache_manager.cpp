@@ -1119,6 +1119,15 @@ void ChunkCacheManager::renderFloorTerrain(
 		for (CachedChunk* chunk : incomplete_visible_) {
 			bakeChunk(*chunk, map, ctx, false);
 		}
+		// Last resort: if a chunk is still incomplete after the drain, bake it once with loading
+		// allowed. By now the preloader has most of what it needs, so this loads only the few
+		// sprites it did not reach - and it guarantees the frame never shows a chunk with holes,
+		// which is what made water and its borders flicker while panning.
+		for (CachedChunk* chunk : incomplete_visible_) {
+			if (!chunk->is_complete) {
+				bakeChunk(*chunk, map, ctx, true);
+			}
+		}
 		frame_bake_ms_ += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - drain_start).count();
 		for (CachedChunk* chunk : incomplete_visible_) {
 			drawChunk(*chunk);
