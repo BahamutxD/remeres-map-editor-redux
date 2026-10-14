@@ -349,8 +349,8 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 		}
 	};
 
-	auto emitSpriteInstances = [&](GameSprite* spr, const SpritePatterns& pat, int draw_base_x, int draw_base_y, float rf, float gf, float bf, float af, float house_id = 0.0f, float depth = 0.0f, float flags = TILE_INSTANCE_FLAG_TEXTURE) {
-		forEachSpriteRegion(spr, pat, draw_base_x, draw_base_y, allow_upload, [&](const AtlasRegion* reg, int draw_x, int draw_y) {
+	auto emitSpriteInstances = [&](GameSprite* spr, const SpritePatterns& pat, int draw_base_x, int draw_base_y, float rf, float gf, float bf, float af, float house_id = 0.0f, float depth = 0.0f, float flags = TILE_INSTANCE_FLAG_TEXTURE, bool upload = false) {
+		forEachSpriteRegion(spr, pat, draw_base_x, draw_base_y, upload || allow_upload, [&](const AtlasRegion* reg, int draw_x, int draw_y) {
 			if (!reg) {
 				// Not uploaded yet. The caller queued it to the sprite preloader, so the chunk
 				// is simply re-baked once it becomes available.
@@ -362,9 +362,9 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 	};
 
 	// Map items and grounds animate; their runs are tracked so frame changes can be patched in place.
-	auto pushSpriteInstances = [&](GameSprite* spr, const SpritePatterns& pat, int draw_base_x, int draw_base_y, float rf, float gf, float bf, float af, float house_id = 0.0f, float depth = 0.0f, float flags = TILE_INSTANCE_FLAG_TEXTURE) {
+	auto pushSpriteInstances = [&](GameSprite* spr, const SpritePatterns& pat, int draw_base_x, int draw_base_y, float rf, float gf, float bf, float af, float house_id = 0.0f, float depth = 0.0f, float flags = TILE_INSTANCE_FLAG_TEXTURE, bool upload = false) {
 		const size_t first_instance = bake_buffer_.size();
-		emitSpriteInstances(spr, pat, draw_base_x, draw_base_y, rf, gf, bf, af, house_id, depth, flags);
+		emitSpriteInstances(spr, pat, draw_base_x, draw_base_y, rf, gf, bf, af, house_id, depth, flags, upload);
 		if (!spr->isAnimated()) {
 			return;
 		}
@@ -579,13 +579,20 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 						const int ground_x = x * 32 - g_off_x;
 						const int ground_y = y * 32 - g_off_y;
 
+						// The ground is what makes a chunk visible at all: without it a chunk
+						// (water in particular, whose ground is an animated sprite) renders as a
+						// black hole until the preloader catches up. Resolve it with loading
+						// allowed, and keep the (far more numerous) borders and items on the
+						// non-blocking path.
 						pushSpriteInstances(gspr, g_pat, ground_x, ground_y,
 							static_cast<float>(r) * (1.0f / 255.0f),
 							static_cast<float>(g) * (1.0f / 255.0f),
 							static_cast<float>(b) * (1.0f / 255.0f),
 							1.0f,
 							-tile_house_id,
-							ground_depth);
+							ground_depth,
+							TILE_INSTANCE_FLAG_TEXTURE,
+							/*upload=*/true);
 					}
 				}
 			}
