@@ -173,10 +173,11 @@ bool MapCanvas::IsAnimationEnabled() const {
 }
 
 int MapCanvas::GetAnimationRefreshIntervalMs() const noexcept {
-	constexpr double far_zoom_threshold = 2.0;
-	constexpr int near_zoom_refresh_interval_ms = 1000 / 60;
-	constexpr int far_zoom_refresh_interval_ms = 1000 / 20;
-	return zoom <= far_zoom_threshold ? near_zoom_refresh_interval_ms : far_zoom_refresh_interval_ms;
+	// Repaint rate is governed by the animation timer (60 Hz) and then by the user's
+	// vsync / frame-rate settings. The old far-zoom cap of 20 FPS only made panning
+	// feel choppy: at max zoom-out the main thread is ~86% idle and the frame is
+	// GPU/draw-bound at ~22 ms, so the cap was masking a renderer that had headroom.
+	return 1000 / 60;
 }
 
 void MapCanvas::QueueNativeRefresh(bool immediate) {
