@@ -297,6 +297,11 @@ void ChunkCacheManager::uploadChunk(CachedChunk& chunk, const std::vector<TileIn
 }
 
 void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const RenderFrameContext& ctx) {
+	// Items are not drawn beyond the LOD cutoff when hide_items_when_zoomed is on, so
+	// do not bake them: they would only cost bake time (the dominant burst cost) and
+	// VBO memory. The chunk records whether items were baked so it can be re-baked if
+	// items become visible again.
+	const bool bake_items = !(ctx.view.zoom > 10.0f && ctx.options.hide_items_when_zoomed);
 	bake_buffer_.clear();
 	chunk.clearDynamicTiles();
 	chunk.animated_sprites.clear();
@@ -311,6 +316,7 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 		chunk.is_empty = true;
 		chunk.is_dirty = false;
 		chunk.instance_count = 0;
+		chunk.baked_with_items = bake_items;
 		chunk.animated_shadow.clear();
 		return;
 	}
@@ -642,87 +648,91 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 
 			const float tile_house_id = tile->isHouseTile() ? static_cast<float>(tile->getHouseID()) : 0.0f;
 
-			// 3. Static items & structures with elevation stacking
+			// 3. Static items & structures with elevation stacking. Skipped entirely when
+			// items are not drawn at this zoom: the item pass is the dominant cost of a
+			// pan/zoom bake burst.
 			int elev = 0;
-			for (const auto& item : tile->items) {
-				if (!item || item->isBorder()) {
-					continue;
-				}
-				if (item->isInvalidOTBMItem()) {
-					chunk.markDynamicTile(tx, ty);
-					continue;
-				}
-				const ItemDefinitionView it = item->getDefinition();
-				const uint16_t item_client_id = it ? it.clientId() : 0;
-				const uint16_t item_server_id = item->getID();
-
-				rme::rendering::RenderSublayer sublayer = rme::rendering::RenderSublayer::CommonItem;
-				if (item->isAlwaysOnBottom()) {
-					sublayer = rme::rendering::RenderSublayer::BottomItem;
-				} else if (it && it.hasFlag(ItemFlag::TopEffect)) {
-					sublayer = rme::rendering::RenderSublayer::TopItem;
-				}
-				const float item_depth = rme::rendering::calculateTileDepth(x, y, sublayer, elev > 0 ? 1 : 0);
-
-				const auto tech_type = (ctx.options.show_tech_items && !ctx.options.ingame)
-					? rme::rendering::TechnicalItemRegistry::Classify(item_server_id, item_client_id)
-					: rme::rendering::TileIndicatorType::None;
-				if (tech_type != rme::rendering::TileIndicatorType::None) {
-					const AtlasRegion* white_pixel = ctx.atlas.getWhitePixel();
-					if (white_pixel) {
-						pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, rme::rendering::TechnicalItemRegistry::GetMarkerId(tech_type), item_depth);
+			if (bake_items) {
+				for (const auto& item : tile->items) {
+					if (!item || item->isBorder()) {
+						continue;
 					}
-					continue;
+					if (item->isInvalidOTBMItem()) {
+						chunk.markDynamicTile(tx, ty);
+						continue;
+					}
+					const ItemDefinitionView it = item->getDefinition();
+					const uint16_t item_client_id = it ? it.clientId() : 0;
+					const uint16_t item_server_id = item->getID();
+
+					rme::rendering::RenderSublayer sublayer = rme::rendering::RenderSublayer::CommonItem;
+					if (item->isAlwaysOnBottom()) {
+						sublayer = rme::rendering::RenderSublayer::BottomItem;
+					} else if (it && it.hasFlag(ItemFlag::TopEffect)) {
+						sublayer = rme::rendering::RenderSublayer::TopItem;
+					}
+					const float item_depth = rme::rendering::calculateTileDepth(x, y, sublayer, elev > 0 ? 1 : 0);
+
+					const auto tech_type = (ctx.options.show_tech_items && !ctx.options.ingame)
+						? rme::rendering::TechnicalItemRegistry::Classify(item_server_id, item_client_id)
+						: rme::rendering::TileIndicatorType::None;
+					if (tech_type != rme::rendering::TileIndicatorType::None) {
+						const AtlasRegion* white_pixel = ctx.atlas.getWhitePixel();
+						if (white_pixel) {
+							pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, rme::rendering::TechnicalItemRegistry::GetMarkerId(tech_type), item_depth);
+						}
+						continue;
+					}
+
+					if (!it || it.isMetaItem() || (!ctx.options.show_items && it.hasFlag(ItemFlag::Pickupable))) {
+						continue;
+					}
+					GameSprite* ispr = ctx.gfx.getGameSprite(it.clientId());
+					if (!ispr) {
+						continue;
+					}
+
+					const auto [draw_offset_x, draw_offset_y] = ispr->getDrawOffset();
+					const int item_x = x * 32 - elev - draw_offset_x;
+					const int item_y = y * 32 - elev - draw_offset_y;
+
+					const SpritePatterns i_pat = PatternCalculator::Calculate(ispr, it, item.get(), tile, Position(x, y, z), ctx.elapsed_time);
+					if (!ispr->isSimpleAndLoaded()) {
+						rme::collectTileSprites(ispr, i_pat.x, i_pat.y, i_pat.z, i_pat.frame);
+					}
+
+					uint8_t r = 255, g = 255, b = 255, a = 255;
+					if (item->isSelected()) {
+						r >>= 1;
+						g >>= 1;
+						b >>= 1;
+					}
+
+					if (ctx.options.transparent_items && (!it.isGroundTile() || ispr->width > 1 || ispr->height > 1) && !it.isSplash() && (!it.hasFlag(ItemFlag::IsBorder) || ispr->width > 1 || ispr->height > 1)) {
+						a >>= 1;
+					}
+
+					const float item_house_id = (ctx.options.extended_house_shader) ? tile_house_id : 0.0f;
+					const bool is_blocking_item = item->isBlocking() &&
+						!rme::rendering::TechnicalItemRegistry::IsInvisibleWall(item_server_id, item_client_id);
+					const float item_flags = (ctx.options.extended_pathing_shader && is_blocking_item)
+						? TILE_INSTANCE_FLAG_BLOCKING
+						: TILE_INSTANCE_FLAG_TEXTURE;
+
+					pushSpriteInstances(ispr, i_pat, item_x, item_y,
+						static_cast<float>(r) * (1.0f / 255.0f),
+						static_cast<float>(g) * (1.0f / 255.0f),
+						static_cast<float>(b) * (1.0f / 255.0f),
+						static_cast<float>(a) * (1.0f / 255.0f),
+						item_house_id,
+						item_depth,
+						item_flags);
+
+					if (ispr->hasElevation()) {
+						elev += ispr->draw_height;
+					}
 				}
-
-				if (!it || it.isMetaItem() || (!ctx.options.show_items && it.hasFlag(ItemFlag::Pickupable))) {
-					continue;
-				}
-				GameSprite* ispr = ctx.gfx.getGameSprite(it.clientId());
-				if (!ispr) {
-					continue;
-				}
-
-				const auto [draw_offset_x, draw_offset_y] = ispr->getDrawOffset();
-				const int item_x = x * 32 - elev - draw_offset_x;
-				const int item_y = y * 32 - elev - draw_offset_y;
-
-				const SpritePatterns i_pat = PatternCalculator::Calculate(ispr, it, item.get(), tile, Position(x, y, z), ctx.elapsed_time);
-				if (!ispr->isSimpleAndLoaded()) {
-					rme::collectTileSprites(ispr, i_pat.x, i_pat.y, i_pat.z, i_pat.frame);
-				}
-
-				uint8_t r = 255, g = 255, b = 255, a = 255;
-				if (item->isSelected()) {
-					r >>= 1;
-					g >>= 1;
-					b >>= 1;
-				}
-
-				if (ctx.options.transparent_items && (!it.isGroundTile() || ispr->width > 1 || ispr->height > 1) && !it.isSplash() && (!it.hasFlag(ItemFlag::IsBorder) || ispr->width > 1 || ispr->height > 1)) {
-					a >>= 1;
-				}
-
-				const float item_house_id = (ctx.options.extended_house_shader) ? tile_house_id : 0.0f;
-				const bool is_blocking_item = item->isBlocking() &&
-					!rme::rendering::TechnicalItemRegistry::IsInvisibleWall(item_server_id, item_client_id);
-				const float item_flags = (ctx.options.extended_pathing_shader && is_blocking_item)
-					? TILE_INSTANCE_FLAG_BLOCKING
-					: TILE_INSTANCE_FLAG_TEXTURE;
-
-				pushSpriteInstances(ispr, i_pat, item_x, item_y,
-					static_cast<float>(r) * (1.0f / 255.0f),
-					static_cast<float>(g) * (1.0f / 255.0f),
-					static_cast<float>(b) * (1.0f / 255.0f),
-					static_cast<float>(a) * (1.0f / 255.0f),
-					item_house_id,
-					item_depth,
-					item_flags);
-
-				if (ispr->hasElevation()) {
-					elev += ispr->draw_height;
-				}
-			}
+			} // bake_items
 
 			// 3.5. Tile point indicators (rendered on top of items and ground)
 			const AtlasRegion* white_pixel = ctx.atlas.getWhitePixel();
@@ -760,6 +770,7 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 
 	uploadChunk(chunk, bake_buffer_);
 	chunk.is_dirty = false;
+	chunk.baked_with_items = bake_items;
 }
 
 bool ChunkCacheManager::refreshAnimatedFrames(CachedChunk& chunk, long elapsed_time) {
@@ -928,6 +939,13 @@ void ChunkCacheManager::renderFloorTerrain(
 		const int chunk_screen_x = cx * (CHUNK_SIZE * TILE_SIZE) + static_cast<int>(translation.x);
 		const int chunk_screen_y = cy * (CHUNK_SIZE * TILE_SIZE) + static_cast<int>(translation.y);
 		const bool chunk_visible = ctx.view.IsRectVisible(chunk_screen_x, chunk_screen_y, CHUNK_SIZE * TILE_SIZE, CHUNK_SIZE * TILE_SIZE);
+
+		// Items are needed again once we are back inside the LOD range: re-bake chunks
+		// that were baked without them.
+		const bool want_items = !(ctx.view.zoom > 10.0f && ctx.options.hide_items_when_zoomed);
+		if (want_items && !chunk.baked_with_items) {
+			chunk.is_dirty = true;
+		}
 
 		if (chunk.is_dirty) {
 			// Never defer an on-screen chunk: leaving it un-baked shows a black hole

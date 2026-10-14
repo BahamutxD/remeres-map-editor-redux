@@ -54,6 +54,9 @@ struct CachedChunk {
 	uint64_t last_accessed_frame = 0;
 	bool is_dirty = true;
 	bool is_empty = false;
+	// False when the chunk was baked at a zoom where items are not drawn, so the
+	// item range is missing and the chunk must be re-baked if items come back.
+	bool baked_with_items = true;
 	std::vector<AnimatedSpriteFrame> animated_sprites;
 	std::vector<AnimatedSpriteRun> animated_runs;
 	// CPU copy of the instance buffer, kept only while animated_runs is non-empty so frames can be patched in place.
@@ -91,6 +94,7 @@ struct CachedChunk {
 		last_accessed_frame(other.last_accessed_frame),
 		is_dirty(other.is_dirty),
 		is_empty(other.is_empty),
+		baked_with_items(other.baked_with_items),
 		animated_sprites(std::move(other.animated_sprites)),
 		animated_runs(std::move(other.animated_runs)),
 		animated_shadow(std::move(other.animated_shadow)),
@@ -117,6 +121,7 @@ struct CachedChunk {
 			last_accessed_frame = other.last_accessed_frame;
 			is_dirty = other.is_dirty;
 			is_empty = other.is_empty;
+			baked_with_items = other.baked_with_items;
 			animated_sprites = std::move(other.animated_sprites);
 			animated_runs = std::move(other.animated_runs);
 			animated_shadow = std::move(other.animated_shadow);
