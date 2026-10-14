@@ -339,6 +339,9 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 		chunk.is_complete = true;
 		chunk.rebake_attempts = 0;
 		chunk.force_load = false;
+		chunk.animated_sprites.clear();
+		chunk.animated_runs.clear();
+		chunk.animated_step_ms = 0;
 		chunk.animated_shadow.clear();
 		return;
 	}
@@ -806,13 +809,31 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 	chunk.item_instance_count = static_cast<uint32_t>(bake_buffer_.size()) - chunk.terrain_instance_count;
 	chunk.instance_count = static_cast<uint32_t>(bake_buffer_.size());
 
+	// getFrameStepMs() is constant per animator, so resolve the shortest animation frame
+	// duration once per bake; the frame loop reads this cached value instead of re-walking
+	// every AnimatedSpriteFrame of every visible chunk.
+	uint16_t sprite_step_ms = 0;
+	for (const AnimatedSpriteFrame& entry : chunk.animated_sprites) {
+		if (entry.sprite && entry.sprite->animator) {
+			const int step = entry.sprite->animator->getFrameStepMs();
+			if (step > 0 && (sprite_step_ms == 0 || static_cast<uint32_t>(step) < sprite_step_ms)) {
+				sprite_step_ms = static_cast<uint16_t>(step);
+			}
+		}
+	}
+	chunk.animated_step_ms = sprite_step_ms;
+
+	const std::vector<TileInstance>* upload_buffer = &bake_buffer_;
 	if (chunk.animated_runs.empty()) {
 		chunk.animated_shadow = {};
 	} else {
-		chunk.animated_shadow = bake_buffer_;
+		// Swap the bake buffer in instead of deep-copying it: animated_shadow takes ownership
+		// and bake_buffer_ keeps the recycled capacity of the previous shadow for the next bake.
+		chunk.animated_shadow.swap(bake_buffer_);
+		upload_buffer = &chunk.animated_shadow;
 	}
 
-	uploadChunk(chunk, bake_buffer_);
+	uploadChunk(chunk, *upload_buffer);
 	chunk.is_dirty = false;
 	chunk.baked_with_items = bake_items;
 	chunk.creature_animation_step_ms = creature_step_ms;
@@ -1079,7 +1100,8 @@ void ChunkCacheManager::renderFloorTerrain(
 		}
 		// Animations are only drawn inside the LOD range. When they are, the shortest visible
 		// animation frame decides how often the view can actually change, which is what the
-		// repaint loop should follow instead of repainting at 60 Hz.
+		// repaint loop should follow instead of repainting at 60 Hz. Both step values are
+		// cached on the chunk at bake time, so this is O(1) per visible chunk.
 		if (ctx.view.zoom < 10.0) {
 			if (chunk.creature_animation_step_ms > 0) {
 				const uint32_t step = chunk.creature_animation_step_ms;
@@ -1087,17 +1109,10 @@ void ChunkCacheManager::renderFloorTerrain(
 					visible_animation_step_ms_ = step;
 				}
 			}
-			for (const AnimatedSpriteFrame& entry : chunk.animated_sprites) {
-				if (!entry.sprite || !entry.sprite->animator) {
-					continue;
-				}
-				const int step = entry.sprite->animator->getFrameStepMs();
-				if (step <= 0) {
-					continue;
-				}
-				const uint32_t clamped = static_cast<uint32_t>(step);
-				if (visible_animation_step_ms_ == 0 || clamped < visible_animation_step_ms_) {
-					visible_animation_step_ms_ = clamped;
+			if (chunk.animated_step_ms > 0) {
+				const uint32_t step = chunk.animated_step_ms;
+				if (visible_animation_step_ms_ == 0 || step < visible_animation_step_ms_) {
+					visible_animation_step_ms_ = step;
 				}
 			}
 		}

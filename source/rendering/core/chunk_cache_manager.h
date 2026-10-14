@@ -71,6 +71,10 @@ struct CachedChunk {
 	// when the chunk holds no creature. Creatures animate, so a visible chunk that has one
 	// keeps the animation repaint loop alive.
 	uint16_t creature_animation_step_ms = 0;
+	// Shortest average frame duration among the chunk's animated sprites, or 0 when none.
+	// Constant per animator, so it is resolved once per bake instead of scanning every
+	// AnimatedSpriteFrame on every frame to pace the repaint loop.
+	uint16_t animated_step_ms = 0;
 	std::vector<AnimatedSpriteFrame> animated_sprites;
 	std::vector<AnimatedSpriteRun> animated_runs;
 	// CPU copy of the instance buffer, kept only while animated_runs is non-empty so frames can be patched in place.
@@ -114,6 +118,7 @@ struct CachedChunk {
 		rebake_at_ms(other.rebake_at_ms),
 		force_load(other.force_load),
 		creature_animation_step_ms(other.creature_animation_step_ms),
+		animated_step_ms(other.animated_step_ms),
 		animated_sprites(std::move(other.animated_sprites)),
 		animated_runs(std::move(other.animated_runs)),
 		animated_shadow(std::move(other.animated_shadow)),
@@ -146,6 +151,7 @@ struct CachedChunk {
 			rebake_at_ms = other.rebake_at_ms;
 			force_load = other.force_load;
 			creature_animation_step_ms = other.creature_animation_step_ms;
+			animated_step_ms = other.animated_step_ms;
 			animated_sprites = std::move(other.animated_sprites);
 			animated_runs = std::move(other.animated_runs);
 			animated_shadow = std::move(other.animated_shadow);
