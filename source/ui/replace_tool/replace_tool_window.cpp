@@ -4,7 +4,6 @@
 #include "ui/theme.h"
 #include "editor/editor.h"
 #include "ui/gui.h"
-#include "ui/gui.h"
 #include "app/settings.h"
 #include "app/managers/version_manager.h"
 #include <algorithm> // For std::find
@@ -34,6 +33,44 @@
 #include "ui/replace_tool/card_panel.h"
 #include "util/image_manager.h"
 #include <wx/splitter.h>
+
+namespace {
+
+// Tiles currently visible in the active map viewport (all map positions at
+// the current floor framed by the canvas view).
+std::vector<Position> collectViewportPositions() {
+	MapTab* activeTab = g_gui.GetCurrentMapTab();
+	if (!activeTab || !activeTab->GetCanvas()) {
+		return {};
+	}
+
+	MapCanvas* canvas = activeTab->GetCanvas();
+	wxSize canvasSize = canvas->GetClientSize();
+
+	int startX, startY, endX, endY;
+	canvas->ScreenToMap(0, 0, &startX, &startY);
+	canvas->ScreenToMap(canvasSize.x, canvasSize.y, &endX, &endY);
+
+	// Ensure bounds are consistent
+	if (startX > endX) {
+		std::swap(startX, endX);
+	}
+	if (startY > endY) {
+		std::swap(startY, endY);
+	}
+
+	const int z = canvas->GetFloor();
+
+	std::vector<Position> positions;
+	for (int x = startX; x <= endX; ++x) {
+		for (int y = startY; y <= endY; ++y) {
+			positions.push_back(Position(x, y, z));
+		}
+	}
+	return positions;
+}
+
+} // namespace
 
 ReplaceToolWindow::ReplaceToolWindow(wxWindow* parent, Editor* editor) : wxDialog(parent, wxID_ANY, "Advanced Replace Tool", wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
 																		 editor(editor) {
@@ -368,47 +405,39 @@ void ReplaceToolWindow::OnExecute(wxCommandEvent&) {
 		return;
 	}
 
-	int confirm = wxMessageBox(
-		"Are you sure you want to execute replacements on the map?",
-		"Confirm Bulk Replacement",
-		wxYES_NO | wxNO_DEFAULT | wxICON_WARNING
-	);
+	// Preview: count what each rule would touch before asking for confirmation.
+	std::vector<Position> viewportPos;
+	if (scope == ReplaceScope::Viewport) {
+		viewportPos = collectViewportPositions();
+	}
 
+	std::vector<uint32_t> counts = engine.CountMatchesByRule(editor, rules, scope, scope == ReplaceScope::Viewport ? &viewportPos : nullptr);
+
+	uint32_t totalMatches = 0;
+	for (uint32_t count : counts) {
+		totalMatches += count;
+	}
+
+	if (totalMatches == 0) {
+		wxMessageBox("No items matching the rules were found in the selected scope.", "Replace", wxOK | wxICON_INFORMATION);
+		return;
+	}
+
+	wxString preview = "About to replace " + wxString::Format("%u", totalMatches) + " item(s):\n\n";
+	for (size_t index = 0; index < rules.size() && index < counts.size(); ++index) {
+		if (counts[index] == 0) {
+			continue;
+		}
+		preview += wxString::Format("Item %u: %u hit(s)\n", rules[index].fromId, counts[index]);
+	}
+	preview += "\nAre you sure you want to execute the replacements?";
+
+	int confirm = wxMessageBox(preview, "Confirm Bulk Replacement", wxYES_NO | wxNO_DEFAULT | wxICON_WARNING);
 	if (confirm != wxYES) {
 		return;
 	}
 
-	if (scope == ReplaceScope::Viewport) {
-		MapTab* activeTab = g_gui.GetCurrentMapTab();
-		if (activeTab && activeTab->GetCanvas()) {
-			MapCanvas* canvas = activeTab->GetCanvas();
-			wxSize canvasSize = canvas->GetClientSize();
-
-			int startX, startY, endX, endY;
-			canvas->ScreenToMap(0, 0, &startX, &startY);
-			canvas->ScreenToMap(canvasSize.x, canvasSize.y, &endX, &endY);
-
-			// Ensure bounds are consistent
-			if (startX > endX) {
-				std::swap(startX, endX);
-			}
-			if (startY > endY) {
-				std::swap(startY, endY);
-			}
-
-			int z = canvas->GetFloor();
-
-			std::vector<Position> pv;
-			for (int x = startX; x <= endX; ++x) {
-				for (int y = startY; y <= endY; ++y) {
-					pv.push_back(Position(x, y, z));
-				}
-			}
-			engine.ExecuteReplacement(editor, rules, scope, &pv);
-		}
-	} else {
-		engine.ExecuteReplacement(editor, rules, scope);
-	}
+	engine.ExecuteReplacement(editor, rules, scope, scope == ReplaceScope::Viewport ? &viewportPos : nullptr);
 }
 
 void ReplaceToolWindow::OnAddVisibleTiles(wxCommandEvent&) {
