@@ -121,7 +121,7 @@ void WaypointPalettePanel::OnUpdate() {
 	Waypoints& waypoints = map->waypoints;
 
 	for (const auto& [name, wp] : waypoints) {
-		waypoint_list->InsertItem(0, wxstr(wp->name));
+		waypoint_list->InsertItem(waypoint_list->GetItemCount(), wxstr(wp->name));
 	}
 	waypoint_list->Thaw();
 }
@@ -131,11 +131,19 @@ void WaypointPalettePanel::OnClickWaypoint(wxListEvent& event) {
 		return;
 	}
 
-	std::string wpname = nstr(event.GetText());
+	const long index = event.GetIndex();
+	std::string wpname = nstr(index >= 0 ? waypoint_list->GetItemText(index) : event.GetText());
 	Waypoint* wp = map->waypoints.getWaypoint(wpname);
-	if (wp) {
+	if (!wp) {
+		return;
+	}
+
+	g_brush_manager.waypoint_brush->setWaypoint(wp);
+
+	// Only center the view on placed waypoints, an unplaced waypoint
+	// (uninitialized position) would otherwise scroll to the map origin.
+	if (wp->pos != Position()) {
 		g_gui.SetScreenCenterPosition(wp->pos);
-		g_brush_manager.waypoint_brush->setWaypoint(wp);
 	}
 }
 
@@ -150,6 +158,22 @@ void WaypointPalettePanel::OnEditWaypointLabel(wxListEvent& event) {
 	Waypoint* wp = map->waypoints.getWaypoint(oldwpname);
 
 	if (event.IsEditCancelled()) {
+		// A pending "add waypoint" entry registers an unnamed waypoint in the
+		// map while the label is being edited; cancelling the edit must not
+		// leave that phantom behind, otherwise the map saves a waypoint with
+		// no name and an uninitialized position.
+		if (oldwpname.empty()) {
+			if (Waypoint* phantom = map->waypoints.getWaypoint("")) {
+				if (map->getTile(phantom->pos)) {
+					map->getTileL(phantom->pos)->decreaseWaypointCount();
+				}
+				map->waypoints.removeWaypoint(phantom->name);
+			}
+			if (const long row = event.GetIndex(); row >= 0) {
+				waypoint_list->DeleteItem(row);
+			}
+			g_gui.RefreshPalettes();
+		}
 		g_hotkeys.EnableHotkeys();
 		return;
 	}
