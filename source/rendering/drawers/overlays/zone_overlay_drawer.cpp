@@ -426,7 +426,10 @@ void ZoneOverlayDrawer::drawFloorHouses(SpriteBatch& sprite_batch,
                                         const BaseMap* secondary_map,
                                         const DrawingOptions& options,
                                         const AtlasManager& atlas) {
-	if (options.ingame || !options.show_houses || view.zoom > kZoomLODCutoff) {
+	// This pass only emits house border quads, and those only when zone borders are
+	// enabled (house tints come from the sprite batch shader). Without borders it
+	// would sweep the whole viewport with a getTile per tile for no output at all.
+	if (options.ingame || !options.show_houses || !options.show_zone_borders || view.zoom > kZoomLODCutoff) {
 		return;
 	}
 
