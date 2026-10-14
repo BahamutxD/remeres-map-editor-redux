@@ -116,7 +116,7 @@ void ZoneOverlayDrawer::drawFloor(SpriteBatch& sprite_batch,
 			for (int x = min_x; x <= max_x;) {
 				const Floor* floor = map.getFloor(x, ry, z, primary_cursor);
 				if (!floor) {
-					const int span_end = std::min(max_x, primary_cursor.has_cell ? (x | 3) : (x | 63));
+					const int span_end = std::min(max_x, x | primary_cursor.empty_span_mask);
 					std::fill(out + (x - min_x), out + (span_end - min_x + 1), uint8_t { 0 });
 					x = span_end + 1;
 					continue;
@@ -377,7 +377,7 @@ void ZoneOverlayDrawer::drawFloorBlocking(SpriteBatch& sprite_batch,
 		for (int x = min_x; x <= max_x;) {
 			const Floor* floor = map.getFloor(x, ry, z, primary_cursor);
 			if (!floor) {
-				const int span_end = std::min(max_x, primary_cursor.has_cell ? (x | 3) : (x | 63));
+				const int span_end = std::min(max_x, x | primary_cursor.empty_span_mask);
 				std::fill(out + (x - min_x), out + (span_end - min_x + 1), uint8_t { 0 });
 				x = span_end + 1;
 				continue;
@@ -496,7 +496,7 @@ void ZoneOverlayDrawer::drawFloorHouses(SpriteBatch& sprite_batch,
 		for (int x = min_x; x <= max_x;) {
 			const Floor* floor = map.getFloor(x, ry, z, primary_cursor);
 			if (!floor) {
-				const int span_end = std::min(max_x, primary_cursor.has_cell ? (x | 3) : (x | 63));
+				const int span_end = std::min(max_x, x | primary_cursor.empty_span_mask);
 				std::fill(out + (x - min_x), out + (span_end - min_x + 1), uint32_t { 0 });
 				x = span_end + 1;
 				continue;
@@ -598,7 +598,7 @@ void ZoneOverlayDrawer::drawFloorHighlightItems(SpriteBatch& sprite_batch,
 		for (int x = bounds.start_x; x <= bounds.end_x;) {
 			const Floor* floor = map.getFloor(x, y, z, primary_cursor);
 			if (!floor) {
-				x = std::min(bounds.end_x, primary_cursor.has_cell ? (x | 3) : (x | 63)) + 1;
+				x = std::min(bounds.end_x, x | primary_cursor.empty_span_mask) + 1;
 				continue;
 			}
 			const int node_end = std::min(bounds.end_x, x | 3);

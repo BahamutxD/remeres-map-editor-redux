@@ -224,6 +224,14 @@ inline const Floor* BaseMap::getFloor(int x, int y, int z, SpatialHashGrid::Cell
 		cursor.floor_z = z;
 		const MapNode* leaf = grid.getLeafCached(x, y, cursor);
 		cursor.floor = leaf ? leaf->getFloor(z) : nullptr;
+		if (!cursor.floor) {
+			if (!cursor.cell || cursor.cell->floor_chunk_mask[z] == 0) {
+				cursor.empty_span_mask = 63;
+			} else {
+				const int chunk_bit_idx = ((ny & 12) | ((nx >> 2) & 3));
+				cursor.empty_span_mask = ((cursor.cell->floor_chunk_mask[z] & static_cast<uint16_t>(1u << chunk_bit_idx)) == 0) ? 15 : 3;
+			}
+		}
 	}
 	return cursor.floor;
 }

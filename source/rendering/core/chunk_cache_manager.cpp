@@ -40,15 +40,22 @@ namespace {
 	// A 16x16 chunk always lies inside one 64x64 grid cell, so a single cell lookup resolves its 4x4 nodes.
 	bool gatherChunkFloors(const Map& map, int32_t cx, int32_t cy, int32_t z, ChunkFloors& floors) {
 		floors = {};
+		if (z < 0 || z >= MAP_LAYERS) {
+			return false;
+		}
 		const auto& grid = map.getGrid();
 		const auto* cell = grid.getCell(grid.findCellIndex(SpatialHashGrid::makeKeyFromCell(cx >> 2, cy >> 2)));
 		if (!cell) {
 			return false;
 		}
 
-		bool any_floor = false;
 		const int chunk_ix = cx & 3;
 		const int chunk_iy = cy & 3;
+		if ((cell->floor_chunk_mask[z] & static_cast<uint16_t>(1u << ((chunk_iy << 2) | chunk_ix))) == 0) {
+			return false;
+		}
+
+		bool any_floor = false;
 		for (int ny = 0; ny < 4; ++ny) {
 			const int row_base = ((chunk_iy << 2) + ny) << 4;
 			for (int nx = 0; nx < 4; ++nx) {
