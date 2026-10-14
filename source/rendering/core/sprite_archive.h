@@ -67,7 +67,9 @@ private:
 
 	[[nodiscard]] bool readLegacyRgba(uint32_t sprite_id, bool use_alpha, std::unique_ptr<uint8_t[]>& target, ImageDimensions& dimensions) const;
 	[[nodiscard]] bool readProtobufRgba(uint32_t sprite_id, std::unique_ptr<uint8_t[]>& target, ImageDimensions& dimensions) const;
-	[[nodiscard]] bool loadSheetPixels(const ProtobufSheet& sheet) const;
+	// Decodes one protobuf sheet without touching shared state, so callers can run it
+	// concurrently for different sheets (sheet decoding is file I/O plus LZMA).
+	[[nodiscard]] std::shared_ptr<std::vector<uint8_t>> decodeSheetPixels(const std::string& path) const;
 	void pruneDecodedSheetCache(int32_t keep_sheet_index) const;
 
 	std::string filename_;
