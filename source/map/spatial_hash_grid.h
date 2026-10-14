@@ -99,6 +99,13 @@ public:
 		uint64_t key = 0;
 		size_t index = 0;
 		bool valid = false;
+		bool has_cell = false;
+		// Four consecutive x in a row share one 4x4 node and its Floor, so caching the Floor
+		// turns three out of four lookups into a single indexed load (no cell or node walk).
+		int node_x = -1;
+		int node_y = -1;
+		int floor_z = -1;
+		const Floor* floor = nullptr;
 	};
 
 	/**
@@ -111,14 +118,12 @@ public:
 			cursor.key = key;
 			cursor.index = findCellIndex(key);
 			cursor.valid = true;
+			cursor.has_cell = (cursor.index < cells_.size() && cells_[cursor.index].cell != nullptr);
 		}
-		if (cursor.index >= cells_.size()) {
+		if (!cursor.has_cell) {
 			return nullptr;
 		}
 		const GridCell* cell = cells_[cursor.index].cell.get();
-		if (!cell) {
-			return nullptr;
-		}
 		const int nx = (x >> NODE_SHIFT) & (NODES_PER_CELL - 1);
 		const int ny = (y >> NODE_SHIFT) & (NODES_PER_CELL - 1);
 		return cell->nodes[ny * NODES_PER_CELL + nx].get();

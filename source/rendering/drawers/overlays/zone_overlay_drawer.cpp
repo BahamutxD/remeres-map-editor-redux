@@ -85,29 +85,46 @@ void ZoneOverlayDrawer::drawFloor(SpriteBatch& sprite_batch,
 		const int row_width = max_x - min_x + 1;
 
 		// Caller-owned cell cursors: consecutive x in a row share the containing
-		// 64x64 cell, so this collapses a binary search per tile into one per run.
+		// 64x64 cell and 4x4 Floor, so empty cells/floors skip 64 or 4 tiles at once.
 		SpatialHashGrid::CellCursor secondary_cursor;
 		SpatialHashGrid::CellCursor primary_cursor;
-		auto fetchRow = [&](int ry, std::vector<CachedRowTile>& row) {
+		auto encodeZoneMask = [](const Tile* t) noexcept -> uint8_t {
+			if (!t) {
+				return 0;
+			}
+			const uint32_t mf = t->getMapFlags();
+			return static_cast<uint8_t>(
+				((mf & TILESTATE_PROTECTIONZONE) ? 1u : 0u) |
+				((mf & TILESTATE_NOPVP)          ? 2u : 0u) |
+				((mf & TILESTATE_NOLOGOUT)       ? 4u : 0u) |
+				((mf & TILESTATE_PVPZONE)        ? 8u : 0u));
+		};
+		auto fetchRow = [&](int ry, std::vector<uint8_t>& row) {
 			row.resize(row_width);
-			for (int x = min_x; x <= max_x; ++x) {
-				const Tile* t = secondary_map ? secondary_map->getTile(x, ry, z, secondary_cursor) : nullptr;
-				if (!t) {
-					t = map.getTile(x, ry, z, primary_cursor);
+			uint8_t* out = row.data();
+			if (secondary_map) {
+				for (int x = min_x; x <= max_x; ++x) {
+					const Tile* t = secondary_map->getTile(x, ry, z, secondary_cursor);
+					if (!t) {
+						t = map.getTile(x, ry, z, primary_cursor);
+					}
+					out[x - min_x] = encodeZoneMask(t);
 				}
-				CachedRowTile& ct = row[x - min_x];
-				ct.tile = t;
-				if (t) {
-					ct.is_pz = t->isPZ();
-					const uint32_t mf = t->getMapFlags();
-					ct.is_nopvp = (mf & TILESTATE_NOPVP) != 0;
-					ct.is_nolog = (mf & TILESTATE_NOLOGOUT) != 0;
-					ct.is_pvp = (mf & TILESTATE_PVPZONE) != 0;
-				} else {
-					ct.is_pz = false;
-					ct.is_nopvp = false;
-					ct.is_nolog = false;
-					ct.is_pvp = false;
+				return;
+			}
+			const int ly = ry & 3;
+			for (int x = min_x; x <= max_x;) {
+				const Floor* floor = map.getFloor(x, ry, z, primary_cursor);
+				if (!floor) {
+					const int span_end = std::min(max_x, primary_cursor.has_cell ? (x | 3) : (x | 63));
+					std::fill(out + (x - min_x), out + (span_end - min_x + 1), uint8_t { 0 });
+					x = span_end + 1;
+					continue;
+				}
+				const int node_end = std::min(max_x, x | 3);
+				for (; x <= node_end; ++x) {
+					const Tile* t = floor->locs[((x & 3) << 2) + ly].get();
+					out[x - min_x] = encodeZoneMask(t);
 				}
 			}
 		};
@@ -120,55 +137,44 @@ void ZoneOverlayDrawer::drawFloor(SpriteBatch& sprite_batch,
 
 			for (int x = bounds.start_x; x <= bounds.end_x; ++x) {
 				const int idx = x - min_x;
-				const CachedRowTile& ct = row_curr_[idx];
-				if (!ct.tile) {
+				const uint8_t zmask = row_curr_[idx];
+				if (zmask == 0) {
 					continue;
 				}
 
-				// Special Zones (PZ, No-PvP, No-Logout, PvP Zone)
-				if (ct.is_pz || ct.is_nopvp || ct.is_nolog || ct.is_pvp) {
-					uint32_t tile_zone_flags = 0;
-					if (ct.is_pz)    tile_zone_flags |= ZONE_FLAG_PZ;
-					if (ct.is_nopvp) tile_zone_flags |= ZONE_FLAG_NOPVP;
-					if (ct.is_nolog) tile_zone_flags |= ZONE_FLAG_NOLOGOUT;
-					if (ct.is_pvp)   tile_zone_flags |= ZONE_FLAG_PVPZONE;
+				uint32_t tile_zone_flags = 0;
+				if (zmask & 1u) tile_zone_flags |= ZONE_FLAG_PZ;
+				if (zmask & 2u) tile_zone_flags |= ZONE_FLAG_NOPVP;
+				if (zmask & 4u) tile_zone_flags |= ZONE_FLAG_NOLOGOUT;
+				if (zmask & 8u) tile_zone_flags |= ZONE_FLAG_PVPZONE;
 
-					auto checkNeighbor = [&](const CachedRowTile& n, uint32_t border_bit) {
-						const bool n_has_any = n.is_pz || n.is_nopvp || n.is_nolog || n.is_pvp;
-						if (!n_has_any) {
-							tile_zone_flags |= border_bit;
-						}
-					};
+				if (row_prev_[idx] == 0)     tile_zone_flags |= ZONE_FLAG_ZONE_BORDER_N;
+				if (row_next_[idx] == 0)     tile_zone_flags |= ZONE_FLAG_ZONE_BORDER_S;
+				if (row_curr_[idx - 1] == 0) tile_zone_flags |= ZONE_FLAG_ZONE_BORDER_W;
+				if (row_curr_[idx + 1] == 0) tile_zone_flags |= ZONE_FLAG_ZONE_BORDER_E;
 
-					checkNeighbor(row_prev_[idx],     ZONE_FLAG_ZONE_BORDER_N);
-					checkNeighbor(row_next_[idx],     ZONE_FLAG_ZONE_BORDER_S);
-					checkNeighbor(row_curr_[idx - 1], ZONE_FLAG_ZONE_BORDER_W);
-					checkNeighbor(row_curr_[idx + 1], ZONE_FLAG_ZONE_BORDER_E);
+				visible_zone_tiles_.push_back({ x, y, zmask });
 
-					uint8_t zmask = (ct.is_pz ? 1 : 0) | (ct.is_nopvp ? 2 : 0) | (ct.is_nolog ? 4 : 0) | (ct.is_pvp ? 8 : 0);
-					visible_zone_tiles_.push_back({ x, y, zmask });
+				bool is_mult = false;
+				if ((zmask & 1u) && options.zone_pz_blend_mode == 1) is_mult = true;
+				if ((zmask & 2u) && options.zone_nopvp_blend_mode == 1) is_mult = true;
+				if ((zmask & 4u) && options.zone_nologout_blend_mode == 1) is_mult = true;
+				if ((zmask & 8u) && options.zone_pvp_blend_mode == 1) is_mult = true;
 
-					bool is_mult = false;
-					if (ct.is_pz && options.zone_pz_blend_mode == 1) is_mult = true;
-					if (ct.is_nopvp && options.zone_nopvp_blend_mode == 1) is_mult = true;
-					if (ct.is_nolog && options.zone_nologout_blend_mode == 1) is_mult = true;
-					if (ct.is_pvp && options.zone_pvp_blend_mode == 1) is_mult = true;
+				int draw_x, draw_y;
+				view.getScreenPosition(x, y, z, draw_x, draw_y);
+				const float depth = calculateTileDepth(x, y, RenderSublayer::GroundOverlay);
 
-					int draw_x, draw_y;
-					view.getScreenPosition(x, y, z, draw_x, draw_y);
-					const float depth = calculateTileDepth(x, y, RenderSublayer::GroundOverlay);
+				if (is_mult) {
+					tile_zone_flags |= ZONE_FLAG_MULTIPLICATIVE;
+					mult_zone_quads_.push_back({ static_cast<float>(draw_x), static_cast<float>(draw_y), tile_zone_flags, depth });
+				} else {
+					alpha_zone_quads_.push_back({ static_cast<float>(draw_x), static_cast<float>(draw_y), tile_zone_flags, depth });
+				}
 
-					if (is_mult) {
-						tile_zone_flags |= ZONE_FLAG_MULTIPLICATIVE;
-						mult_zone_quads_.push_back({ static_cast<float>(draw_x), static_cast<float>(draw_y), tile_zone_flags, depth });
-					} else {
-						alpha_zone_quads_.push_back({ static_cast<float>(draw_x), static_cast<float>(draw_y), tile_zone_flags, depth });
-					}
-
-					if (options.show_zone_borders && (tile_zone_flags & (ZONE_FLAG_ZONE_BORDER_N | ZONE_FLAG_ZONE_BORDER_S | ZONE_FLAG_ZONE_BORDER_W | ZONE_FLAG_ZONE_BORDER_E))) {
-						uint32_t border_flags = (tile_zone_flags & ~ZONE_FLAG_MULTIPLICATIVE) | ZONE_FLAG_BORDER_PASS;
-						border_zone_quads_.push_back({ static_cast<float>(draw_x), static_cast<float>(draw_y), border_flags, depth });
-					}
+				if (options.show_zone_borders && (tile_zone_flags & (ZONE_FLAG_ZONE_BORDER_N | ZONE_FLAG_ZONE_BORDER_S | ZONE_FLAG_ZONE_BORDER_W | ZONE_FLAG_ZONE_BORDER_E))) {
+					uint32_t border_flags = (tile_zone_flags & ~ZONE_FLAG_MULTIPLICATIVE) | ZONE_FLAG_BORDER_PASS;
+					border_zone_quads_.push_back({ static_cast<float>(draw_x), static_cast<float>(draw_y), border_flags, depth });
 				}
 			}
 
@@ -356,12 +362,31 @@ void ZoneOverlayDrawer::drawFloorBlocking(SpriteBatch& sprite_batch,
 	SpatialHashGrid::CellCursor primary_cursor;
 	auto fetchRow = [&](int ry, std::vector<uint8_t>& row) {
 		row.resize(row_width);
-		for (int x = min_x; x <= max_x; ++x) {
-			const Tile* t = secondary_map ? secondary_map->getTile(x, ry, z, secondary_cursor) : nullptr;
-			if (!t) {
-				t = map.getTile(x, ry, z, primary_cursor);
+		uint8_t* out = row.data();
+		if (secondary_map) {
+			for (int x = min_x; x <= max_x; ++x) {
+				const Tile* t = secondary_map->getTile(x, ry, z, secondary_cursor);
+				if (!t) {
+					t = map.getTile(x, ry, z, primary_cursor);
+				}
+				out[x - min_x] = (t && IsTilePathBlocking(t)) ? 1 : 0;
 			}
-			row[x - min_x] = (t && IsTilePathBlocking(t)) ? 1 : 0;
+			return;
+		}
+		const int ly = ry & 3;
+		for (int x = min_x; x <= max_x;) {
+			const Floor* floor = map.getFloor(x, ry, z, primary_cursor);
+			if (!floor) {
+				const int span_end = std::min(max_x, primary_cursor.has_cell ? (x | 3) : (x | 63));
+				std::fill(out + (x - min_x), out + (span_end - min_x + 1), uint8_t { 0 });
+				x = span_end + 1;
+				continue;
+			}
+			const int node_end = std::min(max_x, x | 3);
+			for (; x <= node_end; ++x) {
+				const Tile* t = floor->locs[((x & 3) << 2) + ly].get();
+				out[x - min_x] = (t && IsTilePathBlocking(t)) ? 1 : 0;
+			}
 		}
 	};
 
@@ -456,12 +481,31 @@ void ZoneOverlayDrawer::drawFloorHouses(SpriteBatch& sprite_batch,
 	SpatialHashGrid::CellCursor primary_cursor;
 	auto fetchRow = [&](int ry, std::vector<uint32_t>& row) {
 		row.resize(row_width);
-		for (int x = min_x; x <= max_x; ++x) {
-			const Tile* t = secondary_map ? secondary_map->getTile(x, ry, z, secondary_cursor) : nullptr;
-			if (!t) {
-				t = map.getTile(x, ry, z, primary_cursor);
+		uint32_t* out = row.data();
+		if (secondary_map) {
+			for (int x = min_x; x <= max_x; ++x) {
+				const Tile* t = secondary_map->getTile(x, ry, z, secondary_cursor);
+				if (!t) {
+					t = map.getTile(x, ry, z, primary_cursor);
+				}
+				out[x - min_x] = (t && t->isHouseTile()) ? static_cast<uint32_t>(t->getHouseID()) : 0u;
 			}
-			row[x - min_x] = (t && t->isHouseTile()) ? static_cast<uint32_t>(t->getHouseID()) : 0u;
+			return;
+		}
+		const int ly = ry & 3;
+		for (int x = min_x; x <= max_x;) {
+			const Floor* floor = map.getFloor(x, ry, z, primary_cursor);
+			if (!floor) {
+				const int span_end = std::min(max_x, primary_cursor.has_cell ? (x | 3) : (x | 63));
+				std::fill(out + (x - min_x), out + (span_end - min_x + 1), uint32_t { 0 });
+				x = span_end + 1;
+				continue;
+			}
+			const int node_end = std::min(max_x, x | 3);
+			for (; x <= node_end; ++x) {
+				const Tile* t = floor->locs[((x & 3) << 2) + ly].get();
+				out[x - min_x] = (t && t->isHouseTile()) ? static_cast<uint32_t>(t->getHouseID()) : 0u;
+			}
 		}
 	};
 
@@ -534,21 +578,40 @@ void ZoneOverlayDrawer::drawFloorHighlightItems(SpriteBatch& sprite_batch,
 	SpatialHashGrid::CellCursor secondary_cursor;
 	SpatialHashGrid::CellCursor primary_cursor;
 	for (int y = bounds.start_y; y <= bounds.end_y; ++y) {
-		for (int x = bounds.start_x; x <= bounds.end_x; ++x) {
-			const Tile* t = secondary_map ? secondary_map->getTile(x, y, z, secondary_cursor) : nullptr;
-			if (!t) {
-				t = map.getTile(x, y, z, primary_cursor);
+		if (secondary_map) {
+			for (int x = bounds.start_x; x <= bounds.end_x; ++x) {
+				const Tile* t = secondary_map->getTile(x, y, z, secondary_cursor);
+				if (!t) {
+					t = map.getTile(x, y, z, primary_cursor);
+				}
+				if (!t || t->items.empty() || t->items.back()->isBorder()) {
+					continue;
+				}
+				int draw_x, draw_y;
+				view.getScreenPosition(x, y, z, draw_x, draw_y);
+				const float depth = calculateTileDepth(x, y, RenderSublayer::GroundOverlay);
+				highlight_quads_.push_back({ static_cast<float>(draw_x), static_cast<float>(draw_y), MakeHighlightItemsFlags(), depth });
 			}
-			if (!t || t->items.empty() || t->items.back()->isBorder()) {
+			continue;
+		}
+		const int ly = y & 3;
+		for (int x = bounds.start_x; x <= bounds.end_x;) {
+			const Floor* floor = map.getFloor(x, y, z, primary_cursor);
+			if (!floor) {
+				x = std::min(bounds.end_x, primary_cursor.has_cell ? (x | 3) : (x | 63)) + 1;
 				continue;
 			}
-
-			int draw_x, draw_y;
-			view.getScreenPosition(x, y, z, draw_x, draw_y);
-
-			const float depth = calculateTileDepth(x, y, RenderSublayer::GroundOverlay);
-			uint32_t flags = MakeHighlightItemsFlags();
-			highlight_quads_.push_back({ static_cast<float>(draw_x), static_cast<float>(draw_y), flags, depth });
+			const int node_end = std::min(bounds.end_x, x | 3);
+			for (; x <= node_end; ++x) {
+				const Tile* t = floor->locs[((x & 3) << 2) + ly].get();
+				if (!t || t->items.empty() || t->items.back()->isBorder()) {
+					continue;
+				}
+				int draw_x, draw_y;
+				view.getScreenPosition(x, y, z, draw_x, draw_y);
+				const float depth = calculateTileDepth(x, y, RenderSublayer::GroundOverlay);
+				highlight_quads_.push_back({ static_cast<float>(draw_x), static_cast<float>(draw_y), MakeHighlightItemsFlags(), depth });
+			}
 		}
 	}
 

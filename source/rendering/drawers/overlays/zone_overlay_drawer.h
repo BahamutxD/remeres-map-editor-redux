@@ -88,14 +88,6 @@ public:
 private:
 	ZoneClusterFinder cluster_finder_;
 
-	struct CachedRowTile {
-		const Tile* tile = nullptr;
-		bool is_pz = false;
-		bool is_nopvp = false;
-		bool is_nolog = false;
-		bool is_pvp = false;
-	};
-
 	struct PendingZoneQuad {
 		float x = 0.0f;
 		float y = 0.0f;
@@ -127,10 +119,11 @@ private:
 		float depth = 0.0f;
 	};
 
-	// Contiguous reusable buffers across render frames (DOD)
-	std::vector<CachedRowTile> row_prev_;
-	std::vector<CachedRowTile> row_curr_;
-	std::vector<CachedRowTile> row_next_;
+	// Contiguous reusable buffers across render frames (DOD): 1 byte per tile (4-bit zone mask)
+	// instead of a 16-byte pointer+bools struct.
+	std::vector<uint8_t> row_prev_;
+	std::vector<uint8_t> row_curr_;
+	std::vector<uint8_t> row_next_;
 	std::vector<VisibleZoneTile> visible_zone_tiles_;
 	std::vector<PendingZoneQuad> alpha_zone_quads_;
 	std::vector<PendingZoneQuad> mult_zone_quads_;

@@ -113,6 +113,7 @@ public:
 	// See SpatialHashGrid::CellCursor.
 	const Tile* getTile(int x, int y, int z, SpatialHashGrid::CellCursor& cursor) const;
 	const TileLocation* getTileL(int x, int y, int z, SpatialHashGrid::CellCursor& cursor) const;
+	const Floor* getFloor(int x, int y, int z, SpatialHashGrid::CellCursor& cursor) const;
 
 	// Get a Map Node from the map
 	MapNode* getLeaf(int x, int y) {
@@ -213,16 +214,23 @@ inline const Tile* BaseMap::getTile(const Position& pos) const {
 	return l ? l->get() : nullptr;
 }
 
-inline const TileLocation* BaseMap::getTileL(int x, int y, int z, SpatialHashGrid::CellCursor& cursor) const {
+inline const Floor* BaseMap::getFloor(int x, int y, int z, SpatialHashGrid::CellCursor& cursor) const {
 	ASSERT(z < MAP_LAYERS);
-	const MapNode* leaf = grid.getLeafCached(x, y, cursor);
-	if (leaf) {
-		const Floor* floor = leaf->getFloor(z);
-		if (floor) {
-			return &floor->locs[(x & 3) * 4 + (y & 3)];
-		}
+	const int nx = x >> 2;
+	const int ny = y >> 2;
+	if (cursor.node_x != nx || cursor.node_y != ny || cursor.floor_z != z) {
+		cursor.node_x = nx;
+		cursor.node_y = ny;
+		cursor.floor_z = z;
+		const MapNode* leaf = grid.getLeafCached(x, y, cursor);
+		cursor.floor = leaf ? leaf->getFloor(z) : nullptr;
 	}
-	return nullptr;
+	return cursor.floor;
+}
+
+inline const TileLocation* BaseMap::getTileL(int x, int y, int z, SpatialHashGrid::CellCursor& cursor) const {
+	const Floor* floor = getFloor(x, y, z, cursor);
+	return floor ? &floor->locs[(x & 3) * 4 + (y & 3)] : nullptr;
 }
 
 inline const Tile* BaseMap::getTile(int x, int y, int z, SpatialHashGrid::CellCursor& cursor) const {
