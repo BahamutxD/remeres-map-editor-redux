@@ -78,15 +78,18 @@ namespace {
 	}
 
 	// Visits the atlas regions of one sprite occurrence in bake order, with their draw positions.
+	// With allow_upload=false the bake reports a not-yet-loaded sprite as a null region instead
+	// of loading it inline, so asset loading happens on the sprite preloader's workers and never
+	// blocks the render thread.
 	template <typename Visitor>
-	void forEachSpriteRegion(GameSprite* spr, const SpritePatterns& pat, int draw_base_x, int draw_base_y, Visitor&& visit) {
+	void forEachSpriteRegion(GameSprite* spr, const SpritePatterns& pat, int draw_base_x, int draw_base_y, bool allow_upload, Visitor&& visit) {
 		if (spr->width == 1 && spr->height == 1 && spr->layers == 1) {
 			const AtlasRegion* reg = nullptr;
 			if (spr->is_simple && pat.subtype == -1 && pat.x == 0 && pat.y == 0 && pat.z == 0 && pat.frame == 0) {
 				reg = spr->getCachedDefaultRegion();
 			}
 			if (!reg) {
-				reg = spr->getAtlasRegion(0, 0, 0, pat.subtype, pat.x, pat.y, pat.z, pat.frame);
+				reg = spr->getAtlasRegion(0, 0, 0, pat.subtype, pat.x, pat.y, pat.z, pat.frame, allow_upload);
 			}
 			visit(reg, draw_base_x, draw_base_y);
 			return;
@@ -98,7 +101,7 @@ namespace {
 			int y_offset = 0;
 			for (int cy = 0; cy < composite_metrics.num_rows; ++cy) {
 				for (int cf = 0; cf < spr->layers; ++cf) {
-					visit(spr->getAtlasRegion(cx, cy, cf, pat.subtype, pat.x, pat.y, pat.z, pat.frame), draw_base_x - x_offset, draw_base_y - y_offset);
+					visit(spr->getAtlasRegion(cx, cy, cf, pat.subtype, pat.x, pat.y, pat.z, pat.frame, allow_upload), draw_base_x - x_offset, draw_base_y - y_offset);
 				}
 				y_offset += composite_metrics.row_heights[cy];
 			}
@@ -296,12 +299,15 @@ void ChunkCacheManager::uploadChunk(CachedChunk& chunk, const std::vector<TileIn
 	}
 }
 
-void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const RenderFrameContext& ctx) {
+void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const RenderFrameContext& ctx, bool allow_upload) {
 	// Items are not drawn beyond the LOD cutoff when hide_items_when_zoomed is on, so
 	// do not bake them: they would only cost bake time (the dominant burst cost) and
 	// VBO memory. The chunk records whether items were baked so it can be re-baked if
 	// items become visible again.
 	const bool bake_items = !(ctx.view.zoom > 10.0f && ctx.options.hide_items_when_zoomed);
+	// Set when the bake had to skip a sprite that is not uploaded yet (only possible while
+	// allow_upload is false). Such a chunk is marked incomplete and retried later.
+	bool skipped = false;
 	bake_buffer_.clear();
 	chunk.clearDynamicTiles();
 	chunk.animated_sprites.clear();
@@ -317,6 +323,9 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 		chunk.is_dirty = false;
 		chunk.instance_count = 0;
 		chunk.baked_with_items = bake_items;
+		chunk.is_complete = true;
+		chunk.rebake_attempts = 0;
+		chunk.force_load = false;
 		chunk.animated_shadow.clear();
 		return;
 	}
@@ -337,7 +346,13 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 	};
 
 	auto emitSpriteInstances = [&](GameSprite* spr, const SpritePatterns& pat, int draw_base_x, int draw_base_y, float rf, float gf, float bf, float af, float house_id = 0.0f, float depth = 0.0f, float flags = TILE_INSTANCE_FLAG_TEXTURE) {
-		forEachSpriteRegion(spr, pat, draw_base_x, draw_base_y, [&](const AtlasRegion* reg, int draw_x, int draw_y) {
+		forEachSpriteRegion(spr, pat, draw_base_x, draw_base_y, allow_upload, [&](const AtlasRegion* reg, int draw_x, int draw_y) {
+			if (!reg) {
+				// Not uploaded yet. The caller queued it to the sprite preloader, so the chunk
+				// is simply re-baked once it becomes available.
+				skipped = true;
+				return;
+			}
 			pushRegionInstance(reg, draw_x, draw_y, rf, gf, bf, af, house_id, depth, flags);
 		});
 	};
@@ -771,6 +786,17 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 	uploadChunk(chunk, bake_buffer_);
 	chunk.is_dirty = false;
 	chunk.baked_with_items = bake_items;
+
+	if (skipped && !allow_upload) {
+		chunk.is_complete = false;
+		chunk.rebake_attempts = std::min(chunk.rebake_attempts + 1, MAX_INCOMPLETE_REBAKES);
+		chunk.rebake_at_frame = current_frame_ + INCOMPLETE_REBAKE_DELAY_FRAMES;
+	} else {
+		// Complete, or baked with loading allowed: nothing is left to wait for.
+		chunk.is_complete = true;
+		chunk.rebake_attempts = 0;
+		chunk.force_load = false;
+	}
 }
 
 bool ChunkCacheManager::refreshAnimatedFrames(CachedChunk& chunk, long elapsed_time) {
@@ -813,7 +839,7 @@ bool ChunkCacheManager::refreshAnimatedFrames(CachedChunk& chunk, long elapsed_t
 
 		uint32_t written = 0;
 		bool layout_changed = false;
-		forEachSpriteRegion(spr, pat, run.draw_x, run.draw_y, [&](const AtlasRegion* reg, int draw_x, int draw_y) {
+		forEachSpriteRegion(spr, pat, run.draw_x, run.draw_y, true, [&](const AtlasRegion* reg, int draw_x, int draw_y) {
 			if (!isBakeableRegion(reg)) {
 				return;
 			}
@@ -927,7 +953,9 @@ void ChunkCacheManager::renderFloorTerrain(
 		const bool is_new = cached_chunks_.size() != cached_before;
 		const bool was_dirty = chunk.is_dirty;
 
-		if (!chunk.is_dirty && !chunk.animated_runs.empty() && ctx.options.show_preview && ctx.view.zoom < 10.0) {
+		// An incomplete chunk must not be animated-patched: the patch path assumes a complete
+		// layout, so a missing sprite would fail it and force a full re-bake every frame.
+		if (!chunk.is_dirty && chunk.is_complete && !chunk.animated_runs.empty() && ctx.options.show_preview && ctx.view.zoom < 10.0) {
 			const auto patch_start = std::chrono::steady_clock::now();
 			if (!refreshAnimatedFrames(chunk, ctx.elapsed_time)) {
 				chunk.is_dirty = true;
@@ -947,6 +975,18 @@ void ChunkCacheManager::renderFloorTerrain(
 			chunk.is_dirty = true;
 		}
 
+		// Re-bake an incomplete chunk so the sprites the last bake skipped appear as soon as
+		// the preloader has loaded them. The retries are bounded; the last one may load inline
+		// (force_load), which guarantees the chunk ends up complete.
+		if (!chunk.is_complete && !chunk.is_dirty) {
+			if (chunk.rebake_attempts >= MAX_INCOMPLETE_REBAKES) {
+				chunk.force_load = true;
+				chunk.is_dirty = true;
+			} else if (current_frame_ >= chunk.rebake_at_frame) {
+				chunk.is_dirty = true;
+			}
+		}
+
 		if (chunk.is_dirty) {
 			// Never defer an on-screen chunk: leaving it un-baked shows a black hole
 			// while the user pans. Only the off-screen bake-ahead margin is budgeted.
@@ -954,7 +994,7 @@ void ChunkCacheManager::renderFloorTerrain(
 				++stats_.baked_deferred;
 			} else {
 				const auto bake_start = std::chrono::steady_clock::now();
-				bakeChunk(chunk, map, ctx);
+				bakeChunk(chunk, map, ctx, chunk.force_load);
 				frame_bake_ms_ += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - bake_start).count();
 				if (is_new) {
 					++stats_.baked_new;

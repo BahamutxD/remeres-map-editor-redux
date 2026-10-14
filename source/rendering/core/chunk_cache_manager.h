@@ -57,6 +57,14 @@ struct CachedChunk {
 	// False when the chunk was baked at a zoom where items are not drawn, so the
 	// item range is missing and the chunk must be re-baked if items come back.
 	bool baked_with_items = true;
+	// False when the last bake had to skip sprites that were not uploaded yet. Such a chunk
+	// is re-baked so the sprites appear as soon as the sprite preloader has loaded them.
+	bool is_complete = true;
+	// Bounded retries: a sprite that can never be loaded must not cause an endless re-bake
+	// loop, and the last attempt is allowed to load inline so no sprite can stay missing.
+	uint32_t rebake_attempts = 0;
+	uint64_t rebake_at_frame = 0;
+	bool force_load = false;
 	std::vector<AnimatedSpriteFrame> animated_sprites;
 	std::vector<AnimatedSpriteRun> animated_runs;
 	// CPU copy of the instance buffer, kept only while animated_runs is non-empty so frames can be patched in place.
@@ -95,6 +103,10 @@ struct CachedChunk {
 		is_dirty(other.is_dirty),
 		is_empty(other.is_empty),
 		baked_with_items(other.baked_with_items),
+		is_complete(other.is_complete),
+		rebake_attempts(other.rebake_attempts),
+		rebake_at_frame(other.rebake_at_frame),
+		force_load(other.force_load),
 		animated_sprites(std::move(other.animated_sprites)),
 		animated_runs(std::move(other.animated_runs)),
 		animated_shadow(std::move(other.animated_shadow)),
@@ -122,6 +134,10 @@ struct CachedChunk {
 			is_dirty = other.is_dirty;
 			is_empty = other.is_empty;
 			baked_with_items = other.baked_with_items;
+			is_complete = other.is_complete;
+			rebake_attempts = other.rebake_attempts;
+			rebake_at_frame = other.rebake_at_frame;
+			force_load = other.force_load;
 			animated_sprites = std::move(other.animated_sprites);
 			animated_runs = std::move(other.animated_runs);
 			animated_shadow = std::move(other.animated_shadow);
@@ -173,6 +189,12 @@ public:
 	// hitches. Chunks left over stay dirty and drain on following frames while
 	// keeping their previous VBO content.
 	static constexpr double MAX_BAKE_MS_PER_FRAME = 8.0;
+	// A chunk whose bake skipped not-yet-loaded sprites is retried this many times, then one
+	// final bake with inline loading is allowed so a sprite can never stay missing.
+	static constexpr uint32_t MAX_INCOMPLETE_REBAKES = 2;
+	// Frames to wait before retrying an incomplete chunk, so the preloader's workers have had
+	// time to decode the sprites it asked for.
+	static constexpr uint64_t INCOMPLETE_REBAKE_DELAY_FRAMES = 4;
 
 	ChunkCacheManager();
 	~ChunkCacheManager();
@@ -258,7 +280,7 @@ public:
 	}
 
 private:
-	void bakeChunk(CachedChunk& chunk, const Map& map, const RenderFrameContext& ctx);
+	void bakeChunk(CachedChunk& chunk, const Map& map, const RenderFrameContext& ctx, bool allow_upload);
 	void uploadChunk(CachedChunk& chunk, const std::vector<TileInstance>& instances);
 	// Returns false when the chunk needs a full re-bake instead.
 	bool refreshAnimatedFrames(CachedChunk& chunk, long elapsed_time);
