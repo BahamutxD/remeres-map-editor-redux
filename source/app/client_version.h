@@ -125,6 +125,10 @@ struct MapVersion {
 		otbm(m), client(c) { }
 	MapVersionID otbm;
 	OtbVersionID client;
+	// The map stores OTBM_ATTR_COUNT as 2 bytes instead of 1 (format used by
+	// Remere's Map Editor 3.8.0 and the servers built around it). Detected on
+	// load and preserved on save so the map keeps working with those tools.
+	bool wide_item_count = false;
 };
 
 enum OtbFormatVersion : uint32_t {

@@ -156,9 +156,14 @@ bool IOMapOTBM::loadMapFromDisk(Map& map, const FileName& filename) {
 		return false;
 	}
 
+	detected_wide_item_count.store(false, std::memory_order_relaxed);
 	if (!loadMapFast(map, buffer.data() + 4, size - 4)) {
 		spdlog::error("Failed to load OTBM map: {}", filename.GetFullPath().ToStdString());
 		return false;
+	}
+	version.wide_item_count = detected_wide_item_count.load(std::memory_order_relaxed);
+	if (version.wide_item_count) {
+		spdlog::info("Map uses 2-byte item counts; they will be saved in the same format.");
 	}
 
 	// Read auxiliary files

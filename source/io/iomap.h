@@ -19,6 +19,7 @@
 #define RME_MAP_IO_H_
 
 #include "app/client_version.h"
+#include <atomic>
 
 enum ImportType {
 	IMPORT_DONT,
@@ -46,6 +47,10 @@ public:
 	virtual ~IOMap() = default;
 
 	MapVersion version;
+
+	// Set by the item reader when it finds a 2-byte item count while loading.
+	// Atomic because items are read by several worker threads.
+	mutable std::atomic<bool> detected_wide_item_count { false };
 
 	std::vector<std::string>& getWarnings() {
 		return warnings;

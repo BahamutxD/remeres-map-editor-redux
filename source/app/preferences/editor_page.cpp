@@ -127,8 +127,8 @@ EditorPage::EditorPage(wxWindow* parent) : ScrollablePreferencesPage(parent) {
 	);
 	legacy_item_count_format_chkbox = PreferencesLayout::AddCheckBoxRow(
 		compatibility_section,
-		"Write item count as 2 bytes (legacy format)",
-		"Some older editors, such as Remere's Map Editor 3.8.0, expect the item count/subtype attribute to be 2 bytes instead of the standard 1 byte. Enable this if a map saved here loses items when reopened in such an editor. Reading always accepts both formats automatically.",
+		"Always write item count as 2 bytes",
+		"Remere's Map Editor 3.8.0 and servers built for it store the item count as 2 bytes instead of 1. Maps already in that format are detected when opened and saved the same way automatically; enable this to also force it for new maps or maps that were re-saved in the 1-byte format.",
 		g_settings.getBoolean(Config::LEGACY_ITEM_COUNT_FORMAT)
 	);
 	show_waypoint_migration_dialog_chkbox = PreferencesLayout::AddCheckBoxRow(
