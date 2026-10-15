@@ -423,14 +423,14 @@ void ReplaceToolWindow::OnExecute(wxCommandEvent&) {
 		return;
 	}
 
-	wxString preview = "About to replace " + wxString::Format("%u", totalMatches) + " item(s):\n\n";
+	wxString preview = "Up to " + wxString::Format("%u", totalMatches) + " item(s) can be replaced:\n\n";
 	for (size_t index = 0; index < rules.size() && index < counts.size(); ++index) {
 		if (counts[index] == 0) {
 			continue;
 		}
 		preview += wxString::Format("Item %u: %u hit(s)\n", rules[index].fromId, counts[index]);
 	}
-	preview += "\nAre you sure you want to execute the replacements?";
+	preview += "\nProbabilities below 100% leave some matches untouched.\nExecute the replacements?";
 
 	int confirm = wxMessageBox(preview, "Confirm Bulk Replacement", wxYES_NO | wxNO_DEFAULT | wxICON_WARNING);
 	if (confirm != wxYES) {
