@@ -57,6 +57,10 @@ public:
 	void SetMap(Map* map);
 
 protected:
+	// Removes a waypoint from the map, keeping the tile waypoint count
+	// consistent (unplaced waypoints are never counted).
+	void RemoveWaypointFromMap(Waypoint* wp);
+
 	Map* map;
 	wxListCtrl* waypoint_list;
 	wxButton* add_waypoint_button;

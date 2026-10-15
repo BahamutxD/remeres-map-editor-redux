@@ -97,9 +97,7 @@ void WaypointPalettePanel::OnUpdate() {
 	if (wxTextCtrl* tc = waypoint_list->GetEditControl()) {
 		Waypoint* wp = map->waypoints.getWaypoint(nstr(tc->GetValue()));
 		if (wp && wp->pos == Position()) {
-			if (map->getTile(wp->pos)) {
-				map->getTileL(wp->pos)->decreaseWaypointCount();
-			}
+			// Unplaced waypoints are never counted on a tile, drop it as is.
 			map->waypoints.removeWaypoint(wp->name);
 		}
 	}
@@ -164,10 +162,7 @@ void WaypointPalettePanel::OnEditWaypointLabel(wxListEvent& event) {
 		// no name and an uninitialized position.
 		if (oldwpname.empty()) {
 			if (Waypoint* phantom = map->waypoints.getWaypoint("")) {
-				if (map->getTile(phantom->pos)) {
-					map->getTileL(phantom->pos)->decreaseWaypointCount();
-				}
-				map->waypoints.removeWaypoint(phantom->name);
+				RemoveWaypointFromMap(phantom);
 			}
 			if (const long row = event.GetIndex(); row >= 0) {
 				waypoint_list->DeleteItem(row);
@@ -179,7 +174,9 @@ void WaypointPalettePanel::OnEditWaypointLabel(wxListEvent& event) {
 	}
 
 	if (wpname == "") {
-		map->waypoints.removeWaypoint(oldwpname);
+		if (Waypoint* removed = map->waypoints.getWaypoint(oldwpname)) {
+			RemoveWaypointFromMap(removed);
+		}
 		g_gui.RefreshPalettes();
 	} else if (wp) {
 		if (wpname == oldwpname) {
@@ -200,10 +197,7 @@ void WaypointPalettePanel::OnEditWaypointLabel(wxListEvent& event) {
 
 				Waypoint* rwp = map->waypoints.getWaypoint(oldwpname);
 				if (rwp) {
-					if (map->getTile(rwp->pos)) {
-						map->getTileL(rwp->pos)->decreaseWaypointCount();
-					}
-					map->waypoints.removeWaypoint(rwp->name);
+					RemoveWaypointFromMap(rwp);
 				}
 
 				map->waypoints.addWaypoint(std::move(nwp_ptr));
@@ -239,14 +233,27 @@ void WaypointPalettePanel::OnClickRemoveWaypoint(wxCommandEvent& event) {
 
 	long item = waypoint_list->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
 	if (item != -1) {
-		Waypoint* wp = map->waypoints.getWaypoint(nstr(waypoint_list->GetItemText(item)));
-		if (wp) {
-			if (map->getTile(wp->pos)) {
-				map->getTileL(wp->pos)->decreaseWaypointCount();
-			}
-			map->waypoints.removeWaypoint(wp->name);
+		if (Waypoint* wp = map->waypoints.getWaypoint(nstr(waypoint_list->GetItemText(item)))) {
+			RemoveWaypointFromMap(wp);
 		}
 		waypoint_list->DeleteItem(item);
 		refresh_timer.Start(300, true);
 	}
+}
+
+void WaypointPalettePanel::RemoveWaypointFromMap(Waypoint* wp) {
+	if (!map || !wp) {
+		return;
+	}
+
+	// Only placed waypoints contribute to the tile waypoint count; an
+	// unplaced one (default position) was never counted, so decrementing
+	// it would corrupt the count of whatever tile sits at the origin.
+	if (wp->pos != Position()) {
+		if (map->getTile(wp->pos)) {
+			map->getTileL(wp->pos)->decreaseWaypointCount();
+		}
+	}
+
+	map->waypoints.removeWaypoint(wp->name);
 }
