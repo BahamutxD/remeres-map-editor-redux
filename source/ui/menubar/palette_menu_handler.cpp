@@ -84,10 +84,11 @@ void PaletteMenuHandler::OnSelectWaypointPalette(wxCommandEvent& event) {
 }
 
 void PaletteMenuHandler::OnSelectCatalogPalette(wxCommandEvent& event) {
-	// Only trust selections raised by an actual menu item; this handler is
-	// bound frame-wide for all catalog ids, don't let synthetic events
-	// from other controls reopen palettes.
-	if (const wxObject* const source = event.GetEventObject(); source && !wxDynamicCast(source, wxMenuItem)) {
+	// Menu selections carry the owning wxMenu (or the item, on some paths) as
+	// their event object. A source-less event is synthetic, so don't let it
+	// reopen palettes; this handler is bound frame-wide for all catalog ids.
+	const wxObject* const source = event.GetEventObject();
+	if (!source || (!wxDynamicCast(source, wxMenu) && !wxDynamicCast(source, wxMenuItem))) {
 		return;
 	}
 
