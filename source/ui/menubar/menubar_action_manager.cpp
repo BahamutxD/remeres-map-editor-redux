@@ -23,6 +23,7 @@ void MenuBarActionManager::RegisterActions(MainMenuBar* mb, std::unordered_map<s
 	MAKE_ACTION_ICON(OPEN, wxITEM_NORMAL, ICON_OPEN, OnOpen);
 	MAKE_ACTION_ICON(SAVE, wxITEM_NORMAL, ICON_SAVE, OnSave);
 	MAKE_ACTION_ICON(SAVE_AS, wxITEM_NORMAL, ICON_SAVE, OnSaveAs);
+	MAKE_ACTION_ICON(SAVE_AS_GZIP, wxITEM_NORMAL, ICON_FILE_ZIPPER, OnSaveAsGzip);
 	MAKE_ACTION_ICON(GENERATE_MAP, wxITEM_NORMAL, ICON_WAND_MAGIC, OnGenerateMap);
 	MAKE_ACTION_ICON(CLOSE, wxITEM_NORMAL, ICON_XMARK, OnClose);
 
@@ -128,6 +129,7 @@ void MenuBarActionManager::RegisterActions(MainMenuBar* mb, std::unordered_map<s
 	MAKE_ACTION_ICON(SHOW_TOWNS, wxITEM_CHECK, ICON_CITY, OnChangeViewSettings);
 	MAKE_ACTION_ICON(ALWAYS_SHOW_ZONES, wxITEM_CHECK, ICON_BAN, OnChangeViewSettings);
 	MAKE_ACTION_ICON(EXT_HOUSE_SHADER, wxITEM_CHECK, ICON_HOUSE, OnChangeViewSettings);
+	MAKE_ACTION_ICON(EXT_PATHING_SHADER, wxITEM_CHECK, ICON_ROUTE, OnChangeViewSettings);
 
 	MAKE_ACTION_ICON(WIN_MINIMAP, wxITEM_NORMAL, ICON_MAP, OnMinimapWindow);
 	MAKE_ACTION_ICON(WIN_TOOL_OPTIONS, wxITEM_NORMAL, ICON_SLIDERS, OnToolOptionsWindow);
@@ -206,6 +208,7 @@ void MenuBarActionManager::UpdateState(MainMenuBar* mb) {
 	mb->EnableItem(CLOSE, is_local);
 	mb->EnableItem(SAVE, is_host);
 	mb->EnableItem(SAVE_AS, is_host);
+	mb->EnableItem(SAVE_AS_GZIP, is_host);
 	mb->EnableItem(GENERATE_MAP, false);
 
 	mb->EnableItem(IMPORT_MAP, is_local);

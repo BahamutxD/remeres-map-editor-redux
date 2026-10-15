@@ -19,6 +19,7 @@
 #define RME_MAP_H_
 
 #include <cstdint>
+#include "map/map_storage_format.h"
 #include "map/basemap.h"
 #include "map/tile.h"
 #include "game/town.h"
@@ -117,6 +118,12 @@ public:
 	std::string getSpawnFilename() const {
 		return spawnfile;
 	}
+	std::string getMonsterFilename() const {
+		return monsterfile;
+	}
+	std::string getNpcFilename() const {
+		return npcfile;
+	}
 
 	// Set some map data
 	void setWidth(int new_width);
@@ -124,6 +131,8 @@ public:
 	void setMapDescription(const std::string& new_description);
 	void setHouseFilename(const std::string& new_housefile);
 	void setSpawnFilename(const std::string& new_spawnfile);
+	void setMonsterFilename(const std::string& new_monsterfile);
+	void setNpcFilename(const std::string& new_npcfile);
 	void setWaypointFilename(const std::string& new_waypointfile);
 
 	std::string getWaypointFilename() const {
@@ -165,8 +174,10 @@ protected:
 	// Map Width and Height - for info purposes
 	uint16_t width, height;
 
-	std::string spawnfile; // The maps spawnfile
+	std::string spawnfile; // Standard spawnfile (<map>-spawn.xml, for TFS / classic OTBM)
+	std::string monsterfile; // Monster spawnfile (<map>-monster.xml, for OTBM 5)
 	std::string housefile; // The housefile
+	std::string npcfile; // NPC spawnfile (<map>-npc.xml, for OTBM 5)
 	std::string waypointfile; // The waypoints file (stores extended waypoint information such as id, preferred icon and matching town)
 
 public:
@@ -177,6 +188,17 @@ public:
 protected:
 	bool has_changed; // If the map has changed
 	bool unnamed; // If the map has yet to receive a name
+	OtbmCompression compression = OtbmCompression::None;
+
+public:
+	[[nodiscard]] OtbmCompression getCompression() const noexcept {
+		return compression;
+	}
+	void setCompression(OtbmCompression format) noexcept {
+		compression = format;
+	}
+
+protected:
 
 	friend class IOMapOTBM;
 	friend class Editor;

@@ -33,7 +33,8 @@ void WaypointSerializationOTBM::readWaypoints(Map& map, FastOTBMNode& mapNode) {
 }
 
 OTBMWriteResult WaypointSerializationOTBM::writeWaypoints(const Map& map, NodeFileWriteHandle& f, MapVersion mapVersion) {
-	if (map.waypoints.begin() == map.waypoints.end()) {
+	// OTBM 5 loaders require the WAYPOINTS node even when it is empty.
+	if (map.waypoints.begin() == map.waypoints.end() && mapVersion.otbm != MAP_OTBM_5) {
 		return OTBMWriteResult::Success;
 	}
 

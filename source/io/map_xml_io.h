@@ -19,9 +19,11 @@ class MapXMLIO {
 public:
 	// Spawns
 	static bool loadSpawns(Map& map, const wxFileName& dir);
+	static bool loadMonsterSpawns(Map& map, const wxFileName& dir);
+	static bool loadNpcSpawns(Map& map, const wxFileName& dir);
 	static bool loadSpawns(Map& map, pugi::xml_document& doc);
+	// OTBM 5 maps get separate monster and NPC files
 	static bool saveSpawns(const Map& map, const wxFileName& dir);
-	static bool saveSpawns(const Map& map, pugi::xml_document& doc);
 
 	// Houses
 	static bool loadHouses(Map& map, const wxFileName& dir);

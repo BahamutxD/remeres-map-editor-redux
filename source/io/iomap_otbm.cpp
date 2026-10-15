@@ -18,16 +18,14 @@
 #include "app/main.h"
 
 #include <format>
-#include <fstream>
 #include <vector>
 #include <filesystem>
-#include <string_view>
+#include <optional>
 #include <spdlog/spdlog.h>
 
 #include "app/settings.h"
 #include "ext/pugixml.hpp"
 #include "ui/gui.h"
-#include "ui/dialog_util.h"
 
 #include "game/creatures.h"
 #include "game/creature.h"
@@ -50,6 +48,8 @@
 #include "io/otbm/waypoint_serialization_otbm.h"
 #include "io/otbm/tile_serialization_otbm.h"
 #include "io/otbm/fast_otbm_reader.h"
+#include "io/compression/gzip_stream.h"
+#include "io/compression/gzip_node_file_write_handle.h"
 
 #include <thread>
 #include <atomic>
@@ -84,13 +84,48 @@ bool Container::serializeItemNode_OTBM(const IOMap& maphandle, NodeFileWriteHand
 
 /* Entry level calls */
 
-bool IOMapOTBM::getVersionInfo(const FileName& filename, MapVersion& out_ver) {
+namespace {
+	// Initial prefix for header probes; grown when the header node does not fit
+	// (escaped descriptions can take up to ~128 KiB).
+	constexpr size_t kHeaderPeekBytes = 64 * 1024;
+	constexpr uint8_t kNodeStart = 0xFE;
 
-	DiskNodeFileReadHandle f(nstr(filename.GetFullPath()), StringVector(1, "OTBM"));
-	if (!f.isOk()) {
-		return false;
+	std::filesystem::path toPath(const FileName& filename) {
+		return std::filesystem::path(filename.GetFullPath().ToStdWstring());
 	}
-	return getVersionInfo(&f, out_ver);
+
+	bool hasValidOtbmPrefix(std::span<const uint8_t> data) noexcept {
+		if (data.size() < 5) {
+			return false;
+		}
+		constexpr uint8_t wildcard[4] = { 0, 0, 0, 0 };
+		const bool known_id = std::memcmp(data.data(), "OTBM", 4) == 0 || std::memcmp(data.data(), wildcard, 4) == 0;
+		return known_id && data[4] == kNodeStart;
+	}
+
+	// Runs parse on a decompressed or raw prefix; nullopt when the file is unreadable or not OTBM.
+	template <typename Parse>
+	std::optional<bool> parseHeaderPrefix(const FileName& filename, Parse&& parse) {
+		const auto path = toPath(filename);
+		const bool is_gzip = Compression::isGzipFile(path);
+		for (size_t limit = kHeaderPeekBytes;; limit *= 4) {
+			const auto bytes = is_gzip
+				? Compression::decompressGzipFile(path, limit)
+				: Compression::readRawFile(path, limit);
+			if (!bytes || !hasValidOtbmPrefix(*bytes)) {
+				return std::nullopt;
+			}
+			MemoryNodeFileReadHandle handle(bytes->data() + 4, bytes->size() - 4);
+			const bool ok = parse(handle);
+			if (bytes->size() < limit || handle.error_code != FILE_PREMATURE_END) {
+				return ok;
+			}
+		}
+	}
+}
+
+bool IOMapOTBM::getVersionInfo(const FileName& filename, MapVersion& out_ver) {
+	return parseHeaderPrefix(filename, [&](NodeFileReadHandle& f) { return getVersionInfo(&f, out_ver); }).value_or(false);
 }
 
 bool IOMapOTBM::getVersionInfo(NodeFileReadHandle* f, MapVersion& out_ver) {
@@ -106,17 +141,35 @@ bool IOMapOTBM::peekStartupInfo(const FileName& identifier, OTBMStartupPeekResul
 		out_info.modified_time = modified_time;
 	}
 
-	DiskNodeFileReadHandle handle(nstr(identifier.GetFullPath()), StringVector(1, "OTBM"));
-	if (!handle.isOk()) {
+	out_info.is_compressed = Compression::isGzipFile(toPath(identifier));
+
+	const auto parsed = parseHeaderPrefix(identifier, [&](NodeFileReadHandle& f) { return HeaderSerializationOTBM::peekStartupInfo(f, out_info); });
+	if (!parsed) {
 		out_info.has_error = true;
-		out_info.error_message = wxstr(handle.getErrorMessage());
+		out_info.error_message = "Could not open the file or file magic number not recognized.";
 		return false;
 	}
 
-	if (!HeaderSerializationOTBM::peekStartupInfo(handle, out_info)) {
+	if (!*parsed) {
 		out_info.has_error = true;
 		out_info.error_message = "Could not read the OTBM header.";
 		return false;
+	}
+
+	if (out_info.otbm_version == 5) {
+		if (out_info.monster_xml_file.empty()) {
+			out_info.monster_xml_file = out_info.map_name + "-monster.xml";
+		}
+		if (out_info.npc_xml_file.empty()) {
+			out_info.npc_xml_file = out_info.map_name + "-npc.xml";
+		}
+	} else {
+		if (out_info.spawn_xml_file.empty()) {
+			out_info.spawn_xml_file = out_info.map_name + "-spawn.xml";
+		}
+	}
+	if (out_info.house_xml_file.empty()) {
+		out_info.house_xml_file = out_info.map_name + "-house.xml";
 	}
 
 	return true;
@@ -124,40 +177,27 @@ bool IOMapOTBM::peekStartupInfo(const FileName& identifier, OTBMStartupPeekResul
 
 bool IOMapOTBM::loadMapFromDisk(Map& map, const FileName& filename) {
 	spdlog::debug("Loading OTBM map from disk: {}", filename.GetFullPath().ToStdString());
-	std::filesystem::path path(nstr(filename.GetFullPath()));
+	const auto path = toPath(filename);
 
-	std::error_code ec;
-	const auto size = std::filesystem::file_size(path, ec);
-	if (ec) {
-		spdlog::error("Couldn't get file size: {} ({})", path.string(), ec.message());
+	const bool is_gzip = Compression::isGzipFile(path);
+	map.setCompression(is_gzip ? OtbmCompression::Gzip : OtbmCompression::None);
+	if (is_gzip) {
+		g_gui.SetLoadDone(0, "Decompressing map...");
+	}
+
+	const auto buffer = is_gzip ? Compression::decompressGzipFile(path) : Compression::readRawFile(path);
+	if (!buffer) {
+		spdlog::error("Couldn't read{} map file: {}", is_gzip ? " compressed" : "", filename.GetFullPath().ToStdString());
 		return false;
 	}
 
-	if (size < 4) {
-		spdlog::error("File is too short to be an OTBM file.");
-		return false;
-	}
-
-	std::ifstream file(path, std::ios::binary);
-	if (!file.is_open()) {
-		spdlog::error("Couldn't open file for reading: {}", filename.GetFullPath().ToStdString());
-		return false;
-	}
-
-	std::vector<uint8_t> buffer(static_cast<size_t>(size));
-	if (!file.read(reinterpret_cast<char*>(buffer.data()), static_cast<std::streamsize>(size))) {
-		spdlog::error("Failed to read file.");
-		return false;
-	}
-
-	std::string_view magic(reinterpret_cast<const char*>(buffer.data()), 4);
-	if (magic != "OTBM" && magic != std::string_view("\0\0\0\0", 4)) {
+	if (!hasValidOtbmPrefix(*buffer)) {
 		spdlog::error("File magic number not recognized");
 		return false;
 	}
 
 	detected_wide_item_count.store(false, std::memory_order_relaxed);
-	if (!loadMapFast(map, buffer.data() + 4, size - 4)) {
+	if (!loadMapFast(map, buffer->data() + 4, buffer->size() - 4)) {
 		spdlog::error("Failed to load OTBM map: {}", filename.GetFullPath().ToStdString());
 		return false;
 	}
@@ -199,92 +239,50 @@ bool IOMapOTBM::loadMapFromDisk(Map& map, const FileName& filename) {
 		}
 	};
 
-	loadAux(MapXMLIO::loadSpawns, "spawn", map.spawnfile);
+	if (version.otbm == MAP_OTBM_5) {
+		loadAux(MapXMLIO::loadMonsterSpawns, "monster", map.monsterfile);
+		loadAux(MapXMLIO::loadNpcSpawns, "npc", map.npcfile);
+	} else {
+		loadAux(MapXMLIO::loadSpawns, "spawn", map.spawnfile);
+	}
 	loadAux(MapXMLIO::loadHouses, "house", map.housefile);
 
-	// Waypoints handling
-	if (map.waypoints.size() > 0) {
-		// Case 1: OTBM has waypoints
-		std::string waypointFile = map.waypointfile;
+	// Ensure all auxiliary filenames have defaults so converting between OTBM versions never encounters empty paths
+	if (map.spawnfile.empty()) {
+		map.spawnfile = nstr(filename.GetName()) + "-spawn.xml";
+	}
+	if (map.monsterfile.empty()) {
+		map.monsterfile = nstr(filename.GetName()) + "-monster.xml";
+	}
+	if (map.npcfile.empty()) {
+		map.npcfile = nstr(filename.GetName()) + "-npc.xml";
+	}
+	if (map.housefile.empty()) {
+		map.housefile = nstr(filename.GetName()) + "-house.xml";
+	}
 
-		// If no external file linked, check the default one
+	// Waypoints handling: if OTBM has waypoints, it is the authority and XML is ignored entirely.
+	// Only load from companion XML if OTBM has no waypoints.
+	if (map.waypoints.empty()) {
+		std::string waypointFile = map.waypointfile;
 		if (waypointFile.empty()) {
 			waypointFile = nstr(filename.GetName()) + "-waypoint.xml";
 		}
 
-		auto paths = MapXMLIO::normalizeMapFilePaths(filename, waypointFile);
-		if (FileName(wxstr(paths.first)).FileExists()) {
-			// Case 3: Both exist - Merge and warn
-			// Ensure map knows about the file
+		auto waypointPaths = MapXMLIO::normalizeMapFilePaths(filename, waypointFile);
+		if (FileName(wxstr(waypointPaths.first)).FileExists()) {
 			if (map.waypointfile.empty()) {
 				map.waypointfile = waypointFile;
 			}
-
-			// Load from XML to merge with existing OTBM waypoints
-			// Pass false to NOT replace existing OTBM waypoints (OTBM takes precedence)
-			size_t beforeCount = map.waypoints.size();
 			if (MapXMLIO::loadWaypoints(map, filename, false)) {
-				size_t afterCount = map.waypoints.size();
-				if (afterCount > beforeCount) {
-					if (g_settings.getBoolean(Config::SHOW_WAYPOINT_MIGRATION_DIALOG)) {
-						DialogUtil::PopupDialog(g_gui.root, "Warning", "Waypoints detected in both OTBM and external XML file.\n"
-																	   "They have been merged.\n"
-																	   "Note: OTBM waypoints took precedence over XML duplicates.\n"
-																	   "\n"
-																	   "Future saves will ONLY use the XML file.",
-												wxOK | wxICON_WARNING);
-					} else {
-						spdlog::info("Waypoints detected in both OTBM and external XML file '{}'; merged, OTBM took precedence over duplicates. Future saves will only use the XML file.", map.waypointfile);
-					}
-				}
+				spdlog::info("IOMapOTBM: Loaded waypoints from '{}' (total waypoints: {})",
+					map.waypointfile, map.waypoints.size());
 			}
-		} else {
-			// Case 2: OTBM has waypoints, XML does not - Migrate
-			// Set the default filename if not set
-			if (map.waypointfile.empty()) {
-				map.waypointfile = waypointFile;
-			}
-
-			if (g_settings.getBoolean(Config::SHOW_WAYPOINT_MIGRATION_DIALOG)) {
-				DialogUtil::PopupDialog(g_gui.root, "Waypoint Migration", std::format("Waypoints detected in OTBM file.\n\nThey have been migrated to the external file:\n{}\n\nThey will be removed from the OTBM file on the next save.", map.waypointfile), wxOK | wxICON_INFORMATION);
-			} else {
-				spdlog::info("Waypoints detected in OTBM file; migrated to external file '{}'. They will be removed from the OTBM file on the next save.", map.waypointfile);
-			}
-
-			// Save immediately to XML
-			if (!MapXMLIO::saveWaypoints(map, filename)) {
-				// Migration failed
-				map.waypointfile.clear();
-				DialogUtil::PopupDialog(g_gui.root, "Error", "Failed to migrate waypoints to external XML file.\n"
-															 "Waypoints will REMAIN in the OTBM file until migration succeeds.",
-										wxOK | wxICON_ERROR);
-			}
-			// If successful, next save will skip OTBM writing because map.waypointfile is set
+		} else if (map.waypointfile.empty()) {
+			map.waypointfile = waypointFile;
 		}
-	} else {
-		// OTBM has no waypoints
-
-		bool expected = !map.waypointfile.empty();
-
-		// If map.waypointfile is empty (not set in OTBM), try to look for the default file
-		if (!expected) {
-			std::string defaultFile = nstr(filename.GetName()) + "-waypoint.xml";
-			auto paths = MapXMLIO::normalizeMapFilePaths(filename, defaultFile);
-			if (FileName(wxstr(paths.first)).FileExists()) {
-				map.waypointfile = defaultFile;
-				expected = true;
-			}
-		}
-
-		if (expected) {
-			// Try to load from XML
-			if (!MapXMLIO::loadWaypoints(map, filename)) {
-				spdlog::warn("Failed to load waypoint file: {}", map.waypointfile);
-			}
-		} else {
-			// No waypoint file specified and no default file found, just set the default for future saves
-			map.waypointfile = nstr(filename.GetName()) + "-waypoint.xml";
-		}
+	} else if (map.waypointfile.empty()) {
+		map.waypointfile = nstr(filename.GetName()) + "-waypoint.xml";
 	}
 
 	map.getChangeTracker().markAllDirty();
@@ -310,8 +308,8 @@ bool IOMapOTBM::loadMapFast(Map& map, const uint8_t* data, size_t size) {
 	if (!stream.getU32(raw_version)) {
 		return false;
 	}
-	version.otbm = static_cast<MapVersionID>(raw_version);
-	if (version.otbm > MAP_OTBM_4) {
+	version.otbm = normalizeOtbmVersion(raw_version);
+	if (version.otbm > MAP_OTBM_5) {
 		spdlog::warn("Unsupported or damaged map version: {}", static_cast<int>(version.otbm));
 	}
 
@@ -328,6 +326,7 @@ bool IOMapOTBM::loadMapFast(Map& map, const uint8_t* data, size_t size) {
 		spdlog::warn("Newer items.otb major version ({}); continuing with unresolved item preservation", majorVersion);
 	}
 	version.client = static_cast<OtbVersionID>(minorVersion);
+	version.items_major = majorVersion;
 
 	stream.skipRemainingProps();
 
@@ -344,7 +343,7 @@ bool IOMapOTBM::loadMapFast(Map& map, const uint8_t* data, size_t size) {
 	}
 
 	// Read header attributes
-	if (!HeaderSerializationOTBM::readMapAttributes(map, stream)) {
+	if (!HeaderSerializationOTBM::readMapAttributes(map, stream, version.otbm)) {
 		return false;
 	}
 	stream.skipRemainingProps();
@@ -602,18 +601,31 @@ bool IOMapOTBM::loadMap(Map& map, const FileName& filename) {
 }
 
 bool IOMapOTBM::saveMapToDisk(Map& map, const FileName& identifier) {
-	DiskNodeFileWriteHandle f(
-		nstr(identifier.GetFullPath()),
-		(g_settings.getInteger(Config::SAVE_WITH_OTB_MAGIC_NUMBER) ? "OTBM" : std::string(4, '\0'))
-	);
+	const std::string magic = g_settings.getInteger(Config::SAVE_WITH_OTB_MAGIC_NUMBER) ? "OTBM" : std::string(4, '\0');
 
-	if (!f.isOk()) {
+	const bool is_compressed = (map.getCompression() == OtbmCompression::Gzip);
+	std::unique_ptr<NodeFileWriteHandle> f;
+	if (is_compressed) {
+		f = std::make_unique<GzipNodeFileWriteHandle>(toPath(identifier), magic);
+	} else {
+		f = std::make_unique<DiskNodeFileWriteHandle>(std::string(identifier.GetFullPath().utf8_str()), magic);
+	}
+
+	if (!f->isOk()) {
 		spdlog::error("Can not open file {} for writing", identifier.GetFullPath().ToStdString());
 		return false;
 	}
 
-	if (!saveMap(map, f)) {
+	if (!saveMap(map, *f)) {
 		return false;
+	}
+
+	if (is_compressed) {
+		f->close();
+		if (!f->isOk()) {
+			spdlog::error("Failed to write compressed map {}: {}", identifier.GetFullPath().ToStdString(), f->getErrorMessage());
+			return false;
+		}
 	}
 
 	g_gui.SetLoadDone(99, "Saving spawns...");
@@ -628,17 +640,26 @@ bool IOMapOTBM::saveMapToDisk(Map& map, const FileName& identifier) {
 		return false;
 	}
 
-const bool otbmSupportsEmbeddedWaypoints = map.getVersion().otbm >= MAP_OTBM_3;
-	const bool needsXmlFallback = !otbmSupportsEmbeddedWaypoints || !map.waypointfile.empty();
+	const auto waypointFormat = static_cast<Config::WaypointStorageFormat>(
+		g_settings.getInteger(Config::WAYPOINT_STORAGE_FORMAT)
+	);
 
-	if (needsXmlFallback && (map.waypoints.size() > 0 || !map.waypointfile.empty())) {
-		if (map.waypointfile.empty()) {
-			map.waypointfile = identifier.GetName() + "-waypoint.xml";
-			spdlog::info("Auto-created waypoint file: {}", map.waypointfile);
-		}
-		if (!MapXMLIO::saveWaypoints(map, identifier)) {
-			spdlog::error("IOMapOTBM::saveMapToDisk: Failed to save waypoints");
-			return false;
+	if (waypointFormat == Config::WaypointStorageFormat::XML || waypointFormat == Config::WaypointStorageFormat::BOTH) {
+		g_gui.SetLoadDone(99, "Saving waypoints...");
+		if (map.waypoints.size() > 0) {
+			if (map.waypointfile.empty()) {
+				map.waypointfile = identifier.GetName() + "-waypoint.xml";
+				spdlog::info("Auto-created waypoint file: {}", map.waypointfile);
+			}
+			if (!MapXMLIO::saveWaypoints(map, identifier)) {
+				spdlog::error("IOMapOTBM::saveMapToDisk: Failed to save waypoints");
+				return false;
+			}
+		} else if (!map.waypointfile.empty()) {
+			if (!MapXMLIO::saveWaypoints(map, identifier)) {
+				spdlog::error("IOMapOTBM::saveMapToDisk: Failed to save waypoints");
+				return false;
+			}
 		}
 	}
 
@@ -675,13 +696,28 @@ bool IOMapOTBM::saveMap(Map& map, NodeFileWriteHandle& f) {
 				f.addString(fname.empty() ? path_str : fname);
 			};
 
-			addExtFile(OTBM_ATTR_EXT_SPAWN_FILE, map.spawnfile);
+			if (mapVersion.otbm == MAP_OTBM_5) {
+				addExtFile(OTBM_ATTR_EXT_SPAWN_FILE, map.monsterfile);
+				addExtFile(OTBM_ATTR_EXT_SPAWN_NPC_FILE, map.npcfile);
+			} else {
+				addExtFile(OTBM_ATTR_EXT_SPAWN_FILE, map.spawnfile);
+			}
 			addExtFile(OTBM_ATTR_EXT_HOUSE_FILE, map.housefile);
 
 			writeTileData(map, f);
 			writeTowns(map, f);
 
-			writeWaypoints(map, f, mapVersion);
+			const auto waypointFormat = static_cast<Config::WaypointStorageFormat>(
+				g_settings.getInteger(Config::WAYPOINT_STORAGE_FORMAT)
+			);
+
+			if (waypointFormat == Config::WaypointStorageFormat::OTBM || waypointFormat == Config::WaypointStorageFormat::BOTH) {
+				writeWaypoints(map, f, mapVersion);
+			} else if (mapVersion.otbm == MAP_OTBM_5) {
+				// OTBM 5 loaders require the OTBM_WAYPOINTS node to be present even if empty
+				f.addNode(OTBM_WAYPOINTS);
+				f.endNode();
+			}
 		}
 		f.endNode();
 	}

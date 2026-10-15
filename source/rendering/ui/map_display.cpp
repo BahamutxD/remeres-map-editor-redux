@@ -33,8 +33,6 @@
 #include "map/map.h"
 #include "map/tile.h"
 #include "game/item.h"
-#include "ui/properties/old_properties_window.h"
-#include "ui/properties/properties_window.h"
 #include "palette/palette_window.h"
 #include "rendering/ui/screenshot_controller.h"
 #include "rendering/utilities/tile_describer.h"
@@ -280,6 +278,9 @@ void MapCanvas::DrawOverlays(NVGcontext* vg, const DrawingOptions& options) {
 
 	if (options.show_creatures) {
 		drawer->DrawCreatureNames(vg);
+	}
+	if (!options.ingame && (options.show_waypoints || options.show_towns || options.show_houses)) {
+		drawer->DrawMarkerLabels(vg);
 	}
 	if (options.show_tooltips) {
 		drawer->DrawTooltips(vg);
