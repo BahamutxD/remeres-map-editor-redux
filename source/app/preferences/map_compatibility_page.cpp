@@ -40,6 +40,19 @@ MapCompatibilityPage::MapCompatibilityPage(wxWindow* parent) : ScrollablePrefere
 
 	page_sizer->Add(waypoints_section, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, FromDIP(10));
 
+	auto* items_section = new PreferencesSectionPanel(
+		GetScrollWindow(),
+		"Items",
+		"Options for maps that are also opened in older editors or servers."
+	);
+	legacy_item_count_format_chkbox = PreferencesLayout::AddCheckBoxRow(
+		items_section,
+		"Always write item count as 2 bytes",
+		"Remere's Map Editor 3.8.0 and servers built for it store the item count as 2 bytes instead of 1. Maps already in that format are detected when opened and saved the same way automatically; enable this to also force it for new maps or maps that were re-saved in the 1-byte format.",
+		g_settings.getBoolean(Config::LEGACY_ITEM_COUNT_FORMAT)
+	);
+	page_sizer->Add(items_section, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, FromDIP(10));
+
 	// Section 2: Zones
 	auto* zones_section = new PreferencesSectionPanel(
 		GetScrollWindow(),
@@ -60,5 +73,8 @@ MapCompatibilityPage::MapCompatibilityPage(wxWindow* parent) : ScrollablePrefere
 void MapCompatibilityPage::Apply() {
 	if (waypoint_storage_choice) {
 		g_settings.setInteger(Config::WAYPOINT_STORAGE_FORMAT, waypoint_storage_choice->GetSelection());
+	}
+	if (legacy_item_count_format_chkbox) {
+		g_settings.setInteger(Config::LEGACY_ITEM_COUNT_FORMAT, legacy_item_count_format_chkbox->GetValue());
 	}
 }
