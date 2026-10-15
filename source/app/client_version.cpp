@@ -28,6 +28,7 @@
 #include "util/file_system.h"
 #include "ui/dialog_util.h"
 #include "app/client_version.h"
+#include "app/client_asset_detector.h"
 
 #include <wx/dir.h>
 #include <wx/filename.h>
@@ -165,7 +166,7 @@ void ClientVersion::loadVersionsFromTOML(const std::string& configName) {
 				auto& otbmVers = *client["otbmVersions"].as_array();
 				for (auto&& v : otbmVers) {
 					int ver = v.value_or(-1);
-					if (ver >= 1 && ver <= 4) {
+					if (ver >= 1 && ver <= 5) {
 						int enumVer = ver - 1;
 						cv_ptr->map_versions_supported.push_back(static_cast<MapVersionID>(enumVer));
 						if (cv_ptr->preferred_map_version == MAP_OTBM_UNKNOWN) {
@@ -488,9 +489,18 @@ bool ClientVersion::hasValidPaths() {
 	sprites_path = wxFileName(client_path.GetFullPath(), wxString(sprites_file));
 
 	if (!metadata_path.FileExists() || !sprites_path.FileExists()) {
-		// protobuf should stick to catalog-content.json and prodvided dat file
+		// protobuf should stick to catalog-content.json and the appearances file it references,
+		// whose hashed name changes with every client update
 		if (isProtobuf()) {
-            return false;
+			const auto detected = ClientAssetDetector::detect(*this);
+			if (!detected.metadata_file_name || !detected.sprites_file_name) {
+				return false;
+			}
+			metadata_file = *detected.metadata_file_name;
+			sprites_file = *detected.sprites_file_name;
+			metadata_path = wxFileName(client_path.GetFullPath(), wxString::FromUTF8(metadata_file));
+			sprites_path = wxFileName(client_path.GetFullPath(), wxString::FromUTF8(sprites_file));
+			return metadata_path.FileExists() && sprites_path.FileExists();
 		}
 
 		// Fallback to "Tibia.dat" / "Tibia.spr" if the configured files don't exist

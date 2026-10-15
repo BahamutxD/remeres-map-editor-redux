@@ -50,11 +50,17 @@ public:
 	std::string name;
 	uint32_t townid;
 	bool guildhall;
+	// Extended house XML fields (OTBM 5), preserved across load/save
+	uint32_t clientid = 0;
+	int32_t beds = -1; // -1 when the house file has no beds attribute
 
 	void setExit(const Position& pos);
 	void setExit(Map* map, const Position& pos);
 	Position getExit() const {
 		return exit;
+	}
+	const PositionList& getTiles() const noexcept {
+		return tiles;
 	}
 	uint8_t getEmptyDoorID() const;
 	Position getDoorPositionByID(uint8_t id) const;

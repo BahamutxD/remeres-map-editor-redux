@@ -32,6 +32,7 @@ namespace MenuBar {
 		OPEN,
 		SAVE,
 		SAVE_AS,
+		SAVE_AS_GZIP,
 		GENERATE_MAP,
 		CLOSE,
 		IMPORT_MAP,
@@ -126,6 +127,7 @@ namespace MenuBar {
 		SHOW_TOWNS,
 		ALWAYS_SHOW_ZONES,
 		EXT_HOUSE_SHADER,
+		EXT_PATHING_SHADER,
 		WIN_MINIMAP,
 		WIN_TOOL_OPTIONS,
 		WIN_INGAME_PREVIEW,
@@ -199,6 +201,7 @@ public:
 	void OnOpen(wxCommandEvent& event);
 	void OnSave(wxCommandEvent& event);
 	void OnSaveAs(wxCommandEvent& event);
+	void OnSaveAsGzip(wxCommandEvent& event);
 	void OnClose(wxCommandEvent& event);
 	void OnQuit(wxCommandEvent& event);
 	void OnGenerateMap(wxCommandEvent& event);

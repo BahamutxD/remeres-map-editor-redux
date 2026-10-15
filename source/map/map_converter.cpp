@@ -10,7 +10,11 @@
 #include <algorithm>
 
 bool MapConverter::convert(Map& map, MapVersion to, bool showdialog) {
-	if (map.mapVersion.client == to.client) {
+	// The item count width describes how this map's file is stored, not the
+	// target version: keep it so a 2-byte-count map is saved the same way.
+	to.wide_item_count = map.mapVersion.wide_item_count;
+
+	if (map.mapVersion.client == to.client && map.mapVersion.items_major == to.items_major) {
 		// Only OTBM version differs
 		// No changes necessary
 		map.mapVersion = to;

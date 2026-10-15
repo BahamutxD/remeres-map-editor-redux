@@ -13,6 +13,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/app/preferences/graphics_page.h
     ${CMAKE_CURRENT_LIST_DIR}/app/preferences/interface_page.h
     ${CMAKE_CURRENT_LIST_DIR}/app/preferences/client_version_page.h
+    ${CMAKE_CURRENT_LIST_DIR}/app/preferences/map_compatibility_page.h
     ${CMAKE_CURRENT_LIST_DIR}/app/rme_forward_declarations.h
     ${CMAKE_CURRENT_LIST_DIR}/app/settings.h
     ${CMAKE_CURRENT_LIST_DIR}/app/threads.h
@@ -132,6 +133,8 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/io/otbm/tile_serialization_otbm.h
     ${CMAKE_CURRENT_LIST_DIR}/io/otbm/town_serialization_otbm.h
     ${CMAKE_CURRENT_LIST_DIR}/io/otbm/fast_otbm_reader.h
+    ${CMAKE_CURRENT_LIST_DIR}/io/compression/gzip_stream.h
+    ${CMAKE_CURRENT_LIST_DIR}/io/compression/gzip_node_file_write_handle.h
     ${CMAKE_CURRENT_LIST_DIR}/io/templates.h
     ${CMAKE_CURRENT_LIST_DIR}/live/live_action.h
     ${CMAKE_CURRENT_LIST_DIR}/live/live_client.h
@@ -143,6 +146,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/live/live_tab.h
     ${CMAKE_CURRENT_LIST_DIR}/map/basemap.h
     ${CMAKE_CURRENT_LIST_DIR}/map/map.h
+    ${CMAKE_CURRENT_LIST_DIR}/map/map_storage_format.h
     ${CMAKE_CURRENT_LIST_DIR}/map/map_allocator.h
     ${CMAKE_CURRENT_LIST_DIR}/map/operations/map_processor.h
     ${CMAKE_CURRENT_LIST_DIR}/map/map_region.h
@@ -199,6 +203,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/outfit_colors.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/pixel_buffer_object.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/primitive_renderer.h
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/core/render_depth.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/render_interaction_state.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/render_timer.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/render_view.h
@@ -215,7 +220,17 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/texture_array.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/texture_atlas.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/texture_garbage_collector.h
-    ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/cursors/brush_cursor_drawer.h
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/shaders/house_shader.h
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/shaders/pathing_shader.h
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/shaders/indicator_shader.h
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/shaders/zone_shader.h
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/shaders/highlight_items_shader.h
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/shaders/chunk_shader.h
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/shaders/sprite_batch_shader.h
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/indicators/technical_item_registry.h
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/indicators/indicator_drawing_utils.h
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/indicators/zone_flags.h
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/indicators/zone_cluster_finder.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/cursors/drag_shadow_drawer.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/cursors/live_cursor_drawer.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/entities/creature_drawer.h
@@ -233,8 +248,10 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/overlays/map_overlay_collector.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/overlays/lua_overlay_drawer.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/overlays/marker_drawer.h
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/overlays/marker_label_drawer.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/overlays/preview_drawer.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/overlays/selection_drawer.h
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/overlays/zone_overlay_drawer.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/tiles/floor_drawer.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/tiles/shade_drawer.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/tiles/tile_color_calculator.h
@@ -352,8 +369,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/ui/toolbar/toolbar_registry.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/toolbar/toolbar_factory.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/toolbar/toolbar_layout.h
-    ${CMAKE_CURRENT_LIST_DIR}/ui/properties/old_properties_window.h
-    ${CMAKE_CURRENT_LIST_DIR}/ui/properties/properties_window.h
+    ${CMAKE_CURRENT_LIST_DIR}/ui/properties/item_properties_window.h
     ${CMAKE_CURRENT_LIST_DIR}/util/image_manager.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_items_window.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/item_grid_panel.h
@@ -424,6 +440,7 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/app/preferences/graphics_page.cpp
     ${CMAKE_CURRENT_LIST_DIR}/app/preferences/interface_page.cpp
     ${CMAKE_CURRENT_LIST_DIR}/app/preferences/client_version_page.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/app/preferences/map_compatibility_page.cpp
     ${CMAKE_CURRENT_LIST_DIR}/app/settings.cpp
     ${CMAKE_CURRENT_LIST_DIR}/app/updater.cpp
     ${CMAKE_CURRENT_LIST_DIR}/app/managers/version_manager.cpp
@@ -534,6 +551,8 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/io/otbm/tile_serialization_otbm.cpp
     ${CMAKE_CURRENT_LIST_DIR}/io/otbm/town_serialization_otbm.cpp
     ${CMAKE_CURRENT_LIST_DIR}/io/otbm/fast_otbm_reader.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/io/compression/gzip_stream.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/io/compression/gzip_node_file_write_handle.cpp
     ${CMAKE_CURRENT_LIST_DIR}/live/live_action.cpp
     ${CMAKE_CURRENT_LIST_DIR}/live/live_client.cpp
     ${CMAKE_CURRENT_LIST_DIR}/live/live_manager.cpp
@@ -553,7 +572,6 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/map/tile.cpp
     ${CMAKE_CURRENT_LIST_DIR}/map/tile_operations.cpp
     ${CMAKE_CURRENT_LIST_DIR}/map/spatial_change_tracker.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/mkpch.cpp
     ${CMAKE_CURRENT_LIST_DIR}/net/net_connection.cpp
     ${CMAKE_CURRENT_LIST_DIR}/net/process_com.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_brushlist.cpp
@@ -606,7 +624,6 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/texture_array.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/texture_atlas.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/texture_garbage_collector.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/cursors/brush_cursor_drawer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/cursors/drag_shadow_drawer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/cursors/live_cursor_drawer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/entities/creature_drawer.cpp
@@ -624,8 +641,12 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/overlays/map_overlay_collector.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/overlays/lua_overlay_drawer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/overlays/marker_drawer.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/overlays/marker_label_drawer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/overlays/preview_drawer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/overlays/selection_drawer.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/overlays/zone_overlay_drawer.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/indicators/technical_item_registry.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/indicators/zone_cluster_finder.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/tiles/floor_drawer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/tiles/shade_drawer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/tiles/tile_color_calculator.cpp
@@ -744,9 +765,8 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/ui/toolbar/toolbar_registry.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/toolbar/toolbar_factory.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/toolbar/toolbar_layout.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/ui/properties/old_properties_window.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/ui/properties/item_properties_window.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/positionctrl.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/ui/properties/properties_window.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_items_window.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/item_grid_panel.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/library_panel.cpp

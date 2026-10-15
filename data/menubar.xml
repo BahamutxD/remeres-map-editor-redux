@@ -34,6 +34,7 @@
 		<item name="Open..." hotkey="Ctrl+O" action="OPEN" help="Open another map."/>
 		<item name="Save" hotkey="Ctrl+S" action="SAVE" help="Save the current map."/>
 		<item name="Save As..." hotkey="Ctrl+Alt+S" action="SAVE_AS" help="Save the current map as a new file."/>
+		<item name="Save as GZIP..." action="SAVE_AS_GZIP" help="Save the current map as a GZIP-compressed OTBM file."/>
 		<item name="Generate Map" action="GENERATE_MAP" help="Generate a new map."/>
 		<item name="Close" hotkey="Ctrl+Q" action="CLOSE" help="Closes the currently open map."/>
 		<separator/>
@@ -147,6 +148,7 @@
 		<item name="Only show Modified" hotkey="Ctrl+M" action="SHOW_ONLY_MODIFIED" help="Show only the tiles that have been modified since the map was opened."/>
 		<item name="Always show zones" hotkey="" action="ALWAYS_SHOW_ZONES" help="Zones will be visible even on empty tiles."/>
 		<item name="Extended house shader" hotkey="" action="EXT_HOUSE_SHADER" help="Draw house brush on walls and items."/>
+		<item name="Extended pathing shader" hotkey="" action="EXT_PATHING_SHADER" help="Draw pathing/blocking shader on walls and items."/>
 		<separator/>
 		<item name="Show tooltips" hotkey="Y" action="SHOW_TOOLTIPS" help="Show tooltips."/>
 		<item name="Show grid" hotkey="Shift+G" action="SHOW_GRID" help="Shows a grid over all items."/>
