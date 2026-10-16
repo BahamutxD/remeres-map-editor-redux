@@ -529,22 +529,7 @@ void ZoneOverlayDrawer::drawFloorZones(SpriteBatch& sprite_batch,
 
 	const ViewBounds bounds = view.getBoundsForFloor(z);
 
-	// Spatial culling: check if any zone clusters intersect the visible floor viewport bounds
-	bool floor_has_visible_zones = false;
-	for (const auto& zone : map.zones) {
-		for (const auto& cluster : map.zone_index.getClusters(zone.id)) {
-			if (cluster.centroid_pos.z == z &&
-			    cluster.max_x >= bounds.start_x && cluster.min_x <= bounds.end_x &&
-			    cluster.max_y >= bounds.start_y && cluster.min_y <= bounds.end_y) {
-				floor_has_visible_zones = true;
-				break;
-			}
-		}
-		if (floor_has_visible_zones) {
-			break;
-		}
-	}
-	if (!floor_has_visible_zones && !secondary_map) {
+	if (!map.zone_index.hasFloor(z) && (!secondary_map || !secondary_map->supportsZones())) {
 		return;
 	}
 

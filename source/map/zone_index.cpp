@@ -196,6 +196,9 @@ void ZoneIndex::addTile(uint16_t zoneId, const Position& pos) {
 	}
 
 	auto& entry = index_[zoneId];
+	if (pos.z >= 0 && pos.z < 16) {
+		entry.floors_mask |= (1u << pos.z);
+	}
 	const auto it = std::lower_bound(entry.positions.begin(), entry.positions.end(), pos);
 	if (it == entry.positions.end() || *it != pos) {
 		entry.positions.insert(it, pos);
@@ -218,6 +221,13 @@ void ZoneIndex::removeTile(uint16_t zoneId, const Position& pos) {
 	if (pos_it != entry.positions.end() && *pos_it == pos) {
 		entry.positions.erase(pos_it);
 		entry.clusters_dirty = true;
+		if (pos.z >= 0 && pos.z < 16) {
+			const bool floor_empty = std::none_of(entry.positions.begin(), entry.positions.end(),
+				[z = pos.z](const Position& p) { return p.z == z; });
+			if (floor_empty) {
+				entry.floors_mask &= ~(1u << pos.z);
+			}
+		}
 	}
 	if (entry.positions.empty()) {
 		index_.erase(it);
@@ -230,6 +240,12 @@ void ZoneIndex::addTilesBulk(uint16_t zoneId, std::span<const Position> position
 	}
 
 	auto& entry = index_[zoneId];
+	for (const auto& p : positions) {
+		if (p.z >= 0 && p.z < 16) {
+			entry.floors_mask |= (1u << p.z);
+		}
+	}
+
 	const size_t old_size = entry.positions.size();
 	if (old_size == 0) {
 		entry.positions.assign(positions.begin(), positions.end());
@@ -311,7 +327,11 @@ void ZoneIndex::rebuild(Map& map) {
 		if (const Tile* tile = tile_loc.get(); tile && tile->hasZones()) {
 			const Position pos = tile->getPosition();
 			for (const uint16_t zoneId : tile->getZoneIds()) {
-				index_[zoneId].positions.push_back(pos);
+				auto& entry = index_[zoneId];
+				entry.positions.push_back(pos);
+				if (pos.z >= 0 && pos.z < 16) {
+					entry.floors_mask |= (1u << pos.z);
+				}
 			}
 		}
 	}
@@ -322,6 +342,19 @@ void ZoneIndex::rebuild(Map& map) {
 		entry.positions.erase(last, entry.positions.end());
 		entry.clusters_dirty = true;
 	}
+}
+
+bool ZoneIndex::hasFloor(int z) const noexcept {
+	if (z < 0 || z >= 16) {
+		return false;
+	}
+	const uint16_t mask = (1u << z);
+	for (const auto& [_, entry] : index_) {
+		if ((entry.floors_mask & mask) != 0) {
+			return true;
+		}
+	}
+	return false;
 }
 
 size_t ZoneIndex::totalTileCount() const noexcept {

@@ -77,12 +77,14 @@ public:
 	[[nodiscard]] size_t zoneCount() const noexcept {
 		return index_.size();
 	}
+	[[nodiscard]] bool hasFloor(int z) const noexcept;
 
 private:
 	struct ZoneData {
 		std::vector<Position> positions;
 		mutable std::vector<ZoneCluster> clusters;
 		mutable bool clusters_dirty = true;
+		uint16_t floors_mask = 0;
 	};
 
 	void updateClusters(const ZoneData& data) const;
