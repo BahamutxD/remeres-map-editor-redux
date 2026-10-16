@@ -13,9 +13,11 @@
 #include "editor/editor.h"
 #include "editor/action_queue.h"
 #include "util/image_manager.h"
+#include "rendering/indicators/zone_colors.h"
 
 #include <wx/textdlg.h>
 #include <wx/menu.h>
+#include <wx/dcmemory.h>
 
 #include <algorithm>
 #include <format>
@@ -32,6 +34,31 @@ public:
 	int cluster = -1; // -1 for zone parent node, >= 0 for area child node
 };
 
+wxBitmap createZoneColorIcon(uint16_t zone_id, int size = 14) {
+	const glm::vec3 rgb = rme::rendering::getZoneColor(zone_id);
+	const wxColour fillColor(
+		static_cast<unsigned char>(std::clamp(rgb.r * 255.0f, 0.0f, 255.0f)),
+		static_cast<unsigned char>(std::clamp(rgb.g * 255.0f, 0.0f, 255.0f)),
+		static_cast<unsigned char>(std::clamp(rgb.b * 255.0f, 0.0f, 255.0f))
+	);
+	const wxColour borderColor(
+		static_cast<unsigned char>(std::clamp(rgb.r * 180.0f, 0.0f, 255.0f)),
+		static_cast<unsigned char>(std::clamp(rgb.g * 180.0f, 0.0f, 255.0f)),
+		static_cast<unsigned char>(std::clamp(rgb.b * 180.0f, 0.0f, 255.0f))
+	);
+
+	wxBitmap bmp(size, size);
+	wxMemoryDC dc;
+	dc.SelectObject(bmp);
+	dc.SetBackground(*wxTRANSPARENT_BRUSH);
+	dc.Clear();
+	dc.SetPen(wxPen(borderColor, 1));
+	dc.SetBrush(wxBrush(fillColor));
+	dc.DrawRoundedRectangle(1, 1, size - 2, size - 2, 2.0);
+	dc.SelectObject(wxNullBitmap);
+	return bmp;
+}
+
 } // namespace
 
 ZonePalettePanel::ZonePalettePanel(wxWindow* parent, wxWindowID id) :
@@ -41,6 +68,8 @@ ZonePalettePanel::ZonePalettePanel(wxWindow* parent, wxWindowID id) :
 
 	zone_tree = newd wxTreeCtrl(box, PALETTE_ZONE_LISTBOX, wxDefaultPosition, wxDefaultSize,
 		wxTR_HIDE_ROOT | wxTR_HAS_BUTTONS | wxTR_LINES_AT_ROOT | wxTR_SINGLE);
+	image_list = new wxImageList(14, 14, true);
+	zone_tree->AssignImageList(image_list);
 	sidesizer->Add(zone_tree, 1, wxEXPAND);
 
 	auto* buttons = newd wxBoxSizer(wxHORIZONTAL);
@@ -75,6 +104,10 @@ wxString ZonePalettePanel::GetName() const {
 
 void ZonePalettePanel::SetMap(Map* m) {
 	map = m;
+	if (image_list) {
+		image_list->RemoveAll();
+	}
+	zone_icon_map_.clear();
 	OnUpdate();
 }
 
@@ -99,6 +132,19 @@ ZonePalettePanel::RowRef ZonePalettePanel::selectedRow() const {
 		return {};
 	}
 	return RowRef{ data->zone, data->cluster };
+}
+
+int ZonePalettePanel::getOrCreateZoneIcon(uint16_t zone_id) {
+	if (!image_list) {
+		return -1;
+	}
+	if (auto it = zone_icon_map_.find(zone_id); it != zone_icon_map_.end()) {
+		return it->second;
+	}
+	const wxBitmap bmp = createZoneColorIcon(zone_id, 14);
+	const int img_idx = image_list->Add(bmp);
+	zone_icon_map_[zone_id] = img_idx;
+	return img_idx;
 }
 
 Brush* ZonePalettePanel::GetSelectedBrush() const {
@@ -143,6 +189,11 @@ void ZonePalettePanel::OnUpdate() {
 		}
 	}
 
+	if (image_list) {
+		image_list->RemoveAll();
+	}
+	zone_icon_map_.clear();
+
 	zone_tree->DeleteAllItems();
 	root = zone_tree->AddRoot("Zones");
 
@@ -164,7 +215,8 @@ void ZonePalettePanel::OnUpdate() {
 				zone_label = wxstr(std::format("[{}] {} ({} tiles)", zone.id, zone.name, total_tiles));
 			}
 
-			wxTreeItemId zone_item = zone_tree->AppendItem(root, zone_label, -1, -1, new ZoneTreeItemData(zone.id, -1));
+			const int icon_idx = getOrCreateZoneIcon(zone.id);
+			wxTreeItemId zone_item = zone_tree->AppendItem(root, zone_label, icon_idx, icon_idx, new ZoneTreeItemData(zone.id, -1));
 
 			if (prev_selected.zone == zone.id && prev_selected.cluster == -1) {
 				item_to_select = zone_item;
@@ -231,6 +283,17 @@ void ZonePalettePanel::OnSelectZone(wxTreeEvent& event) {
 void ZonePalettePanel::OnActivateZone(wxTreeEvent& /*event*/) {
 	wxCommandEvent unused;
 	OnGoToZone(unused);
+}
+
+void ZonePalettePanel::OnItemExpanding(wxTreeEvent& event) {
+	if (!event.GetItem().IsOk() || !supportsZones() || !map) {
+		return;
+	}
+	auto* data = dynamic_cast<ZoneTreeItemData*>(zone_tree->GetItemData(event.GetItem()));
+	if (data && data->cluster == -1 && data->zone != 0) {
+		const auto& clusters = map->getZoneClusters(data->zone);
+		refreshChildAreas(event.GetItem(), data->zone, clusters);
+	}
 }
 
 void ZonePalettePanel::OnZoneContextMenu(wxTreeEvent& event) {
@@ -330,17 +393,6 @@ void ZonePalettePanel::OnClickRemove(wxCommandEvent& /*event*/) {
 	g_gui.RefreshView();
 }
 
-void ZonePalettePanel::OnItemExpanding(wxTreeEvent& event) {
-	if (!event.GetItem().IsOk() || !supportsZones() || !map) {
-		return;
-	}
-	auto* data = dynamic_cast<ZoneTreeItemData*>(zone_tree->GetItemData(event.GetItem()));
-	if (data && data->cluster == -1 && data->zone != 0) {
-		const auto& clusters = map->getZoneClusters(data->zone);
-		refreshChildAreas(event.GetItem(), data->zone, clusters);
-	}
-}
-
 void ZonePalettePanel::UpdateZone(uint16_t zone_id) {
 	if (!supportsZones() || !zone_tree || zone_id == 0 || !map) {
 		return;
@@ -372,7 +424,8 @@ void ZonePalettePanel::UpdateZone(uint16_t zone_id) {
 			}
 			zone_tree->SetItemText(child, zone_label);
 
-			if (zone_tree->IsExpanded(child)) {
+			// Always refresh child areas if multiple clusters exist or if it previously had children
+			if (clusters.size() > 1 || zone_tree->GetChildrenCount(child, false) > 0) {
 				refreshChildAreas(child, zone_id, clusters);
 			}
 			return;
@@ -410,7 +463,7 @@ void ZonePalettePanel::UpdateTileCounts() {
 				}
 				zone_tree->SetItemText(child, zone_label);
 
-				if (zone_tree->IsExpanded(child)) {
+				if (clusters.size() > 1 || zone_tree->GetChildrenCount(child, false) > 0) {
 					refreshChildAreas(child, zid, clusters);
 				}
 			}
@@ -421,7 +474,9 @@ void ZonePalettePanel::UpdateTileCounts() {
 
 void ZonePalettePanel::refreshChildAreas(const wxTreeItemId& parent_item, uint16_t zone_id, const std::vector<ZoneCluster>& clusters) {
 	if (clusters.size() <= 1) {
-		zone_tree->DeleteChildren(parent_item);
+		if (zone_tree->GetChildrenCount(parent_item, false) > 0) {
+			zone_tree->DeleteChildren(parent_item);
+		}
 		return;
 	}
 
@@ -449,4 +504,3 @@ void ZonePalettePanel::refreshChildAreas(const wxTreeItemId& parent_item, uint16
 		}
 	}
 }
-

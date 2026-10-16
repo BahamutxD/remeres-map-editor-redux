@@ -2,7 +2,9 @@
 #define RME_PALETTE_ZONES_H_
 
 #include <wx/treectrl.h>
+#include <wx/imaglist.h>
 
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -42,6 +44,7 @@ private:
 	};
 	[[nodiscard]] RowRef selectedRow() const;
 
+	int getOrCreateZoneIcon(uint16_t zone_id);
 	void refreshChildAreas(const wxTreeItemId& parent_item, uint16_t zone_id, const std::vector<ZoneCluster>& clusters);
 
 	void OnSelectZone(wxTreeEvent& event);
@@ -56,6 +59,8 @@ private:
 	Map* map = nullptr;
 	bool refreshing = false;
 	wxTreeCtrl* zone_tree = nullptr;
+	wxImageList* image_list = nullptr;
+	std::unordered_map<uint16_t, int> zone_icon_map_;
 	wxButton* add_button = nullptr;
 	wxButton* rename_button = nullptr;
 	wxButton* remove_button = nullptr;
