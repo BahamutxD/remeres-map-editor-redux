@@ -118,9 +118,9 @@ void ZonePalettePanel::OnUpdate() {
 	if (enabled) {
 		for (const auto& zone : map->zones) {
 			const size_t total_tiles = map->getZoneTilePositions(zone.id).size();
-			const long item = zone_list->InsertItem(zone_list->GetItemCount(), wxString::Format("%u", zone.id));
+			const long item = zone_list->InsertItem(zone_list->GetItemCount(), wxstr(std::format("{}", zone.id)));
 			zone_list->SetItem(item, 1, wxstr(zone.name));
-			zone_list->SetItem(item, 2, wxString::Format("%zu", total_tiles));
+			zone_list->SetItem(item, 2, wxstr(std::format("{}", total_tiles)));
 			rows_.push_back({ zone.id, -1 });
 
 			bool item_selected = false;
@@ -135,7 +135,7 @@ void ZonePalettePanel::OnUpdate() {
 			for (size_t ci = 0; ci < clusters.size(); ++ci) {
 				const long region = zone_list->InsertItem(zone_list->GetItemCount(), wxEmptyString);
 				zone_list->SetItem(region, 1, wxstr(std::format("\u21B3 Region {} \u00B7 {} tiles", ci + 1, clusters[ci].tile_count)));
-				zone_list->SetItem(region, 2, wxString::Format("%u", clusters[ci].tile_count));
+				zone_list->SetItem(region, 2, wxstr(std::format("{}", clusters[ci].tile_count)));
 				rows_.push_back({ zone.id, static_cast<int>(ci) });
 
 				if (prev_selected.zone == zone.id && prev_selected.cluster == static_cast<int>(ci)) {
