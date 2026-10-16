@@ -57,7 +57,14 @@ bool EditorManager::IsEditorOpen() const {
 void EditorManager::CloseCurrentEditor() {
 	spdlog::info("EditorManager::CloseCurrentEditor - Closing current tab");
 	g_palettes.RefreshPalettes();
-	g_gui.tabbook->DeleteTab(g_gui.tabbook->GetSelection());
+
+	{
+		// Destroying the tab frees the whole map and its GL resources, which
+		// can take a moment on large maps; show what is happening.
+		ScopedLoadingBar closingBar("Closing map...", false, "Closing");
+		g_gui.tabbook->DeleteTab(g_gui.tabbook->GetSelection());
+	}
+
 	g_gui.root->UpdateMenubar();
 	spdlog::info("EditorManager::CloseCurrentEditor - Closed current tab");
 }
