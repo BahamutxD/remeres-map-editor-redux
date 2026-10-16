@@ -276,16 +276,10 @@ static CreatureBrush* ensureCreatureBrush(CreatureType* type) {
 		return type->brush;
 	}
 	std::unique_ptr<CreatureBrush> creature_brush;
-	const auto* cv = g_version.getLoadedVersion();
-	const bool otbm5_client = cv && cv->getPrefferedMapVersionID() == MAP_OTBM_5;
-	if (otbm5_client) {
-		if (type->isNpc) {
-			creature_brush = std::make_unique<NpcBrush>(type);
-		} else {
-			creature_brush = std::make_unique<MonsterBrush>(type);
-		}
+	if (type->isNpc) {
+		creature_brush = std::make_unique<NpcBrush>(type);
 	} else {
-		creature_brush = std::make_unique<CreatureBrush>(type);
+		creature_brush = std::make_unique<MonsterBrush>(type);
 	}
 	type->brush = creature_brush.get();
 	CreatureBrush* brush = creature_brush.get();
