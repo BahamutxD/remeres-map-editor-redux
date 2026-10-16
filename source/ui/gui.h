@@ -101,11 +101,14 @@ public:
 		g_layout.LoadPerspective();
 	}
 
-	void CreateLoadBar(wxString message, bool canCancel = false) {
-		g_loading.CreateLoadBar(message, canCancel);
+	void CreateLoadBar(wxString message, bool canCancel = false, const wxString& title = "Loading") {
+		g_loading.CreateLoadBar(message, canCancel, title);
 	}
 	void SetLoadScale(int32_t from, int32_t to) {
 		g_loading.SetLoadScale(from, to);
+	}
+	void SetLoadText(const wxString& message) {
+		g_loading.SetLoadText(message);
 	}
 	bool SetLoadDone(int32_t done, const wxString& newMessage = "") {
 		return g_loading.SetLoadDone(done, newMessage);
@@ -416,8 +419,8 @@ public:
  */
 class ScopedLoadingBar {
 public:
-	ScopedLoadingBar(wxString message, bool canCancel = false) {
-		g_loading.CreateLoadBar(message, canCancel);
+	ScopedLoadingBar(wxString message, bool canCancel = false, const wxString& title = "Loading") {
+		g_loading.CreateLoadBar(message, canCancel, title);
 	}
 	~ScopedLoadingBar() {
 		g_loading.DestroyLoadBar();
@@ -425,6 +428,10 @@ public:
 
 	void SetLoadDone(int32_t done, const wxString& newmessage = wxEmptyString) {
 		g_loading.SetLoadDone(done, newmessage);
+	}
+
+	void SetLoadText(const wxString& message) {
+		g_loading.SetLoadText(message);
 	}
 
 	void SetLoadScale(int32_t from, int32_t to) {

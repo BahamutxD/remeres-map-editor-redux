@@ -23,14 +23,14 @@ LoadingManager::~LoadingManager() {
 	DestroyLoadBar();
 }
 
-void LoadingManager::CreateLoadBar(wxString message, bool canCancel) {
+void LoadingManager::CreateLoadBar(wxString message, bool canCancel, const wxString& title) {
 	progressText = message;
 
 	progressFrom = 0;
 	progressTo = 100;
 	currentProgress = -1;
 
-	progressBar = newd wxGenericProgressDialog("Loading", progressText + " (0%)", 100, g_gui.root, wxPD_APP_MODAL | wxPD_SMOOTH | (canCancel ? wxPD_CAN_ABORT : 0));
+	progressBar = newd wxGenericProgressDialog(title, progressText + " (0%)", 100, g_gui.root, wxPD_APP_MODAL | wxPD_SMOOTH | (canCancel ? wxPD_CAN_ABORT : 0));
 	progressBar->Show(true);
 
 	if (g_gui.tabbook) {
@@ -53,7 +53,8 @@ bool LoadingManager::SetLoadDone(int32_t done, const wxString& newMessage) {
 	if (done == 100) {
 		DestroyLoadBar();
 		return true;
-	} else if (done == currentProgress) {
+	} else if (done == currentProgress && newMessage.empty()) {
+		// Same value and same text, nothing to repaint.
 		return true;
 	}
 
@@ -87,6 +88,18 @@ bool LoadingManager::SetLoadDone(int32_t done, const wxString& newMessage) {
 	}
 
 	return skip;
+}
+
+void LoadingManager::SetLoadText(const wxString& message) {
+	if (!progressBar || message == progressText) {
+		return;
+	}
+
+	progressText = message;
+
+	const int32_t visible = std::max<int32_t>(0, currentProgress);
+	bool skip = false;
+	progressBar->Update(visible, wxString::Format("%s (%d%%)", progressText, visible), &skip);
 }
 
 void LoadingManager::DestroyLoadBar() {
