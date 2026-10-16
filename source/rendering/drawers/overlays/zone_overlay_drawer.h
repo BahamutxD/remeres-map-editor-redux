@@ -160,9 +160,13 @@ private:
 	std::vector<uint32_t> house_row_next_;
 	std::vector<PendingBorderQuad> house_border_quads_;
 
-	std::vector<uint16_t> zone_row_prev_;
-	std::vector<uint16_t> zone_row_curr_;
-	std::vector<uint16_t> zone_row_next_;
+	struct ZoneRowCell {
+		uint16_t primary = 0;
+		uint16_t secondary = 0;
+	};
+	std::vector<ZoneRowCell> zone_row_prev_;
+	std::vector<ZoneRowCell> zone_row_curr_;
+	std::vector<ZoneRowCell> zone_row_next_;
 
 	std::vector<PendingHighlightQuad> highlight_quads_;
 };

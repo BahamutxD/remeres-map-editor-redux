@@ -497,19 +497,6 @@ void ZoneOverlayDrawer::drawFloorHouses(SpriteBatch& sprite_batch,
 }
 
 namespace {
-
-	// A tile in several zones is drawn as the active brush zone when it has it, otherwise its lowest id
-	uint16_t displayedZone(const Tile* tile, uint16_t active_zone) noexcept {
-		if (!tile || !tile->hasZones()) {
-			return 0;
-		}
-		const auto ids = tile->getZoneIds();
-		if (active_zone != 0 && std::ranges::binary_search(ids, active_zone)) {
-			return active_zone;
-		}
-		return ids.front();
-	}
-
 } // namespace
 
 void ZoneOverlayDrawer::drawFloorZones(SpriteBatch& sprite_batch,
@@ -538,14 +525,24 @@ void ZoneOverlayDrawer::drawFloorZones(SpriteBatch& sprite_batch,
 	const int row_width = max_x - min_x + 1;
 	const uint16_t active_zone = options.current_zone_id;
 
-	auto fetchRow = [&](int ry, std::vector<uint16_t>& row) {
+	auto fetchRow = [&](int ry, std::vector<ZoneRowCell>& row) {
 		row.resize(row_width);
 		for (int x = min_x; x <= max_x; ++x) {
 			const Tile* t = secondary_map ? secondary_map->getTile(x, ry, z) : nullptr;
 			if (!t) {
 				t = map.getTile(x, ry, z);
 			}
-			row[x - min_x] = displayedZone(t, active_zone);
+			if (!t || !t->hasZones()) {
+				row[x - min_x] = ZoneRowCell{ 0, 0 };
+				continue;
+			}
+			const auto ids = t->getZoneIds();
+			uint16_t prim = (active_zone != 0 && std::ranges::binary_search(ids, active_zone)) ? active_zone : ids.front();
+			uint16_t sec = 0;
+			if (ids.size() > 1) {
+				sec = (ids.front() == prim) ? ids[1] : ids.front();
+			}
+			row[x - min_x] = ZoneRowCell{ prim, sec };
 		}
 	};
 
@@ -559,44 +556,41 @@ void ZoneOverlayDrawer::drawFloorZones(SpriteBatch& sprite_batch,
 
 		for (int x = bounds.start_x; x <= bounds.end_x; ++x) {
 			const int idx = x - min_x;
-			const uint16_t zone_id = zone_row_curr_[idx];
+			const ZoneRowCell cell = zone_row_curr_[idx];
+			const uint16_t zone_id = cell.primary;
 			if (zone_id == 0) {
 				continue;
 			}
 
-			const bool active = zone_id == active_zone;
+			const bool active = (zone_id == active_zone);
 			const glm::vec3 rgb = getZoneColor(zone_id);
 			int draw_x, draw_y;
 			view.getScreenPosition(x, y, z, draw_x, draw_y);
 			const float fx = static_cast<float>(draw_x);
 			const float fy = static_cast<float>(draw_y);
 			const float depth = calculateTileDepth(x, y, RenderSublayer::GroundOverlay);
-			sprite_batch.drawRect(fx, fy, 32.0f, 32.0f, glm::vec4(rgb, active ? 0.45f : 0.25f), atlas, depth);
 
-			// Indicator for multi-zone tiles: draw an accent pip in the top-right corner with secondary zone color
-			const Tile* t = secondary_map ? secondary_map->getTile(x, y, z) : nullptr;
-			if (!t) {
-				t = map.getTile(x, y, z);
-			}
-			if (t && t->getZoneIds().size() > 1) {
-				const auto ids = t->getZoneIds();
-				const uint16_t secondary_id = (ids.front() == zone_id) ? ids[1] : ids.front();
-				const glm::vec3 sec_rgb = getZoneColor(secondary_id);
-				sprite_batch.drawRect(fx + 24.0f, fy, 8.0f, 8.0f, glm::vec4(sec_rgb, 0.9f), atlas, depth);
+			if (cell.secondary != 0) {
+				const glm::vec3 sec_rgb = getZoneColor(cell.secondary);
+				const bool sec_active = (cell.secondary == active_zone);
+				sprite_batch.drawRect(fx, fy, 32.0f, 16.0f, glm::vec4(rgb, active ? 0.45f : 0.25f), atlas, depth);
+				sprite_batch.drawRect(fx, fy + 16.0f, 32.0f, 16.0f, glm::vec4(sec_rgb, sec_active ? 0.45f : 0.25f), atlas, depth);
+			} else {
+				sprite_batch.drawRect(fx, fy, 32.0f, 32.0f, glm::vec4(rgb, active ? 0.45f : 0.25f), atlas, depth);
 			}
 
 			if (options.show_zone_borders) {
 				const glm::vec4 edge(rgb, 0.9f);
-				if (zone_row_prev_[idx] != zone_id) {
+				if (zone_row_prev_[idx].primary != zone_id) {
 					sprite_batch.drawRect(fx, fy, 32.0f, kBorder, edge, atlas, depth);
 				}
-				if (zone_row_next_[idx] != zone_id) {
+				if (zone_row_next_[idx].primary != zone_id) {
 					sprite_batch.drawRect(fx, fy + 32.0f - kBorder, 32.0f, kBorder, edge, atlas, depth);
 				}
-				if (zone_row_curr_[idx - 1] != zone_id) {
+				if (zone_row_curr_[idx - 1].primary != zone_id) {
 					sprite_batch.drawRect(fx, fy, kBorder, 32.0f, edge, atlas, depth);
 				}
-				if (zone_row_curr_[idx + 1] != zone_id) {
+				if (zone_row_curr_[idx + 1].primary != zone_id) {
 					sprite_batch.drawRect(fx + 32.0f - kBorder, fy, kBorder, 32.0f, edge, atlas, depth);
 				}
 			}
