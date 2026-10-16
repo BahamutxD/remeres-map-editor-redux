@@ -177,9 +177,6 @@ void ZoneIndex::updateClusters(const ZoneData& data) const {
 	}
 
 	std::ranges::sort(data.clusters, [](const ZoneCluster& a, const ZoneCluster& b) {
-		if (a.tile_count != b.tile_count) {
-			return a.tile_count > b.tile_count;
-		}
 		if (a.centroid_pos.z != b.centroid_pos.z) {
 			return a.centroid_pos.z < b.centroid_pos.z;
 		}
@@ -278,7 +275,7 @@ const std::vector<Position>& ZoneIndex::getPositions(uint16_t zoneId) const noex
 	return (it != index_.end()) ? it->second.positions : kEmptyPositions;
 }
 
-const std::vector<ZoneCluster>& ZoneIndex::getClusters(uint16_t zoneId) const {
+const std::vector<ZoneCluster>& ZoneIndex::getClusters(uint16_t zoneId, bool recompute_if_dirty) const {
 	if (zoneId == 0) {
 		return kEmptyClusters;
 	}
@@ -288,7 +285,7 @@ const std::vector<ZoneCluster>& ZoneIndex::getClusters(uint16_t zoneId) const {
 		return kEmptyClusters;
 	}
 
-	if (it->second.clusters_dirty) {
+	if (it->second.clusters_dirty && recompute_if_dirty) {
 		updateClusters(it->second);
 	}
 	return it->second.clusters;

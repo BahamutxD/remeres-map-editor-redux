@@ -261,9 +261,9 @@ const std::vector<Position>& Map::getZoneTilePositions(uint16_t id) const noexce
 	return supportsZones() ? zone_index.getPositions(id) : s_empty;
 }
 
-const std::vector<ZoneCluster>& Map::getZoneClusters(uint16_t id) const {
+const std::vector<ZoneCluster>& Map::getZoneClusters(uint16_t id, bool recompute_if_dirty) const {
 	static const std::vector<ZoneCluster> s_empty;
-	return supportsZones() ? zone_index.getClusters(id) : s_empty;
+	return supportsZones() ? zone_index.getClusters(id, recompute_if_dirty) : s_empty;
 }
 
 void Map::addTileToZone(uint16_t id, const Position& pos) {

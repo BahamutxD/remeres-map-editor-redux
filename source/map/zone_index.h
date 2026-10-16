@@ -56,7 +56,7 @@ public:
 	[[nodiscard]] const std::vector<Position>& getPositions(uint16_t zoneId) const noexcept;
 
 	// Returns cached 8-connected clusters for this zone across all floors.
-	[[nodiscard]] const std::vector<ZoneCluster>& getClusters(uint16_t zoneId) const;
+	[[nodiscard]] const std::vector<ZoneCluster>& getClusters(uint16_t zoneId, bool recompute_if_dirty = true) const;
 
 	// Returns whether the index contains any tiles for the given zone.
 	[[nodiscard]] bool hasZone(uint16_t zoneId) const noexcept;
