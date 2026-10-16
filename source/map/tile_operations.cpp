@@ -185,13 +185,13 @@ namespace TileOperations {
 			dest->spawn = std::move(src->spawn);
 		}
 		if (src->extra) {
-			for (const uint16_t zoneId : src->extra->zoneIds) {
+			for (const uint16_t zoneId : src->getZoneIds()) {
 				dest->addZone(zoneId);
 			}
 		}
 		if (src->hasInvalidZones()) {
-			auto& dest_invalid_zones = dest->getOrCreateExtra();
-			auto& src_invalid_zones = *src->extra;
+			auto& dest_invalid_zones = dest->getOrCreateInvalidContent();
+			auto& src_invalid_zones = *src->extra->invalidContent;
 
 			dest_invalid_zones.hasStructuralMismatch = dest_invalid_zones.hasStructuralMismatch || src_invalid_zones.hasStructuralMismatch;
 			dest_invalid_zones.rawMapFlags |= src_invalid_zones.rawMapFlags;
@@ -208,7 +208,6 @@ namespace TileOperations {
 			for (auto& node : src_invalid_zones.opaqueChildNodes) {
 				dest_invalid_zones.opaqueChildNodes.push_back(std::move(node));
 			}
-
 		}
 		src->extra.reset();
 

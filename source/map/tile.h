@@ -154,6 +154,7 @@ public: // Functions
 		items.reserve(count);
 	}
 	TileExtraData& getOrCreateExtra();
+	TileInvalidContent& getOrCreateInvalidContent();
 	void clearInvalidZones();
 	void addOpaqueTileAttribute(OpaqueTileAttributeRecord record);
 	void addOpaqueChildNode(PreservedOTBMNode node);
@@ -284,37 +285,44 @@ inline TileExtraData& Tile::getOrCreateExtra() {
 	return *extra;
 }
 
+inline TileInvalidContent& Tile::getOrCreateInvalidContent() {
+	auto& ex = getOrCreateExtra();
+	if (!ex.invalidContent) {
+		ex.invalidContent = std::make_unique<TileInvalidContent>();
+	}
+	return *ex.invalidContent;
+}
+
 inline void Tile::clearInvalidZones() {
 	if (!extra) {
 		return;
 	}
-	if (extra->unknownMapFlagBits != 0) {
-		unsetMapFlags(extra->unknownMapFlagBits);
+	if (extra->invalidContent && extra->invalidContent->unknownMapFlagBits != 0) {
+		unsetMapFlags(extra->invalidContent->unknownMapFlagBits);
 	}
-	std::vector<uint16_t> zoneIds = std::move(extra->zoneIds);
-	extra.reset();
-	if (!zoneIds.empty()) {
-		getOrCreateExtra().zoneIds = std::move(zoneIds);
+	extra->invalidContent.reset();
+	if (extra->empty()) {
+		extra.reset();
 	}
 }
 
 inline void Tile::addOpaqueTileAttribute(OpaqueTileAttributeRecord record) {
-	auto& state = getOrCreateExtra();
-	state.hasStructuralMismatch = true;
-	state.opaqueTileAttributes.push_back(std::move(record));
+	auto& inv = getOrCreateInvalidContent();
+	inv.hasStructuralMismatch = true;
+	inv.opaqueTileAttributes.push_back(std::move(record));
 }
 
 inline void Tile::addOpaqueChildNode(PreservedOTBMNode node) {
-	auto& state = getOrCreateExtra();
-	state.hasStructuralMismatch = true;
-	state.opaqueChildNodes.push_back(std::move(node));
+	auto& inv = getOrCreateInvalidContent();
+	inv.hasStructuralMismatch = true;
+	inv.opaqueChildNodes.push_back(std::move(node));
 }
 
 inline void Tile::recordUnknownMapFlags(uint32_t rawFlags, uint32_t unknownBits) {
-	auto& state = getOrCreateExtra();
-	state.rawMapFlags = rawFlags;
-	state.unknownMapFlagBits |= unknownBits;
-	state.hasStructuralMismatch = state.hasStructuralMismatch || unknownBits != 0;
+	auto& inv = getOrCreateInvalidContent();
+	inv.rawMapFlags = rawFlags;
+	inv.unknownMapFlagBits |= unknownBits;
+	inv.hasStructuralMismatch = inv.hasStructuralMismatch || unknownBits != 0;
 }
 
 inline const TileExtraData* Tile::getExtra() const {
@@ -326,7 +334,7 @@ inline bool Tile::hasInvalidZones() const {
 }
 
 inline std::span<const uint16_t> Tile::getZoneIds() const {
-	return extra ? std::span<const uint16_t>(extra->zoneIds) : std::span<const uint16_t>();
+	return extra ? extra->zoneIds.span() : std::span<const uint16_t>();
 }
 
 inline bool Tile::hasZones() const {
@@ -341,22 +349,14 @@ inline void Tile::addZone(uint16_t zoneId) {
 	if (zoneId == 0) {
 		return;
 	}
-	auto& ids = getOrCreateExtra().zoneIds;
-	const auto it = std::ranges::lower_bound(ids, zoneId);
-	if (it == ids.end() || *it != zoneId) {
-		ids.insert(it, zoneId);
-	}
+	getOrCreateExtra().zoneIds.insert(zoneId);
 }
 
 inline void Tile::removeZone(uint16_t zoneId) {
 	if (!extra) {
 		return;
 	}
-	auto& ids = extra->zoneIds;
-	const auto it = std::ranges::lower_bound(ids, zoneId);
-	if (it != ids.end() && *it == zoneId) {
-		ids.erase(it);
-	}
+	extra->zoneIds.erase(zoneId);
 	if (extra->empty()) {
 		extra.reset();
 	}
@@ -372,8 +372,7 @@ inline void Tile::setZoneIds(std::span<const uint16_t> zoneIds) {
 		}
 		return;
 	}
-	auto& ids = getOrCreateExtra().zoneIds;
-	ids.clear();
+	std::vector<uint16_t> ids;
 	ids.reserve(zoneIds.size());
 	for (uint16_t id : zoneIds) {
 		if (id != 0) {
@@ -381,18 +380,22 @@ inline void Tile::setZoneIds(std::span<const uint16_t> zoneIds) {
 		}
 	}
 	if (ids.empty()) {
-		if (extra && extra->empty()) {
-			extra.reset();
+		if (extra) {
+			extra->zoneIds.clear();
+			if (extra->empty()) {
+				extra.reset();
+			}
 		}
 		return;
 	}
 	std::ranges::sort(ids);
 	const auto [drop_it, end_it] = std::ranges::unique(ids);
 	ids.erase(drop_it, end_it);
+	getOrCreateExtra().zoneIds.assign(ids);
 }
 
 inline void Tile::setMapFlags(uint32_t _flags) {
-	const uint32_t preservedUnknownBits = extra ? extra->unknownMapFlagBits : 0;
+	const uint32_t preservedUnknownBits = (extra && extra->invalidContent) ? extra->invalidContent->unknownMapFlagBits : 0;
 	mapflags = _flags | preservedUnknownBits;
 }
 

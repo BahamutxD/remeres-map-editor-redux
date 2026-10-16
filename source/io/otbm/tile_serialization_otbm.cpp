@@ -398,11 +398,13 @@ void TileSerializationOTBM::serializeTile(const IOMapOTBM& iomap, const Tile* sa
 	}
 
 	if (const TileExtraData* extra = save_tile->getExtra()) {
-		for (const auto& opaqueAttribute : extra->opaqueTileAttributes) {
-			writeRawInlineBytes(f, opaqueAttribute.rawBytes);
-		}
-		for (const auto& opaqueChildNode : extra->opaqueChildNodes) {
-			writePreservedNode(f, opaqueChildNode);
+		if (extra->invalidContent) {
+			for (const auto& opaqueAttribute : extra->invalidContent->opaqueTileAttributes) {
+				writeRawInlineBytes(f, opaqueAttribute.rawBytes);
+			}
+			for (const auto& opaqueChildNode : extra->invalidContent->opaqueChildNodes) {
+				writePreservedNode(f, opaqueChildNode);
+			}
 		}
 		// OTBM_TILE_ZONE (node 19) is strictly an OTBM 5 feature used by Canary and Crystal Server.
 		// Older formats (OTBM 1-4 / classic TFS 1.x) do not recognize tile child node 19 and fail/crash on load.

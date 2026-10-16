@@ -202,15 +202,18 @@ uint32_t Tile::memsize() const {
 	mem += sizeof(std::unique_ptr<Item>) * items.capacity();
 	if (extra) {
 		mem += sizeof(TileExtraData);
-		mem += static_cast<uint32_t>(extra->opaqueTileAttributes.capacity() * sizeof(OpaqueTileAttributeRecord));
-		for (const auto& attribute : extra->opaqueTileAttributes) {
-			mem += static_cast<uint32_t>(attribute.rawBytes.capacity());
+		if (extra->invalidContent) {
+			mem += sizeof(TileInvalidContent);
+			mem += static_cast<uint32_t>(extra->invalidContent->opaqueTileAttributes.capacity() * sizeof(OpaqueTileAttributeRecord));
+			for (const auto& attribute : extra->invalidContent->opaqueTileAttributes) {
+				mem += static_cast<uint32_t>(attribute.rawBytes.capacity());
+			}
+			mem += static_cast<uint32_t>(extra->invalidContent->opaqueChildNodes.capacity() * sizeof(PreservedOTBMNode));
+			for (const auto& node : extra->invalidContent->opaqueChildNodes) {
+				mem += preservedNodeHeapSize(node);
+			}
 		}
-		mem += static_cast<uint32_t>(extra->opaqueChildNodes.capacity() * sizeof(PreservedOTBMNode));
-		for (const auto& node : extra->opaqueChildNodes) {
-			mem += preservedNodeHeapSize(node);
-		}
-		mem += static_cast<uint32_t>(extra->zoneIds.capacity() * sizeof(uint16_t));
+		mem += static_cast<uint32_t>(extra->zoneIds.heapSize());
 	}
 
 	return mem;
@@ -503,10 +506,12 @@ bool Tile::isContentEqual(const Tile* other) const {
 		return false;
 	}
 
-	if (static_cast<bool>(extra) != static_cast<bool>(other->extra)) {
+	const bool this_has_extra = extra && !extra->empty();
+	const bool other_has_extra = other->extra && !other->extra->empty();
+	if (this_has_extra != other_has_extra) {
 		return false;
 	}
-	if (extra && other->extra && *extra != *other->extra) {
+	if (this_has_extra && *extra != *other->extra) {
 		return false;
 	}
 
