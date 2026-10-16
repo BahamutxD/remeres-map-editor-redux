@@ -204,14 +204,11 @@ void MapPropertiesWindow::UpdateProtocolList() {
 			map_version = MAP_OTBM_1;
 		}
 
-		if (map_version >= MAP_OTBM_4) {
+		if (map_version == MAP_OTBM_5) {
+			protocols = ClientVersion::getAllVisible();
+		} else if (map_version >= MAP_OTBM_4) {
 			protocols = ClientVersion::getAllForOTBMVersion(MAP_OTBM_3);
 			for (auto* c : ClientVersion::getAllForOTBMVersion(MAP_OTBM_4)) {
-				if (std::find(protocols.begin(), protocols.end(), c) == protocols.end()) {
-					protocols.push_back(c);
-				}
-			}
-			for (auto* c : ClientVersion::getAllForOTBMVersion(MAP_OTBM_5)) {
 				if (std::find(protocols.begin(), protocols.end(), c) == protocols.end()) {
 					protocols.push_back(c);
 				}
@@ -221,11 +218,23 @@ void MapPropertiesWindow::UpdateProtocolList() {
 		}
 	}
 
+	// Always retain the active client version if valid so switching map formats
+	// never unexpectedly mutates the loaded client version.
+	if (!client.empty()) {
+		if (ClientVersion* cur = ClientVersion::get(nstr(client))) {
+			if (std::find(protocols.begin(), protocols.end(), cur) == protocols.end()) {
+				protocols.push_back(cur);
+			}
+		}
+	}
+
 	for (ClientVersionList::const_iterator p = protocols.begin(); p != protocols.end(); ++p) {
 		protocol_choice->Append(wxstr((*p)->getName()));
 	}
 	protocol_choice->SetSelection(0);
-	protocol_choice->SetStringSelection(client);
+	if (!client.empty()) {
+		protocol_choice->SetStringSelection(client);
+	}
 }
 
 void MapPropertiesWindow::UpdateSpawnControls() {
