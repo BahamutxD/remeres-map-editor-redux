@@ -90,7 +90,6 @@ ZonePalettePanel::RowRef ZonePalettePanel::selectedRow() const {
 
 Brush* ZonePalettePanel::GetSelectedBrush() const {
 	const uint16_t id = supportsZones() ? selectedZoneId() : 0;
-	g_brush_manager.zone_brush->setZone(id);
 	return id != 0 ? g_brush_manager.zone_brush : nullptr;
 }
 
@@ -101,6 +100,10 @@ bool ZonePalettePanel::SelectBrush(const Brush* whatbrush) {
 void ZonePalettePanel::OnSwitchIn() {
 	PalettePanel::OnSwitchIn();
 	OnUpdate();
+	const uint16_t id = supportsZones() ? selectedZoneId() : 0;
+	if (g_brush_manager.zone_brush) {
+		g_brush_manager.zone_brush->setZone(id);
+	}
 }
 
 void ZonePalettePanel::OnUpdate() {
@@ -158,6 +161,10 @@ void ZonePalettePanel::OnUpdate() {
 
 void ZonePalettePanel::OnSelectZone(wxListEvent& /*event*/) {
 	if (!refreshing) {
+		const uint16_t id = supportsZones() ? selectedZoneId() : 0;
+		if (g_brush_manager.zone_brush) {
+			g_brush_manager.zone_brush->setZone(id);
+		}
 		g_gui.SelectBrush();
 	}
 }
