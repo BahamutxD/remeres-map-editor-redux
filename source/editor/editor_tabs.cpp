@@ -19,6 +19,7 @@
 
 #include "editor/editor_tabs.h"
 #include "editor/editor.h"
+#include "editor/managers/editor_manager.h"
 #include "live/live_tab.h"
 #include "ui/managers/status_manager.h"
 
@@ -80,15 +81,15 @@ void MapTabbook::OnNotebookPageClose(wxAuiNotebookEvent& evt) {
 		}
 
 		if (needRefresh) {
-			// wxAuiNotebook deletes the page right after this handler, which
-			// frees the whole map; tell the user what is going on before the
-			// window goes busy.
-			g_status.SetStatusText("Closing map...");
-			if (g_gui.root) {
-				g_gui.root->Update();
-			}
 			g_gui.RefreshPalettes(nullptr, false);
 			g_gui.UpdateMenus();
+
+			// Take the deletion over from wxAuiNotebook (which would otherwise
+			// free the whole map right after this handler returns, with no
+			// feedback) so the Closing progress bar can cover it.
+			evt.Veto();
+			SetFocusedTab(evt.GetInt());
+			g_editors.CloseCurrentEditor();
 		}
 		return;
 	}
