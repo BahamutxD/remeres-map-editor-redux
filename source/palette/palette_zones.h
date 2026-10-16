@@ -1,17 +1,14 @@
-//////////////////////////////////////////////////////////////////////
-// This file is part of Remere's Map Editor
-//////////////////////////////////////////////////////////////////////
-
 #ifndef RME_PALETTE_ZONES_H_
 #define RME_PALETTE_ZONES_H_
 
-#include <wx/listctrl.h>
+#include <wx/treectrl.h>
 
+#include <unordered_set>
 #include <vector>
 
 #include "palette/palette_common.h"
 
-// Lists OTBM 5 zones (Canary / Crystal Server) and feeds the selected id to the zone brush
+// Lists OTBM 5 zones (Canary / Crystal Server) in a grouped tree and feeds the selected id to the zone brush
 class ZonePalettePanel : public PalettePanel {
 public:
 	explicit ZonePalettePanel(wxWindow* parent, wxWindowID id = wxID_ANY);
@@ -34,17 +31,15 @@ private:
 	[[nodiscard]] bool supportsZones() const;
 	[[nodiscard]] uint16_t selectedZoneId() const;
 
-	// Row metadata parallel to zone_list rows: zone rows carry cluster = -1,
-	// region rows carry the index into Map::getZoneClusters(zone).
 	struct RowRef {
 		uint16_t zone = 0;
 		int cluster = -1;
 	};
 	[[nodiscard]] RowRef selectedRow() const;
 
-	void OnSelectZone(wxListEvent& event);
-	void OnActivateZone(wxListEvent& event);
-	void OnZoneContextMenu(wxListEvent& event);
+	void OnSelectZone(wxTreeEvent& event);
+	void OnActivateZone(wxTreeEvent& event);
+	void OnZoneContextMenu(wxTreeEvent& event);
 	void OnGoToZone(wxCommandEvent& event);
 	void OnClickAdd(wxCommandEvent& event);
 	void OnClickRename(wxCommandEvent& event);
@@ -52,11 +47,11 @@ private:
 
 	Map* map = nullptr;
 	bool refreshing = false;
-	std::vector<RowRef> rows_;
-	wxListCtrl* zone_list;
-	wxButton* add_button;
-	wxButton* rename_button;
-	wxButton* remove_button;
+	wxTreeCtrl* zone_tree = nullptr;
+	wxButton* add_button = nullptr;
+	wxButton* rename_button = nullptr;
+	wxButton* remove_button = nullptr;
 };
 
 #endif
+
