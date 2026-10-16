@@ -162,7 +162,7 @@ bool EditorPersistence::saveMap(Editor& editor, FileName filename, bool showdial
 		editor.map.name = fn.GetFullName().mb_str(wxConvUTF8);
 
 		if (showdialog) {
-			g_gui.CreateLoadBar("Saving OTBM map...");
+			g_gui.CreateLoadBar("Saving map...", false, "Saving");
 		}
 
 		// Perform the actual save

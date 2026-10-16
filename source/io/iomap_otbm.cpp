@@ -57,6 +57,16 @@
 #include <unordered_map>
 #include <chrono>
 
+namespace {
+// Progress stages for saving. The progress bar closes itself when it reaches
+// 100%, so tile writing stops below that and the XML phases fill the rest.
+constexpr int32_t kTileWriteStagePercent = 85;
+constexpr int32_t kFinalizeStagePercent = 88;
+constexpr int32_t kSpawnStagePercent = 91;
+constexpr int32_t kHouseStagePercent = 94;
+constexpr int32_t kWaypointStagePercent = 97;
+} // namespace
+
 // Item OTBM operations delegated to ItemSerializationOTBM (used by LiveSocket)
 std::unique_ptr<Item> Item::Create_OTBM(const IOMap& maphandle, BinaryNode* stream) {
 	return ItemSerializationOTBM::createFromStream(maphandle, stream);
@@ -659,9 +669,12 @@ bool IOMapOTBM::saveMapToDisk(Map& map, const FileName& identifier) {
 		return false;
 	}
 
+	g_gui.SetLoadText("Writing tiles...");
 	if (!saveMap(map, *f)) {
 		return false;
 	}
+
+	g_gui.SetLoadDone(kFinalizeStagePercent, "Finishing file...");
 
 	if (is_compressed) {
 		f->close();
@@ -671,13 +684,13 @@ bool IOMapOTBM::saveMapToDisk(Map& map, const FileName& identifier) {
 		}
 	}
 
-	g_gui.SetLoadDone(99, "Saving spawns...");
+	g_gui.SetLoadDone(kSpawnStagePercent, "Saving spawns...");
 	if (!MapXMLIO::saveSpawns(map, identifier)) {
 		spdlog::error("Failed to save spawns!");
 		return false;
 	}
 
-	g_gui.SetLoadDone(99, "Saving houses...");
+	g_gui.SetLoadDone(kHouseStagePercent, "Saving houses...");
 	if (!MapXMLIO::saveHouses(map, identifier)) {
 		spdlog::error("IOMapOTBM::saveMapToDisk: Failed to save houses");
 		return false;
@@ -701,7 +714,7 @@ bool IOMapOTBM::saveMapToDisk(Map& map, const FileName& identifier) {
 	}
 
 	if (waypointFormat == Config::WaypointStorageFormat::XML || waypointFormat == Config::WaypointStorageFormat::BOTH) {
-		g_gui.SetLoadDone(99, "Saving waypoints...");
+		g_gui.SetLoadDone(kWaypointStagePercent, "Saving waypoints...");
 		if (map.waypoints.size() > 0) {
 			if (map.waypointfile.empty()) {
 				map.waypointfile = identifier.GetName() + "-waypoint.xml";
@@ -806,7 +819,10 @@ bool IOMapOTBM::saveMap(Map& map, NodeFileWriteHandle& f) {
 }
 
 void IOMapOTBM::writeTileData(const Map& map, NodeFileWriteHandle& f) {
-	TileSerializationOTBM::writeTileData(*this, map, f);
+	// Progress reported by the tile writer fills the tile stage of the bar.
+	TileSerializationOTBM::writeTileData(*this, map, f, [](int tilesWritten) {
+		g_gui.SetLoadDone(tilesWritten * kTileWriteStagePercent / 100);
+	});
 }
 
 void IOMapOTBM::writeTowns(const Map& map, NodeFileWriteHandle& f) {
