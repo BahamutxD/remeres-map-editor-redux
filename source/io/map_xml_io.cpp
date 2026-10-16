@@ -56,6 +56,25 @@ namespace {
 		CreatureFilter filter;
 	};
 
+	bool loadXMLFile(pugi::xml_document& doc, const std::string& path_utf8, const std::string& path_local) {
+#if defined(_WIN32)
+		return doc.load_file(wxstr(path_utf8).wc_str());
+#else
+		return doc.load_file(path_utf8.c_str());
+#endif
+	}
+
+	bool saveXMLFile(const pugi::xml_document& doc, const std::string& path_utf8, const std::string& path_local) {
+		std::error_code ec;
+#if defined(_WIN32)
+		std::filesystem::create_directories(std::filesystem::path(wxstr(path_utf8).wc_str()).parent_path(), ec);
+		return doc.save_file(wxstr(path_utf8).wc_str(), "\t", pugi::format_default, pugi::encoding_utf8);
+#else
+		std::filesystem::create_directories(std::filesystem::path(path_utf8).parent_path(), ec);
+		return doc.save_file(path_utf8.c_str(), "\t", pugi::format_default, pugi::encoding_utf8);
+#endif
+	}
+
 	// OTBM 5 splits spawns into a monster file and an NPC file, each with its own tag names
 	constexpr SpawnFileFormat STANDARD_SPAWN_FILE { "spawns", "spawn", CreatureFilter::All };
 	constexpr SpawnFileFormat MONSTERS_SPAWN_FILE { "monsters", "monster", CreatureFilter::Monsters };
@@ -68,7 +87,7 @@ namespace {
 		}
 
 		pugi::xml_document doc;
-		if (!doc.load_file(paths.second.c_str())) {
+		if (!loadXMLFile(doc, paths.first, paths.second)) {
 			return false;
 		}
 		return MapXMLIO::loadSpawns(map, doc);
@@ -186,7 +205,7 @@ namespace {
 
 		pugi::xml_document doc;
 		if (writeSpawnDocument(map, doc, format)) {
-			return doc.save_file(paths.second.c_str(), "\t", pugi::format_default, pugi::encoding_utf8);
+			return saveXMLFile(doc, paths.first, paths.second);
 		}
 		return false;
 	}
@@ -372,7 +391,7 @@ bool MapXMLIO::loadHouses(Map& map, const wxFileName& dir) {
 	}
 
 	pugi::xml_document doc;
-	if (!doc.load_file(paths.second.c_str())) {
+	if (!loadXMLFile(doc, paths.first, paths.second)) {
 #if defined(OTSERV_DEBUG_XML)
 		spdlog::warn("MapXMLIO::loadHouses: load_file failed for {}", paths.second);
 		return true;
@@ -440,7 +459,7 @@ bool MapXMLIO::saveHouses(const Map& map, const wxFileName& dir) {
 
 	pugi::xml_document doc;
 	if (saveHouses(map, doc)) {
-		return doc.save_file(paths.second.c_str(), "\t", pugi::format_default, pugi::encoding_utf8);
+		return saveXMLFile(doc, paths.first, paths.second);
 	}
 	return false;
 }
@@ -486,7 +505,7 @@ bool MapXMLIO::saveHouses(const Map& map, pugi::xml_document& doc) {
 bool MapXMLIO::loadZones(Map& map, const wxFileName& dir) {
 	auto paths = normalizeMapFilePaths(dir, map.zonefile);
 	pugi::xml_document doc;
-	if (!doc.load_file(paths.second.c_str())) {
+	if (!loadXMLFile(doc, paths.first, paths.second)) {
 		return false;
 	}
 
@@ -528,9 +547,7 @@ bool MapXMLIO::saveZones(const Map& map, const wxFileName& dir) {
 		zoneNode.append_attribute("name") = zone.name.c_str();
 		zoneNode.append_attribute("zoneid") = zone.id;
 	}
-	std::error_code ec;
-	std::filesystem::create_directories(std::filesystem::path(paths.second).parent_path(), ec);
-	return doc.save_file(paths.second.c_str(), "\t", pugi::format_default, pugi::encoding_utf8);
+	return saveXMLFile(doc, paths.first, paths.second);
 }
 
 bool MapXMLIO::loadWaypoints(Map& map, const wxFileName& dir, bool replace) {
@@ -540,7 +557,7 @@ bool MapXMLIO::loadWaypoints(Map& map, const wxFileName& dir, bool replace) {
 	}
 
 	pugi::xml_document doc;
-	if (!doc.load_file(paths.second.c_str())) {
+	if (!loadXMLFile(doc, paths.first, paths.second)) {
 		return false;
 	}
 	return loadWaypoints(map, doc, replace);
@@ -578,7 +595,7 @@ bool MapXMLIO::saveWaypoints(const Map& map, const wxFileName& dir) {
 
 	pugi::xml_document doc;
 	if (saveWaypoints(map, doc)) {
-		return doc.save_file(paths.second.c_str(), "\t", pugi::format_default, pugi::encoding_utf8);
+		return saveXMLFile(doc, paths.first, paths.second);
 	}
 	return false;
 }
