@@ -268,7 +268,7 @@ void ZonePalettePanel::OnSelectZone(wxTreeEvent& event) {
 			g_brush_manager.zone_brush->setZone(id);
 		}
 		g_gui.SelectBrush();
-		if (data && data->cluster >= 0) {
+		if (supportsZones() && data && data->cluster >= 0) {
 			const auto& clusters = map->getZoneClusters(data->zone);
 			if (static_cast<size_t>(data->cluster) < clusters.size()) {
 				const auto& region = clusters[static_cast<size_t>(data->cluster)];
