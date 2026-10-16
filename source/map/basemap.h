@@ -84,6 +84,9 @@ public:
 
 	// This doesn't destroy the map structure, just clears it, if param is true, delete all tiles too.
 	void clear(bool del = true);
+	[[nodiscard]] virtual bool supportsZones() const noexcept {
+		return false;
+	}
 	MapIterator begin();
 	MapIterator end();
 	auto tiles() {

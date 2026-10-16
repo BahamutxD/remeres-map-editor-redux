@@ -2,6 +2,7 @@
 
 #include "app/main.h"
 #include "game/materials.h"
+#include "map/map.h"
 #include "palette/hardcoded_palette_registry.h"
 #include "palette/house/house_palette.h"
 #include "ui/gui.h"
@@ -47,6 +48,9 @@ void SetMenuIcon(wxMenuItem* item, std::string_view icon) {
 	}
 	if (name == "Waypoint") {
 		return ICON_FLAG;
+	}
+	if (name == "Zone") {
+		return ICON_VECTOR_SQUARE;
 	}
 	return ICON_PALETTE;
 }
@@ -117,7 +121,11 @@ std::vector<std::string> PaletteMenuHandler::CurrentPaletteMenuEntries() const {
 	for (const auto& palette : g_materials.paletteCatalog().dynamicPalettes()) {
 		entries.push_back(palette.name);
 	}
+	const bool supports_zones = g_gui.IsEditorOpen() && g_gui.GetCurrentMap().supportsZones();
 	for (const auto& provider : GetHardcodedPaletteProviders()) {
+		if (provider.name == "Zone" && !supports_zones) {
+			continue;
+		}
 		entries.push_back(std::string(provider.name));
 	}
 	return entries;
@@ -150,17 +158,22 @@ void PaletteMenuHandler::RebuildPaletteMenu() {
 			}
 		}
 
-		const size_t providerOffset = palettes.size();
+		size_t menuSlot = palettes.size();
+		const bool supports_zones = g_gui.IsEditorOpen() && g_gui.GetCurrentMap().supportsZones();
 		const auto& providers = GetHardcodedPaletteProviders();
-		if (!providers.empty() && providerOffset < maxMenuCount) {
+		if (!providers.empty() && menuSlot < maxMenuCount) {
 			palette_menu->AppendSeparator();
-			for (size_t index = 0; index < providers.size() && providerOffset + index < maxMenuCount; ++index) {
-				const int menuId = MAIN_FRAME_MENU + PALETTE_MENU_FIRST + static_cast<int>(providerOffset + index);
+			for (size_t index = 0; index < providers.size() && menuSlot < maxMenuCount; ++index) {
+				if (providers[index].name == "Zone" && !supports_zones) {
+					continue;
+				}
+				const int menuId = MAIN_FRAME_MENU + PALETTE_MENU_FIRST + static_cast<int>(menuSlot);
 				const std::string providerName(providers[index].name);
 				const wxString label = PaletteLabel(providers[index].name);
 				wxMenuItem* item = palette_menu->Append(menuId, label, "Select the " + wxString::FromUTF8(providerName.c_str()) + " palette.");
 				SetMenuIcon(item, PaletteIcon(providers[index].name));
 				catalog_menu_ids.emplace(menuId, providerName);
+				++menuSlot;
 			}
 		}
 	}

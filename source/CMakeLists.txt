@@ -32,6 +32,8 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/brushes/carpet/carpet_brush_loader.h
     ${CMAKE_CURRENT_LIST_DIR}/brushes/carpet/carpet_border_calculator.h
     ${CMAKE_CURRENT_LIST_DIR}/brushes/creature/creature_brush.h
+    ${CMAKE_CURRENT_LIST_DIR}/brushes/creature/monster_brush.h
+    ${CMAKE_CURRENT_LIST_DIR}/brushes/creature/npc_brush.h
     ${CMAKE_CURRENT_LIST_DIR}/brushes/doodad/doodad_brush.h
     ${CMAKE_CURRENT_LIST_DIR}/brushes/doodad/doodad_brush_items.h
     ${CMAKE_CURRENT_LIST_DIR}/brushes/doodad/doodad_brush_loader.h
@@ -54,6 +56,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/brushes/wall/wall_brush_items.h
     ${CMAKE_CURRENT_LIST_DIR}/brushes/wall/wall_brush_loader.h
     ${CMAKE_CURRENT_LIST_DIR}/brushes/waypoint/waypoint_brush.h
+    ${CMAKE_CURRENT_LIST_DIR}/brushes/zone/zone_brush.h
     ${CMAKE_CURRENT_LIST_DIR}/editor/action.h
     ${CMAKE_CURRENT_LIST_DIR}/editor/action_queue.h
     ${CMAKE_CURRENT_LIST_DIR}/editor/copybuffer.h
@@ -153,6 +156,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/map/map_statistics.h
     ${CMAKE_CURRENT_LIST_DIR}/map/map_converter.h
     ${CMAKE_CURRENT_LIST_DIR}/map/map_spawn_manager.h
+    ${CMAKE_CURRENT_LIST_DIR}/map/zone_index.h
 
     ${CMAKE_CURRENT_LIST_DIR}/map/position.h
     ${CMAKE_CURRENT_LIST_DIR}/map/spatial_hash_grid.h
@@ -165,6 +169,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_common.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/hardcoded_palette_registry.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_waypoints.h
+    ${CMAKE_CURRENT_LIST_DIR}/palette/palette_zones.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/house/house_palette.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/house/edit_house_dialog.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_window.h
@@ -229,6 +234,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/rendering/indicators/indicator_drawing_utils.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/indicators/zone_flags.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/indicators/zone_cluster_finder.h
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/indicators/zone_colors.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/cursors/drag_shadow_drawer.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/cursors/live_cursor_drawer.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/drawers/entities/creature_drawer.h
@@ -455,6 +461,8 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/brushes/carpet/carpet_brush_loader.cpp
     ${CMAKE_CURRENT_LIST_DIR}/brushes/carpet/carpet_border_calculator.cpp
     ${CMAKE_CURRENT_LIST_DIR}/brushes/creature/creature_brush.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/brushes/creature/monster_brush.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/brushes/creature/npc_brush.cpp
     ${CMAKE_CURRENT_LIST_DIR}/brushes/doodad/doodad_brush.cpp
     ${CMAKE_CURRENT_LIST_DIR}/brushes/doodad/doodad_brush_items.cpp
     ${CMAKE_CURRENT_LIST_DIR}/brushes/doodad/doodad_brush_loader.cpp
@@ -480,6 +488,7 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/brushes/wall/wall_brush_loader.cpp
     ${CMAKE_CURRENT_LIST_DIR}/brushes/wall/wall_brush_arrays.cpp
     ${CMAKE_CURRENT_LIST_DIR}/brushes/waypoint/waypoint_brush.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/brushes/zone/zone_brush.cpp
     ${CMAKE_CURRENT_LIST_DIR}/editor/action.cpp
     ${CMAKE_CURRENT_LIST_DIR}/editor/action_queue.cpp
     ${CMAKE_CURRENT_LIST_DIR}/editor/copybuffer.cpp
@@ -564,6 +573,7 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/map/map_statistics.cpp
     ${CMAKE_CURRENT_LIST_DIR}/map/map_converter.cpp
     ${CMAKE_CURRENT_LIST_DIR}/map/map_spawn_manager.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/map/zone_index.cpp
 
     ${CMAKE_CURRENT_LIST_DIR}/map/tile.cpp
     ${CMAKE_CURRENT_LIST_DIR}/map/tile_operations.cpp
@@ -574,6 +584,7 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_common.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/hardcoded_palette_registry.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_waypoints.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/palette/palette_zones.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/house/house_palette.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/house/edit_house_dialog.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_window.cpp

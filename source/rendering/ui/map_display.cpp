@@ -279,7 +279,7 @@ void MapCanvas::DrawOverlays(NVGcontext* vg, const DrawingOptions& options) {
 	if (options.show_creatures) {
 		drawer->DrawCreatureNames(vg);
 	}
-	if (!options.ingame && (options.show_waypoints || options.show_towns || options.show_houses)) {
+	if (!options.ingame && (options.show_waypoints || options.show_towns || options.show_houses || options.show_zones)) {
 		drawer->DrawMarkerLabels(vg);
 	}
 	if (options.show_tooltips) {
@@ -347,6 +347,7 @@ void MapCanvas::OnPaint(wxPaintEvent& event) {
 		options.dragging = selection_controller->IsDragging();
 		options.boundbox_selection = selection_controller->IsBoundboxSelection();
 		options.is_drawing_mode = g_gui.IsDrawingMode();
+		options.is_drawing = drawing_controller->IsDrawing();
 
 		if (options.show_preview) {
 			animation_timer->Start();

@@ -4,6 +4,7 @@
 #include "rendering/core/drawing_options.h"
 #include "rendering/core/atlas_manager.h"
 #include "rendering/indicators/zone_flags.h"
+#include "rendering/indicators/zone_colors.h"
 #include "rendering/indicators/technical_item_registry.h"
 #include "rendering/core/render_depth.h"
 #include "map/map.h"
@@ -13,6 +14,7 @@
 #include "game/spawn.h"
 #include "app/settings.h"
 #include <algorithm>
+#include <cmath>
 #include <vector>
 #include <limits>
 
@@ -491,6 +493,111 @@ void ZoneOverlayDrawer::drawFloorHouses(SpriteBatch& sprite_batch,
 			sprite_batch.draw(q.x, q.y, 32.0f, 32.0f, *white_pixel, 1.0f, 1.0f, 1.0f, floor_alpha,
 			                  0.0f, q.flags, q.depth);
 		}
+	}
+}
+
+namespace {
+} // namespace
+
+void ZoneOverlayDrawer::drawFloorZones(SpriteBatch& sprite_batch,
+                                       int z,
+                                       const RenderView& view,
+                                       const Map& map,
+                                       const BaseMap* secondary_map,
+                                       const DrawingOptions& options,
+                                       const AtlasManager& atlas) {
+	if (!map.supportsZones() || options.ingame || !options.show_zones || view.zoom > kZoomLODCutoff) {
+		return;
+	}
+
+	if (map.zone_index.totalTileCount() == 0 && (!secondary_map || !secondary_map->supportsZones())) {
+		return;
+	}
+
+	const ViewBounds bounds = view.getBoundsForFloor(z);
+
+	if (!map.zone_index.hasFloor(z) && (!secondary_map || !secondary_map->supportsZones())) {
+		return;
+	}
+
+	const int min_x = bounds.start_x - 1;
+	const int max_x = bounds.end_x + 1;
+	const int row_width = max_x - min_x + 1;
+	const uint16_t active_zone = options.current_zone_id;
+
+	auto fetchRow = [&](int ry, std::vector<ZoneRowCell>& row) {
+		row.resize(row_width);
+		for (int x = min_x; x <= max_x; ++x) {
+			const Tile* t = secondary_map ? secondary_map->getTile(x, ry, z) : nullptr;
+			if (!t) {
+				t = map.getTile(x, ry, z);
+			}
+			if (!t || !t->hasZones()) {
+				row[x - min_x] = ZoneRowCell{ 0, 0 };
+				continue;
+			}
+			const auto ids = t->getZoneIds();
+			uint16_t prim = (active_zone != 0 && std::ranges::binary_search(ids, active_zone)) ? active_zone : ids.front();
+			uint16_t sec = 0;
+			if (ids.size() > 1) {
+				sec = (ids.front() == prim) ? ids[1] : ids.front();
+			}
+			row[x - min_x] = ZoneRowCell{ prim, sec };
+		}
+	};
+
+	fetchRow(bounds.start_y - 1, zone_row_prev_);
+	fetchRow(bounds.start_y, zone_row_curr_);
+
+	sprite_batch.setBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, atlas);
+	constexpr float kBorder = 2.0f;
+	for (int y = bounds.start_y; y <= bounds.end_y; ++y) {
+		fetchRow(y + 1, zone_row_next_);
+
+		for (int x = bounds.start_x; x <= bounds.end_x; ++x) {
+			const int idx = x - min_x;
+			const ZoneRowCell cell = zone_row_curr_[idx];
+			const uint16_t zone_id = cell.primary;
+			if (zone_id == 0) {
+				continue;
+			}
+
+			const bool active = (zone_id == active_zone);
+			const glm::vec3 rgb = getZoneColor(zone_id);
+			int draw_x, draw_y;
+			view.getScreenPosition(x, y, z, draw_x, draw_y);
+			const float fx = static_cast<float>(draw_x);
+			const float fy = static_cast<float>(draw_y);
+			const float depth = calculateTileDepth(x, y, RenderSublayer::GroundOverlay);
+
+			if (cell.secondary != 0) {
+				const glm::vec3 sec_rgb = getZoneColor(cell.secondary);
+				const bool sec_active = (cell.secondary == active_zone);
+				sprite_batch.drawRect(fx, fy, 32.0f, 16.0f, glm::vec4(rgb, active ? 0.45f : 0.25f), atlas, depth);
+				sprite_batch.drawRect(fx, fy + 16.0f, 32.0f, 16.0f, glm::vec4(sec_rgb, sec_active ? 0.45f : 0.25f), atlas, depth);
+			} else {
+				sprite_batch.drawRect(fx, fy, 32.0f, 32.0f, glm::vec4(rgb, active ? 0.45f : 0.25f), atlas, depth);
+			}
+
+			if (options.show_zone_borders) {
+				const glm::vec4 edge(rgb, 0.9f);
+				if (zone_row_prev_[idx].primary != zone_id) {
+					sprite_batch.drawRect(fx, fy, 32.0f, kBorder, edge, atlas, depth);
+				}
+				if (zone_row_next_[idx].primary != zone_id) {
+					sprite_batch.drawRect(fx, fy + 32.0f - kBorder, 32.0f, kBorder, edge, atlas, depth);
+				}
+				if (zone_row_curr_[idx - 1].primary != zone_id) {
+					sprite_batch.drawRect(fx, fy, kBorder, 32.0f, edge, atlas, depth);
+				}
+				if (zone_row_curr_[idx + 1].primary != zone_id) {
+					sprite_batch.drawRect(fx + 32.0f - kBorder, fy, kBorder, 32.0f, edge, atlas, depth);
+				}
+			}
+		}
+
+		std::swap(zone_row_prev_, zone_row_curr_);
+		std::swap(zone_row_curr_, zone_row_next_);
 	}
 }
 

@@ -12,9 +12,12 @@
 #include "palette/hardcoded_palette_registry.h"
 #include "palette/house/house_palette.h"
 #include "palette/palette_waypoints.h"
+#include "palette/palette_zones.h"
+#include "brushes/zone/zone_brush.h"
 #include "palette/panels/brush_palette_panel.h"
 #include "rendering/ui/map_display.h"
 #include "game/materials.h"
+#include "map/map.h"
 #include "ui/gui.h"
 
 #include <algorithm>
@@ -72,6 +75,9 @@ PaletteWindow::PaletteWindow(wxWindow* parent, const PaletteCatalog& catalog) :
 			g_gui.house_palette = house_palette;
 		} else if (auto* waypointPanel = dynamic_cast<WaypointPalettePanel*>(panel)) {
 			waypoint_palette = waypointPanel;
+		} else if (auto* zonePanel = dynamic_cast<ZonePalettePanel*>(panel)) {
+			zone_palette = zonePanel;
+			g_gui.zone_palette = zone_palette;
 		}
 		choicebook->AddPage(panel, wxstr(provider.name));
 	}
@@ -81,7 +87,7 @@ PaletteWindow::PaletteWindow(wxWindow* parent, const PaletteCatalog& catalog) :
 	sizer->Add(choicebook, 1, wxEXPAND);
 	SetSizer(sizer);
 
-	LoadCurrentContents();
+	ReloadSettings(g_gui.IsEditorOpen() ? &g_gui.GetCurrentMap() : nullptr);
 	Fit();
 }
 
@@ -92,9 +98,42 @@ PaletteWindow::~PaletteWindow() {
 	if (g_gui.house_palette == house_palette) {
 		g_gui.house_palette = nullptr;
 	}
+	if (g_gui.zone_palette == zone_palette) {
+		g_gui.zone_palette = nullptr;
+	}
 
 	spdlog::info("PaletteWindow destructor finished");
 	spdlog::default_logger()->flush();
+}
+
+void PaletteWindow::updateZonePage(Map* map) {
+	if (!zone_palette || !choicebook) {
+		return;
+	}
+
+	const bool supports_zones = map && map->supportsZones();
+	int zone_page_idx = wxNOT_FOUND;
+	for (size_t i = 0; i < choicebook->GetPageCount(); ++i) {
+		if (choicebook->GetPage(i) == zone_palette) {
+			zone_page_idx = static_cast<int>(i);
+			break;
+		}
+	}
+
+	if (supports_zones && zone_page_idx == wxNOT_FOUND) {
+		choicebook->AddPage(zone_palette, "Zone");
+		choicebook->Layout();
+	} else if (!supports_zones && zone_page_idx != wxNOT_FOUND) {
+		const bool was_selected = choicebook->GetSelection() == zone_page_idx;
+		choicebook->RemovePage(static_cast<size_t>(zone_page_idx));
+		if (was_selected && choicebook->GetPageCount() > 0) {
+			choicebook->SetSelection(0);
+		}
+		if (const Brush* current_brush = g_gui.GetCurrentBrush(); current_brush && current_brush->is<ZoneBrush>()) {
+			g_gui.SelectBrush();
+		}
+		choicebook->Layout();
+	}
 }
 
 void PaletteWindow::ReloadSettings(Map* map) {
@@ -106,6 +145,9 @@ void PaletteWindow::ReloadSettings(Map* map) {
 	for (const auto& hardcodedPage : hardcoded_pages) {
 		hardcodedPage.provider->updateMap(hardcodedPage.panel, map);
 	}
+
+	updateZonePage(map);
+
 	InvalidateContents();
 }
 
@@ -137,6 +179,10 @@ void PaletteWindow::InvalidateContents() {
 void PaletteWindow::SelectPage(std::string_view paletteName) {
 	if (!choicebook || paletteName.empty()) {
 		return;
+	}
+
+	if (paletteName == "Zone") {
+		updateZonePage(g_gui.IsEditorOpen() ? &g_gui.GetCurrentMap() : nullptr);
 	}
 
 	for (size_t index = 0; index < choicebook->GetPageCount(); ++index) {
@@ -294,6 +340,7 @@ void PaletteWindow::OnUpdateBrushSize(BrushShape shape, int size) {
 }
 
 void PaletteWindow::OnUpdate(Map* map) {
+	updateZonePage(map);
 	for (const auto& hardcodedPage : hardcoded_pages) {
 		hardcodedPage.provider->updateMap(hardcodedPage.panel, map);
 	}

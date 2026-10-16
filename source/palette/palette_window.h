@@ -28,6 +28,7 @@ class BrushPalettePanel;
 struct HardcodedPaletteProvider;
 class HousePalette;
 class WaypointPalettePanel;
+class ZonePalettePanel;
 
 class PaletteWindow : public wxPanel {
 public:
@@ -77,6 +78,9 @@ protected:
 	std::vector<HardcodedPage> hardcoded_pages;
 	HousePalette* house_palette;
 	WaypointPalettePanel* waypoint_palette;
+	ZonePalettePanel* zone_palette = nullptr;
+
+	void updateZonePage(Map* map);
 };
 
 #endif

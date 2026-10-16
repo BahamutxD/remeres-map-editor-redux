@@ -1,12 +1,16 @@
 #include "rendering/drawers/overlays/marker_label_drawer.h"
 #include "rendering/core/render_view.h"
 #include "rendering/core/drawing_options.h"
+#include "rendering/indicators/zone_colors.h"
+#include "brushes/managers/brush_manager.h"
+#include "brushes/zone/zone_brush.h"
 #include "map/map.h"
 #include "game/waypoints.h"
 #include "game/town.h"
 #include "game/house.h"
 #include <nanovg.h>
 #include <string>
+#include <deque>
 #include <vector>
 #include <unordered_map>
 #include <format>
@@ -27,7 +31,8 @@ enum class MarkerLabelType {
 	Waypoint,
 	Town,
 	HouseActive,
-	HouseInactive
+	HouseInactive,
+	Zone
 };
 
 struct VisibleMarkerLabel {
@@ -35,8 +40,10 @@ struct VisibleMarkerLabel {
 	float y;
 	float width;
 	float height;
-	std::string text;
+	std::string_view text;
 	MarkerLabelType type;
+	NVGcolor custom_color = nvgRGBA(255, 255, 255, 255);
+	bool is_active = false;
 };
 
 } // namespace
@@ -52,7 +59,8 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 	const bool show_wp = options.show_waypoints;
 	const bool show_towns = options.show_towns;
 	const bool show_houses = options.show_houses;
-	if (!show_wp && !show_towns && !show_houses) {
+	const bool show_zones = options.show_zones && (map.getVersion().otbm == MAP_OTBM_5);
+	if (!show_wp && !show_towns && !show_houses && !show_zones) {
 		return;
 	}
 
@@ -77,20 +85,25 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 
 	static thread_local std::unordered_map<std::string, CachedMetrics> s_metrics_cache;
 	static thread_local std::vector<VisibleMarkerLabel> visible_labels;
+	static thread_local std::deque<std::string> s_frame_fallback_names;
 	visible_labels.clear();
+	s_frame_fallback_names.clear();
 
-	auto getMetrics = [&](const std::string& str) -> CachedMetrics {
-		auto it = s_metrics_cache.find(str);
+	auto getMetrics = [&](std::string_view str) -> CachedMetrics {
+		auto it = s_metrics_cache.find(std::string(str));
 		if (it != s_metrics_cache.end()) {
 			return it->second;
 		}
 		float bounds[4];
-		nvgTextBounds(vg, 0.0f, 0.0f, str.c_str(), nullptr, bounds);
+		nvgTextBounds(vg, 0.0f, 0.0f, str.data(), str.data() + str.size(), bounds);
 		CachedMetrics m {
 			.width = bounds[2] - bounds[0],
 			.height = bounds[3] - bounds[1]
 		};
-		s_metrics_cache.emplace(str, m);
+		if (s_metrics_cache.size() >= 1024) {
+			s_metrics_cache.clear();
+		}
+		s_metrics_cache.emplace(std::string(str), m);
 		return m;
 	};
 
@@ -112,6 +125,7 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 		float y = initialY;
 		bool shifted = true;
 		int iterations = 0;
+		// First try nudging upwards
 		while (shifted && iterations < 8) {
 			shifted = false;
 			++iterations;
@@ -123,6 +137,25 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 				}
 			}
 		}
+
+		// If shifted off the top of the viewport, fallback to nudging downwards from initialY
+		if (y - h - paddingY * 2.0f < 0.0f) {
+			y = initialY;
+			shifted = true;
+			iterations = 0;
+			while (shifted && iterations < 8) {
+				shifted = false;
+				++iterations;
+				for (const auto& existing : visible_labels) {
+					if (overlaps(x, y, w, h, existing.x, existing.y, existing.width, existing.height)) {
+						y = existing.y + h + paddingY * 2.0f + 2.0f;
+						shifted = true;
+						break;
+					}
+				}
+			}
+		}
+
 		return y;
 	};
 
@@ -185,9 +218,10 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 				continue;
 			}
 
-			std::string label_text = town_ptr->getName();
+			std::string_view label_text = town_ptr->getName();
 			if (label_text.empty()) {
-				label_text = std::format("Town {}", town_id);
+				s_frame_fallback_names.push_back(std::format("Town {}", town_id));
+				label_text = s_frame_fallback_names.back();
 			}
 
 			const CachedMetrics m = getMetrics(label_text);
@@ -199,7 +233,7 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 				.y = labelY,
 				.width = m.width,
 				.height = m.height,
-				.text = std::move(label_text),
+				.text = label_text,
 				.type = MarkerLabelType::Town
 			});
 		}
@@ -279,7 +313,7 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 				continue;
 			}
 
-			std::string label_text = house_ptr->name;
+			std::string_view label_text = house_ptr->name;
 			if (label_text.empty()) {
 				label_text = "HOUSE";
 			}
@@ -295,9 +329,85 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 				.y = labelY,
 				.width = m.width,
 				.height = m.height,
-				.text = std::move(label_text),
+				.text = label_text,
 				.type = is_active ? MarkerLabelType::HouseActive : MarkerLabelType::HouseInactive
 			});
+		}
+	}
+
+	// 4. Collect Zones
+	if (show_zones) {
+		const ViewBounds floor_bounds = view.getBoundsForFloor(view.floor);
+		const int check_z = view.floor;
+		const uint16_t active_zone = (g_brush_manager.zone_brush ? g_brush_manager.zone_brush->getZone() : 0);
+		const bool recompute = !options.is_drawing;
+
+		for (const auto& zone : map.zones) {
+			if (zone.id == 0) {
+				continue;
+			}
+			const auto& clusters = map.getZoneClusters(zone.id, recompute);
+			if (clusters.empty()) {
+				continue;
+			}
+
+			std::string_view label_text = zone.name;
+			if (label_text.empty()) {
+				s_frame_fallback_names.push_back(std::format("Zone {}", zone.id));
+				label_text = s_frame_fallback_names.back();
+			}
+			const CachedMetrics m = getMetrics(label_text);
+			const glm::vec3 rgb = getZoneColor(zone.id);
+			const bool is_active = (active_zone == zone.id);
+
+			for (const auto& cluster : clusters) {
+				if (cluster.centroid_pos.z != check_z) {
+					continue;
+				}
+
+				// AABB intersection against view bounds on active floor
+				const int vis_min_x = std::max(cluster.min_x, floor_bounds.start_x);
+				const int vis_max_x = std::min(cluster.max_x, floor_bounds.end_x);
+				const int vis_min_y = std::max(cluster.min_y, floor_bounds.start_y);
+				const int vis_max_y = std::min(cluster.max_y, floor_bounds.end_y);
+
+				if (vis_min_x > vis_max_x || vis_min_y > vis_max_y) {
+					continue;
+				}
+
+				// Pick anchor point: use centroid if inside visible bounds, otherwise clamp to visible center
+				int anchor_x = cluster.centroid_pos.x;
+				int anchor_y = cluster.centroid_pos.y;
+				if (anchor_x < vis_min_x || anchor_x > vis_max_x || anchor_y < vis_min_y || anchor_y > vis_max_y) {
+					anchor_x = (vis_min_x + vis_max_x) / 2;
+					anchor_y = (vis_min_y + vis_max_y) / 2;
+				}
+
+				int unscaled_x = 0, unscaled_y = 0;
+				if (!view.IsTileVisible(anchor_x, anchor_y, check_z, unscaled_x, unscaled_y)) {
+					continue;
+				}
+
+				const float screen_x = static_cast<float>(unscaled_x) * inv_zoom;
+				const float screen_y = static_cast<float>(unscaled_y) * inv_zoom;
+				if (screen_x < -64.0f || screen_x > screen_max_x || screen_y < -64.0f || screen_y > screen_max_y) {
+					continue;
+				}
+
+				const float labelX = screen_x + tile_size_screen * 0.5f;
+				const float labelY = resolveCollision(labelX, screen_y + tile_size_screen * 0.5f + (m.height * 0.5f) - paddingY, m.width, m.height);
+
+				visible_labels.push_back(VisibleMarkerLabel {
+					.x = labelX,
+					.y = labelY,
+					.width = m.width,
+					.height = m.height,
+					.text = label_text,
+					.type = MarkerLabelType::Zone,
+					.custom_color = nvgRGBAf(rgb.r, rgb.g, rgb.b, 1.0f),
+					.is_active = is_active
+				});
+			}
 		}
 	}
 
@@ -333,6 +443,12 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 			nvgStrokeColor(vg, nvgRGBA(180, 235, 31, 245)); // Lime Green #B4EB1F (same as ENTRY)
 			nvgStrokeWidth(vg, 1.2f);
 			nvgStroke(vg);
+		} else if (vl.type == MarkerLabelType::Zone) {
+			nvgFillColor(vg, vl.is_active ? nvgRGBA(25, 25, 38, 245) : nvgRGBA(15, 15, 22, 242));
+			nvgFill(vg);
+			nvgStrokeColor(vg, vl.custom_color);
+			nvgStrokeWidth(vg, vl.is_active ? 1.8f : 1.2f);
+			nvgStroke(vg);
 		} else { // MarkerLabelType::HouseInactive
 			nvgFillColor(vg, nvgRGBA(15, 15, 22, 242));
 			nvgFill(vg);
@@ -350,10 +466,12 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 			nvgFillColor(vg, nvgRGBA(255, 217, 0, 255));
 		} else if (vl.type == MarkerLabelType::HouseActive) {
 			nvgFillColor(vg, nvgRGBA(180, 235, 31, 255));
+		} else if (vl.type == MarkerLabelType::Zone) {
+			nvgFillColor(vg, vl.custom_color);
 		} else { // MarkerLabelType::HouseInactive
 			nvgFillColor(vg, nvgRGBA(143, 127, 196, 255));
 		}
-		nvgText(vg, vl.x, vl.y - paddingY, vl.text.c_str(), nullptr);
+		nvgText(vg, vl.x, vl.y - paddingY, vl.text.data(), vl.text.data() + vl.text.size());
 	}
 }
 

@@ -24,9 +24,11 @@
 
 #include "ui/gui.h"
 #include "game/materials.h"
-#include "brushes/brush.h"
 #include "brushes/creature/creature_brush.h"
+#include "brushes/creature/monster_brush.h"
+#include "brushes/creature/npc_brush.h"
 #include "brushes/raw/raw_brush.h"
+#include "app/managers/version_manager.h"
 
 #include <format>
 #include <limits>
@@ -273,7 +275,12 @@ static CreatureBrush* ensureCreatureBrush(CreatureType* type) {
 	if (type->brush) {
 		return type->brush;
 	}
-	auto creature_brush = std::make_unique<CreatureBrush>(type);
+	std::unique_ptr<CreatureBrush> creature_brush;
+	if (type->isNpc) {
+		creature_brush = std::make_unique<NpcBrush>(type);
+	} else {
+		creature_brush = std::make_unique<MonsterBrush>(type);
+	}
 	type->brush = creature_brush.get();
 	CreatureBrush* brush = creature_brush.get();
 	g_brushes.addBrush(std::move(creature_brush));
