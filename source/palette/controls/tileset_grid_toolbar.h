@@ -36,8 +36,10 @@ public:
 		std::function<void(const std::string&)> filter;
 		/** Search committed (Enter or the search button). */
 		std::function<void()> filter_committed;
-		/** Search cleared through the cancel button. */
+		/** Search cleared through the cancel button or Escape. */
 		std::function<void()> filter_cleared;
+		/** Search box lost focus (used to persist the filter state). */
+		std::function<void()> filter_focus_lost;
 		/** "Filter all" toggled; only used when with_filter_all is set. */
 		std::function<void(bool)> filter_all;
 	};
@@ -70,6 +72,12 @@ public:
 	void ApplyTheme();
 	void FocusSearch();
 
+	/**
+	 * Stacked layout: the tools on one row and the search box below, for the
+	 * narrow palette sidebar. The default is a single row.
+	 */
+	void SetStacked(bool stacked);
+
 private:
 	void OnToolClick(wxCommandEvent& event);
 	void OnSortButtonClick(TilesetSortDirection dir, int toolId);
@@ -84,6 +92,8 @@ private:
 	Actions m_actions;
 	wxAuiToolBar* m_toolbar = nullptr;
 	wxSearchCtrl* m_searchCtrl = nullptr;
+	wxBoxSizer* m_toolbarRow = nullptr;
+	wxBoxSizer* m_searchRow = nullptr;
 
 	bool m_showLabels = false;
 	int m_iconSize = 32;

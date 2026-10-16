@@ -86,13 +86,43 @@ TilesetGridToolbar::TilesetGridToolbar(wxWindow* parent, Actions actions, bool w
 		}
 		event.Skip();
 	});
+	m_searchCtrl->Bind(wxEVT_KILL_FOCUS, [this](wxFocusEvent& event) {
+		if (m_actions.filter_focus_lost) {
+			m_actions.filter_focus_lost();
+		}
+		event.Skip();
+	});
 
-	wxSizer* sizer = newd wxBoxSizer(wxHORIZONTAL);
-	sizer->Add(m_toolbar, 0, wxALIGN_CENTER_VERTICAL);
-	sizer->Add(m_searchCtrl, 1, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(4));
-	SetSizer(sizer);
+	m_toolbarRow = newd wxBoxSizer(wxHORIZONTAL);
+	m_toolbarRow->Add(m_toolbar, 0, wxALIGN_CENTER_VERTICAL);
 
+	m_searchRow = newd wxBoxSizer(wxHORIZONTAL);
+	m_searchRow->Add(m_searchCtrl, 1, wxALIGN_CENTER_VERTICAL);
+
+	SetStacked(false);
 	ApplyTheme();
+}
+
+void TilesetGridToolbar::SetStacked(bool stacked) {
+	if (!m_toolbarRow || !m_searchRow) {
+		return;
+	}
+
+	// The search box is always the flexible one within its row.
+	if (m_searchRow->GetItemCount() > 0) {
+		m_searchRow->Detach(m_searchCtrl);
+		m_searchRow->Add(m_searchCtrl, 1, wxALIGN_CENTER_VERTICAL);
+	}
+
+	wxSizer* sizer = newd wxBoxSizer(stacked ? wxVERTICAL : wxHORIZONTAL);
+	if (stacked) {
+		sizer->Add(m_toolbarRow, 0, wxEXPAND);
+		sizer->Add(m_searchRow, 0, wxEXPAND | wxTOP, FromDIP(2));
+	} else {
+		sizer->Add(m_toolbarRow, 0, wxALIGN_CENTER_VERTICAL);
+		sizer->Add(m_searchRow, 1, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(4));
+	}
+	SetSizer(sizer, true);
 }
 
 void TilesetGridToolbar::SetState(bool show_labels, int icon_size, bool has_sort, TilesetSortKey sort_key, TilesetSortDirection sort_dir, bool filter_all) {
