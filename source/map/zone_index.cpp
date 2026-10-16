@@ -21,7 +21,8 @@ namespace {
 
 	struct Dsu {
 		std::vector<int> parent;
-		explicit Dsu(size_t n) : parent(n) {
+		std::vector<uint8_t> rank;
+		explicit Dsu(size_t n) : parent(n), rank(n, 0) {
 			std::iota(parent.begin(), parent.end(), 0);
 		}
 		int find(int x) {
@@ -31,10 +32,16 @@ namespace {
 			return parent[x] = find(parent[x]);
 		}
 		void unite(int a, int b) {
-			const int root_a = find(a);
-			const int root_b = find(b);
+			int root_a = find(a);
+			int root_b = find(b);
 			if (root_a != root_b) {
-				parent[root_a] = root_b;
+				if (rank[root_a] < rank[root_b]) {
+					std::swap(root_a, root_b);
+				}
+				parent[root_b] = root_a;
+				if (rank[root_a] == rank[root_b]) {
+					++rank[root_a];
+				}
 			}
 		}
 	};
@@ -116,11 +123,18 @@ void ZoneIndex::updateClusters(const ZoneData& data) const {
 			Position best_pos;
 		};
 
-		std::unordered_map<int, ClusterAccumulator> groups;
+		// DOD Refactoring: Flat vector indexed directly by root index [0, floor_count)
+		std::vector<ClusterAccumulator> groups(floor_count);
+		std::vector<int> root_indices;
+		root_indices.reserve(floor_count);
+
 		for (size_t idx = 0; idx < floor_count; ++idx) {
 			const int root = dsu.find(static_cast<int>(idx));
 			const Position& p = positions[start + idx];
 			auto& acc = groups[root];
+			if (acc.count == 0) {
+				root_indices.push_back(root);
+			}
 			acc.min_x = std::min(acc.min_x, p.x);
 			acc.max_x = std::max(acc.max_x, p.x);
 			acc.min_y = std::min(acc.min_y, p.y);
@@ -130,7 +144,8 @@ void ZoneIndex::updateClusters(const ZoneData& data) const {
 			++acc.count;
 		}
 
-		for (auto& [_, acc] : groups) {
+		for (int root : root_indices) {
+			auto& acc = groups[root];
 			acc.avg_x = static_cast<double>(acc.sum_x) / acc.count;
 			acc.avg_y = static_cast<double>(acc.sum_y) / acc.count;
 		}
@@ -148,7 +163,8 @@ void ZoneIndex::updateClusters(const ZoneData& data) const {
 			}
 		}
 
-		for (const auto& [_, acc] : groups) {
+		for (int root : root_indices) {
+			const auto& acc = groups[root];
 			data.clusters.push_back(ZoneCluster {
 				.centroid_pos = acc.best_pos,
 				.min_x = acc.min_x,
