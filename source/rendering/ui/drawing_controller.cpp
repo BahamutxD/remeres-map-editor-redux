@@ -184,10 +184,6 @@ void DrawingController::HandleClick(const Position& mouse_map_pos, bool shift_do
 			}
 			// Change the doodad layout brush
 			g_gui.FillDoodadPreviewBuffer();
-
-			if (brush && brush->is<ZoneBrush>()) {
-				g_gui.RefreshPalettes();
-			}
 		}
 	}
 }

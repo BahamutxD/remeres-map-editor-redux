@@ -493,9 +493,6 @@ bool EditorManager::DoUndo() {
 		g_gui.UpdateMinimap();
 		g_gui.root->UpdateMenubar();
 		g_gui.root->Refresh();
-		if (editor->map.supportsZones()) {
-			g_gui.RefreshPalettes();
-		}
 		return true;
 	}
 	return false;
@@ -512,9 +509,6 @@ bool EditorManager::DoRedo() {
 		g_gui.UpdateMinimap();
 		g_gui.root->UpdateMenubar();
 		g_gui.root->Refresh();
-		if (editor->map.supportsZones()) {
-			g_gui.RefreshPalettes();
-		}
 		return true;
 	}
 	return false;
