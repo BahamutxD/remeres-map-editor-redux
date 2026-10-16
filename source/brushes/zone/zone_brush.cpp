@@ -18,11 +18,13 @@ bool ZoneBrush::canDraw(BaseMap* map, const Position& position) const {
 }
 
 void ZoneBrush::draw(BaseMap* /*map*/, Tile* tile, void* /*parameter*/) {
-	if (tile->hasGround()) {
+	if (tile && tile->hasGround()) {
 		tile->addZone(zone_id);
 	}
 }
 
 void ZoneBrush::undraw(BaseMap* /*map*/, Tile* tile) {
-	tile->removeZone(zone_id);
+	if (tile) {
+		tile->removeZone(zone_id);
+	}
 }
