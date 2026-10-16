@@ -116,10 +116,6 @@ namespace {
 			if (!spawn) {
 				continue;
 			}
-			const uint8_t otherKindOnly = format.filter == CreatureFilter::Npcs ? Spawn::MONSTERS : Spawn::NPCS;
-			if (isOtbm5 && spawn->getKinds() == otherKindOnly) {
-				continue;
-			}
 
 			Position spawnPosition = spawnPos;
 			pugi::xml_node spawnNode = rootNode.append_child(format.spawnTag);

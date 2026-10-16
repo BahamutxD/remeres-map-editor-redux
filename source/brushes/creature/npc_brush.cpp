@@ -42,8 +42,14 @@ void NpcBrush::draw_creature(BaseMap* map, Tile* tile) {
 	if (tile->spawn == nullptr && tile->getLocation()->getSpawnCount() == 0) {
 		tile->spawn = std::make_unique<Spawn>(1);
 	}
-	if (tile->spawn && is_otbm5) {
-		tile->spawn->addKind(Spawn::NPCS);
+	if (is_otbm5) {
+		if (tile->spawn) {
+			tile->spawn->addKind(Spawn::NPCS);
+		} else if (Map* full_map = dynamic_cast<Map*>(map)) {
+			for (Spawn* s : full_map->getSpawnList(tile)) {
+				s->addKind(Spawn::NPCS);
+			}
+		}
 	}
 
 	tile->creature = std::make_unique<Creature>(creature_type);
