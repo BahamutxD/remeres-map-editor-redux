@@ -15,6 +15,7 @@ LoadingManager g_loading;
 LoadingManager::LoadingManager() :
 	progressBar(nullptr),
 	cancelled(false),
+	cancellable(false),
 	progressFrom(0),
 	progressTo(100),
 	currentProgress(-1) {
@@ -31,6 +32,7 @@ void LoadingManager::CreateLoadBar(wxString message, bool canCancel, const wxStr
 	progressTo = 100;
 	currentProgress = -1;
 	cancelled = false;
+	cancellable = canCancel;
 
 	progressBar = newd wxGenericProgressDialog(title, progressText + " (0%)", 100, g_gui.root, wxPD_APP_MODAL | wxPD_SMOOTH | (canCancel ? wxPD_CAN_ABORT : 0));
 	progressBar->Show(true);
@@ -55,8 +57,9 @@ bool LoadingManager::SetLoadDone(int32_t done, const wxString& newMessage) {
 	if (done == 100) {
 		DestroyLoadBar();
 		return true;
-	} else if (done == currentProgress && newMessage.empty()) {
-		// Same value and same text, nothing to repaint.
+	} else if (done == currentProgress && newMessage.empty() && !cancellable) {
+		// Same value and same text with no Abort button to poll: nothing to
+		// repaint. Cancellable bars must keep pumping so the click is seen.
 		return true;
 	}
 
@@ -111,6 +114,19 @@ void LoadingManager::SetLoadText(const wxString& message) {
 	}
 }
 
+bool LoadingManager::PollCancellation() {
+	if (!progressBar) {
+		return false;
+	}
+
+	const int32_t visible = std::max<int32_t>(0, currentProgress);
+	bool skip = false;
+	if (!progressBar->Update(visible, wxString::Format("%s (%d%%)", progressText, visible), &skip) || skip) {
+		cancelled = true;
+	}
+	return cancelled;
+}
+
 void LoadingManager::DestroyLoadBar() {
 	if (progressBar) {
 		progressBar->Show(false);
@@ -118,6 +134,7 @@ void LoadingManager::DestroyLoadBar() {
 		// Cancellation belongs to the bar being closed; later operations that
 		// run without a bar must not inherit it.
 		cancelled = false;
+		cancellable = false;
 
 		progressBar->Destroy();
 		progressBar = nullptr;

@@ -77,6 +77,13 @@ bool reportSaveStage(int32_t percent, const wxString& message) {
 	}
 	return true;
 }
+
+// Cancellation predicate handed to the auxiliary XML writers, which poll it
+// while they build their documents: pumping here is what lets an Abort click
+// be observed during those phases.
+bool shouldAbortSave() {
+	return g_gui.PollCancellation();
+}
 } // namespace
 
 // Item OTBM operations delegated to ItemSerializationOTBM (used by LiveSocket)
@@ -701,7 +708,7 @@ bool IOMapOTBM::saveMapToDisk(Map& map, const FileName& identifier) {
 	if (!reportSaveStage(kSpawnStagePercent, "Saving spawns...")) {
 		return false;
 	}
-	if (!MapXMLIO::saveSpawns(map, identifier)) {
+	if (!MapXMLIO::saveSpawns(map, identifier, shouldAbortSave)) {
 		spdlog::error("Failed to save spawns!");
 		return false;
 	}
@@ -709,7 +716,7 @@ bool IOMapOTBM::saveMapToDisk(Map& map, const FileName& identifier) {
 	if (!reportSaveStage(kHouseStagePercent, "Saving houses...")) {
 		return false;
 	}
-	if (!MapXMLIO::saveHouses(map, identifier)) {
+	if (!MapXMLIO::saveHouses(map, identifier, shouldAbortSave)) {
 		spdlog::error("IOMapOTBM::saveMapToDisk: Failed to save houses");
 		return false;
 	}
@@ -740,16 +747,22 @@ bool IOMapOTBM::saveMapToDisk(Map& map, const FileName& identifier) {
 				map.waypointfile = identifier.GetName() + "-waypoint.xml";
 				spdlog::info("Auto-created waypoint file: {}", map.waypointfile);
 			}
-			if (!MapXMLIO::saveWaypoints(map, identifier)) {
+			if (!MapXMLIO::saveWaypoints(map, identifier, shouldAbortSave)) {
 				spdlog::error("IOMapOTBM::saveMapToDisk: Failed to save waypoints");
 				return false;
 			}
 		} else if (!map.waypointfile.empty()) {
-			if (!MapXMLIO::saveWaypoints(map, identifier)) {
+			if (!MapXMLIO::saveWaypoints(map, identifier, shouldAbortSave)) {
 				spdlog::error("IOMapOTBM::saveMapToDisk: Failed to save waypoints");
 				return false;
 			}
 		}
+	}
+
+	// An Abort clicked while the last files were written must still discard the
+	// save instead of accepting it and marking the map as clean.
+	if (shouldAbortSave()) {
+		return false;
 	}
 
 	return true;

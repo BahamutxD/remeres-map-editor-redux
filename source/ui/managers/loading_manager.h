@@ -36,6 +36,14 @@ public:
 	void SetLoadText(const wxString& message);
 
 	/**
+	 * Pumps the dialog and refreshes the cancellation state without changing
+	 * the progress. Long operations that do not report progress (auxiliary
+	 * writes, final steps) call this to observe an Abort click, which is only
+	 * reported through an update. Returns true when the user cancelled.
+	 */
+	bool PollCancellation();
+
+	/**
 	 * Sets the scale of the loading bar.
 	 * Calling this with (50, 80) means that setting 50 as 'done',
 	 * it will display as 0% loaded, 80 will display as 100% loaded.
@@ -62,6 +70,9 @@ private:
 	wxString progressText;
 	wxGenericProgressDialog* progressBar;
 	bool cancelled;
+	// Whether the current bar offers an Abort button; without it there is
+	// nothing to poll and repeated values can skip the repaint.
+	bool cancellable;
 
 	int32_t progressFrom;
 	int32_t progressTo;

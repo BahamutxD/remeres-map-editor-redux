@@ -112,6 +112,9 @@ public:
 	void SetLoadText(const wxString& message) {
 		g_loading.SetLoadText(message);
 	}
+	bool PollCancellation() {
+		return g_loading.PollCancellation();
+	}
 	bool WasLoadCancelled() const {
 		return g_loading.WasCancelled();
 	}
