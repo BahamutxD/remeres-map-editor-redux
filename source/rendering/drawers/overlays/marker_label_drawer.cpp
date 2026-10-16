@@ -39,7 +39,7 @@ struct VisibleMarkerLabel {
 	float y;
 	float width;
 	float height;
-	std::string text;
+	std::string_view text;
 	MarkerLabelType type;
 	NVGcolor custom_color = nvgRGBA(255, 255, 255, 255);
 	bool is_active = false;
@@ -84,20 +84,25 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 
 	static thread_local std::unordered_map<std::string, CachedMetrics> s_metrics_cache;
 	static thread_local std::vector<VisibleMarkerLabel> visible_labels;
+	static thread_local std::vector<std::string> s_frame_fallback_names;
 	visible_labels.clear();
+	s_frame_fallback_names.clear();
 
-	auto getMetrics = [&](const std::string& str) -> CachedMetrics {
-		auto it = s_metrics_cache.find(str);
+	auto getMetrics = [&](std::string_view str) -> CachedMetrics {
+		auto it = s_metrics_cache.find(std::string(str));
 		if (it != s_metrics_cache.end()) {
 			return it->second;
 		}
 		float bounds[4];
-		nvgTextBounds(vg, 0.0f, 0.0f, str.c_str(), nullptr, bounds);
+		nvgTextBounds(vg, 0.0f, 0.0f, str.data(), str.data() + str.size(), bounds);
 		CachedMetrics m {
 			.width = bounds[2] - bounds[0],
 			.height = bounds[3] - bounds[1]
 		};
-		s_metrics_cache.emplace(str, m);
+		if (s_metrics_cache.size() >= 1024) {
+			s_metrics_cache.clear();
+		}
+		s_metrics_cache.emplace(std::string(str), m);
 		return m;
 	};
 
@@ -192,9 +197,10 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 				continue;
 			}
 
-			std::string label_text = town_ptr->getName();
+			std::string_view label_text = town_ptr->getName();
 			if (label_text.empty()) {
-				label_text = std::format("Town {}", town_id);
+				s_frame_fallback_names.push_back(std::format("Town {}", town_id));
+				label_text = s_frame_fallback_names.back();
 			}
 
 			const CachedMetrics m = getMetrics(label_text);
@@ -206,7 +212,7 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 				.y = labelY,
 				.width = m.width,
 				.height = m.height,
-				.text = std::move(label_text),
+				.text = label_text,
 				.type = MarkerLabelType::Town
 			});
 		}
@@ -286,7 +292,7 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 				continue;
 			}
 
-			std::string label_text = house_ptr->name;
+			std::string_view label_text = house_ptr->name;
 			if (label_text.empty()) {
 				label_text = "HOUSE";
 			}
@@ -302,7 +308,7 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 				.y = labelY,
 				.width = m.width,
 				.height = m.height,
-				.text = std::move(label_text),
+				.text = label_text,
 				.type = is_active ? MarkerLabelType::HouseActive : MarkerLabelType::HouseInactive
 			});
 		}
@@ -323,7 +329,11 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 				continue;
 			}
 
-			std::string label_text = zone.name.empty() ? std::format("Zone {}", zone.id) : zone.name;
+			std::string_view label_text = zone.name;
+			if (label_text.empty()) {
+				s_frame_fallback_names.push_back(std::format("Zone {}", zone.id));
+				label_text = s_frame_fallback_names.back();
+			}
 			const CachedMetrics m = getMetrics(label_text);
 			const glm::vec3 rgb = getZoneColor(zone.id);
 			const bool is_active = (active_zone == zone.id);
@@ -427,7 +437,7 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 		} else { // MarkerLabelType::HouseInactive
 			nvgFillColor(vg, nvgRGBA(143, 127, 196, 255));
 		}
-		nvgText(vg, vl.x, vl.y - paddingY, vl.text.c_str(), nullptr);
+		nvgText(vg, vl.x, vl.y - paddingY, vl.text.data(), vl.text.data() + vl.text.size());
 	}
 }
 
