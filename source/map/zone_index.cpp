@@ -216,12 +216,19 @@ void ZoneIndex::removeTile(uint16_t zoneId, const Position& pos) {
 	auto& entry = it->second;
 	const auto pos_it = std::lower_bound(entry.positions.begin(), entry.positions.end(), pos);
 	if (pos_it != entry.positions.end() && *pos_it == pos) {
-		entry.positions.erase(pos_it);
+		const auto next_it = entry.positions.erase(pos_it);
 		entry.clusters_dirty = true;
 		if (pos.z >= 0 && pos.z < 16) {
-			const bool floor_empty = std::none_of(entry.positions.begin(), entry.positions.end(),
-				[z = pos.z](const Position& p) { return p.z == z; });
-			if (floor_empty) {
+			bool has_same_z = false;
+			if (next_it != entry.positions.end() && next_it->z == pos.z) {
+				has_same_z = true;
+			} else if (next_it != entry.positions.begin()) {
+				const auto prev_it = std::prev(next_it);
+				if (prev_it->z == pos.z) {
+					has_same_z = true;
+				}
+			}
+			if (!has_same_z) {
 				entry.floors_mask &= ~(1u << pos.z);
 			}
 		}
