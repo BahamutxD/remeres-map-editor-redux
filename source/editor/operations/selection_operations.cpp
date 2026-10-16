@@ -358,7 +358,7 @@ void SelectionOperations::destroySelection(Editor& editor) {
 			}
 
 			// Clear zones when deleting selected ground, matching cut and move behavior
-			if (tile->ground && !newtile->ground) {
+			if ((tile->ground && !newtile->ground) || newtile->empty()) {
 				newtile->setZoneIds({});
 			}
 
