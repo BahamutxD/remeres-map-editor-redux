@@ -59,6 +59,7 @@ ZonePalettePanel::ZonePalettePanel(wxWindow* parent, wxWindowID id) :
 
 	Bind(wxEVT_TREE_SEL_CHANGED, &ZonePalettePanel::OnSelectZone, this, PALETTE_ZONE_LISTBOX);
 	Bind(wxEVT_TREE_ITEM_ACTIVATED, &ZonePalettePanel::OnActivateZone, this, PALETTE_ZONE_LISTBOX);
+	Bind(wxEVT_TREE_ITEM_EXPANDING, &ZonePalettePanel::OnItemExpanding, this, PALETTE_ZONE_LISTBOX);
 	Bind(wxEVT_TREE_ITEM_RIGHT_CLICK, &ZonePalettePanel::OnZoneContextMenu, this, PALETTE_ZONE_LISTBOX);
 	Bind(wxEVT_BUTTON, &ZonePalettePanel::OnClickAdd, this, PALETTE_ZONE_ADD);
 	Bind(wxEVT_BUTTON, &ZonePalettePanel::OnClickRename, this, PALETTE_ZONE_RENAME);
@@ -328,3 +329,124 @@ void ZonePalettePanel::OnClickRemove(wxCommandEvent& /*event*/) {
 	g_gui.SelectBrush();
 	g_gui.RefreshView();
 }
+
+void ZonePalettePanel::OnItemExpanding(wxTreeEvent& event) {
+	if (!event.GetItem().IsOk() || !supportsZones() || !map) {
+		return;
+	}
+	auto* data = dynamic_cast<ZoneTreeItemData*>(zone_tree->GetItemData(event.GetItem()));
+	if (data && data->cluster == -1 && data->zone != 0) {
+		const auto& clusters = map->getZoneClusters(data->zone);
+		refreshChildAreas(event.GetItem(), data->zone, clusters);
+	}
+}
+
+void ZonePalettePanel::UpdateZone(uint16_t zone_id) {
+	if (!supportsZones() || !zone_tree || zone_id == 0 || !map) {
+		return;
+	}
+	wxTreeItemId root = zone_tree->GetRootItem();
+	if (!root.IsOk()) {
+		return;
+	}
+
+	const Map::Zone* zone = map->findZone(zone_id);
+	if (!zone) {
+		return;
+	}
+
+	wxTreeItemIdValue cookie;
+	wxTreeItemId child = zone_tree->GetFirstChild(root, cookie);
+	while (child.IsOk()) {
+		auto* data = dynamic_cast<ZoneTreeItemData*>(zone_tree->GetItemData(child));
+		if (data && data->zone == zone_id && data->cluster == -1) {
+			const auto& positions = map->getZoneTilePositions(zone_id);
+			const size_t total_tiles = positions.size();
+			const auto& clusters = map->getZoneClusters(zone_id);
+
+			wxString zone_label;
+			if (clusters.size() > 1) {
+				zone_label = wxstr(std::format("[{}] {} ({} areas · {} tiles)", zone->id, zone->name, clusters.size(), total_tiles));
+			} else {
+				zone_label = wxstr(std::format("[{}] {} ({} tiles)", zone->id, zone->name, total_tiles));
+			}
+			zone_tree->SetItemText(child, zone_label);
+
+			if (zone_tree->IsExpanded(child)) {
+				refreshChildAreas(child, zone_id, clusters);
+			}
+			return;
+		}
+		child = zone_tree->GetNextChild(root, cookie);
+	}
+}
+
+void ZonePalettePanel::UpdateTileCounts() {
+	if (!supportsZones() || !zone_tree || !map) {
+		return;
+	}
+	wxTreeItemId root = zone_tree->GetRootItem();
+	if (!root.IsOk()) {
+		return;
+	}
+
+	wxTreeItemIdValue cookie;
+	wxTreeItemId child = zone_tree->GetFirstChild(root, cookie);
+	while (child.IsOk()) {
+		auto* data = dynamic_cast<ZoneTreeItemData*>(zone_tree->GetItemData(child));
+		if (data && data->cluster == -1) {
+			const uint16_t zid = data->zone;
+			const Map::Zone* zone = map->findZone(zid);
+			if (zone) {
+				const auto& positions = map->getZoneTilePositions(zid);
+				const size_t total_tiles = positions.size();
+				const auto& clusters = map->getZoneClusters(zid);
+
+				wxString zone_label;
+				if (clusters.size() > 1) {
+					zone_label = wxstr(std::format("[{}] {} ({} areas · {} tiles)", zone->id, zone->name, clusters.size(), total_tiles));
+				} else {
+					zone_label = wxstr(std::format("[{}] {} ({} tiles)", zone->id, zone->name, total_tiles));
+				}
+				zone_tree->SetItemText(child, zone_label);
+
+				if (zone_tree->IsExpanded(child)) {
+					refreshChildAreas(child, zid, clusters);
+				}
+			}
+		}
+		child = zone_tree->GetNextChild(root, cookie);
+	}
+}
+
+void ZonePalettePanel::refreshChildAreas(const wxTreeItemId& parent_item, uint16_t zone_id, const std::vector<ZoneCluster>& clusters) {
+	if (clusters.size() <= 1) {
+		zone_tree->DeleteChildren(parent_item);
+		return;
+	}
+
+	const size_t existing_count = zone_tree->GetChildrenCount(parent_item, false);
+	if (existing_count != clusters.size()) {
+		zone_tree->DeleteChildren(parent_item);
+		for (size_t ci = 0; ci < clusters.size(); ++ci) {
+			const auto& c = clusters[ci];
+			wxString area_label = wxstr(std::format("Area {} @ ({}, {}, z{}) · {} tiles",
+				ci + 1, c.centroid_pos.x, c.centroid_pos.y, c.centroid_pos.z, c.tile_count));
+			zone_tree->AppendItem(parent_item, area_label, -1, -1,
+				new ZoneTreeItemData(zone_id, static_cast<int>(ci)));
+		}
+	} else {
+		wxTreeItemIdValue cookie;
+		wxTreeItemId child = zone_tree->GetFirstChild(parent_item, cookie);
+		size_t ci = 0;
+		while (child.IsOk() && ci < clusters.size()) {
+			const auto& c = clusters[ci];
+			wxString area_label = wxstr(std::format("Area {} @ ({}, {}, z{}) · {} tiles",
+				ci + 1, c.centroid_pos.x, c.centroid_pos.y, c.centroid_pos.z, c.tile_count));
+			zone_tree->SetItemText(child, area_label);
+			child = zone_tree->GetNextChild(parent_item, cookie);
+			++ci;
+		}
+	}
+}
+

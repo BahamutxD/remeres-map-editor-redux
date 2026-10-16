@@ -47,6 +47,7 @@
 #include "rendering/ui/minimap_window.h"
 #include "palette/palette_window.h"
 #include "palette/house/house_palette.h"
+#include "palette/palette_zones.h"
 #include "rendering/ui/map_display.h"
 #include "app/application.h"
 #include "ui/welcome_dialog.h"
@@ -101,6 +102,7 @@ GUI::GUI() :
 	tabbook(nullptr),
 	root(nullptr),
 	house_palette(nullptr),
+	zone_palette(nullptr),
 	tool_options(nullptr),
 	tile_properties_panel(nullptr),
 	pasting(false),
@@ -645,6 +647,15 @@ void GUI::RefreshPalettes(Map* m, bool usedfault) {
 	g_palettes.RefreshPalettes(m, usedfault);
 	if (house_palette) {
 		house_palette->SetMap(m ? m : (usedfault ? (IsEditorOpen() ? &GetCurrentMap() : nullptr) : nullptr));
+	}
+}
+void GUI::UpdateZonePalette(uint16_t zone_id) {
+	if (zone_palette) {
+		if (zone_id != 0) {
+			zone_palette->UpdateZone(zone_id);
+		} else {
+			zone_palette->UpdateTileCounts();
+		}
 	}
 }
 void GUI::RefreshOtherPalettes(PaletteWindow* p) {

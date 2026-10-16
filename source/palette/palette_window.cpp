@@ -77,6 +77,7 @@ PaletteWindow::PaletteWindow(wxWindow* parent, const PaletteCatalog& catalog) :
 			waypoint_palette = waypointPanel;
 		} else if (auto* zonePanel = dynamic_cast<ZonePalettePanel*>(panel)) {
 			zone_palette = zonePanel;
+			g_gui.zone_palette = zone_palette;
 		}
 		choicebook->AddPage(panel, wxstr(provider.name));
 	}
@@ -96,6 +97,9 @@ PaletteWindow::~PaletteWindow() {
 
 	if (g_gui.house_palette == house_palette) {
 		g_gui.house_palette = nullptr;
+	}
+	if (g_gui.zone_palette == zone_palette) {
+		g_gui.zone_palette = nullptr;
 	}
 
 	spdlog::info("PaletteWindow destructor finished");

@@ -382,6 +382,10 @@ void DrawingController::HandleRelease(const Position& mouse_map_pos, bool shift_
 		}
 	}
 
+	Brush* brush = g_gui.GetCurrentBrush();
+	if (brush && brush->is<ZoneBrush>()) {
+		g_gui.UpdateZonePalette(static_cast<ZoneBrush*>(brush)->getZone());
+	}
 
 	editor.actionQueue->resetTimer();
 	drawing = false;
