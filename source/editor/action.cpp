@@ -387,7 +387,7 @@ void Action::undo(DirtyList* dirty_list) {
 							editor.map.removeSpawn(newtile);
 						}
 
-						if (!std::ranges::equal(newtile->getZoneIds(), oldtile->getZoneIds())) {
+						if (editor.map.supportsZones() && !std::ranges::equal(newtile->getZoneIds(), oldtile->getZoneIds())) {
 							editor.map.updateTileZones(pos, newtile->getZoneIds(), oldtile->getZoneIds());
 						}
 
@@ -407,8 +407,10 @@ void Action::undo(DirtyList* dirty_list) {
 						if (oldtile->spawn) {
 							editor.map.addSpawn(oldtile);
 						}
-						for (uint16_t zid : oldtile->getZoneIds()) {
-							editor.map.addTileToZone(zid, pos);
+						if (editor.map.supportsZones()) {
+							for (uint16_t zid : oldtile->getZoneIds()) {
+								editor.map.addTileToZone(zid, pos);
+							}
 						}
 						updateUndoTile(oldtile, type);
 						if (oldtile->isSelected()) {
@@ -416,7 +418,7 @@ void Action::undo(DirtyList* dirty_list) {
 						}
 						uptr = std::move(newtile_uptr);
 					} else {
-						if (newtile) {
+						if (newtile && editor.map.supportsZones()) {
 							for (uint16_t zid : newtile->getZoneIds()) {
 								editor.map.removeTileFromZone(zid, pos);
 							}

@@ -187,6 +187,9 @@ void CopyOperations::paste(Editor& editor, CopyBuffer& buffer, const Position& t
 
 		TileLocation* dest_location = editor.map.createTileL(pos);
 		std::unique_ptr<Tile> copy_tile = TileOperations::deepCopy(buffer_tile, editor.map);
+		if (!editor.map.supportsZones() && copy_tile->hasZones()) {
+			copy_tile->setZoneIds({});
+		}
 		Tile* old_dest_tile = dest_location->get();
 		std::unique_ptr<Tile> new_dest_tile_ptr;
 		copy_tile->setLocation(dest_location);
