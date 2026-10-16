@@ -287,6 +287,16 @@ bool ZoneIndex::hasZone(uint16_t zoneId) const noexcept {
 	return it != index_.end() && !it->second.positions.empty();
 }
 
+std::vector<uint16_t> ZoneIndex::getZoneIds() const {
+	std::vector<uint16_t> ids;
+	ids.reserve(index_.size());
+	for (const auto& [zoneId, _] : index_) {
+		ids.push_back(zoneId);
+	}
+	std::ranges::sort(ids);
+	return ids;
+}
+
 void ZoneIndex::removeZone(uint16_t zoneId) {
 	index_.erase(zoneId);
 }

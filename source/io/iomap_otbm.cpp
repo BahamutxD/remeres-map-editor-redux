@@ -243,6 +243,19 @@ bool IOMapOTBM::loadMapFromDisk(Map& map, const FileName& filename) {
 	loadAux(MapXMLIO::loadHouses, "house", map.housefile);
 	loadAux(MapXMLIO::loadZones, "zones", map.zonefile);
 
+	// If the map has zone assignments on tiles but no corresponding zone metadata was loaded
+	// (e.g. missing, corrupt, or unreferenced sidecar XML), synthesize placeholder definitions
+	// so orphan zone IDs are preserved in the palette and re-saved rather than silently lost.
+	if (map.supportsZones()) {
+		for (uint16_t zid : map.zone_index.getZoneIds()) {
+			if (!map.findZone(zid)) {
+				map.zones.push_back({ std::format("Zone {}", zid), zid });
+				map.max_assigned_zone_id = std::max(map.max_assigned_zone_id, zid);
+				spdlog::warn("IOMapOTBM: Synthesized placeholder zone 'Zone {}' (id {}) from indexed tile references", zid, zid);
+			}
+		}
+	}
+
 	// Ensure all auxiliary filenames have defaults so converting between OTBM versions never encounters empty paths
 	if (map.spawnfile.empty()) {
 		map.spawnfile = nstr(filename.GetName()) + "-spawn.xml";

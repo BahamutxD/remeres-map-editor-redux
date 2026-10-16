@@ -61,6 +61,9 @@ public:
 	// Returns whether the index contains any tiles for the given zone.
 	[[nodiscard]] bool hasZone(uint16_t zoneId) const noexcept;
 
+	// Returns a sorted list of all unique zone IDs currently indexed.
+	[[nodiscard]] std::vector<uint16_t> getZoneIds() const;
+
 	// Removes all indexed positions for a zone ID.
 	void removeZone(uint16_t zoneId);
 
