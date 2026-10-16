@@ -2,6 +2,7 @@
 #define RME_IO_OTBM_INVALID_OTBM_CONTENT_H_
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -242,18 +243,28 @@ public:
 
 	void assign(std::span<const uint16_t> ids) {
 		if (ids.size() <= kInlineCapacity) {
+			std::array<uint16_t, kInlineCapacity> tmp;
+			for (size_t i = 0; i < ids.size(); ++i) {
+				tmp[i] = ids[i];
+			}
 			if (isHeap()) {
 				delete heap_ptr_;
 			}
 			size_ = static_cast<uint8_t>(ids.size());
 			for (size_t i = 0; i < ids.size(); ++i) {
-				inline_buffer_[i] = ids[i];
+				inline_buffer_[i] = tmp[i];
 			}
 		} else {
 			if (!isHeap()) {
-				heap_ptr_ = new std::vector<uint16_t>();
+				heap_ptr_ = new std::vector<uint16_t>(ids.begin(), ids.end());
+			} else {
+				if (ids.data() >= heap_ptr_->data() && ids.data() < heap_ptr_->data() + heap_ptr_->size()) {
+					std::vector<uint16_t> tmp(ids.begin(), ids.end());
+					heap_ptr_->assign(tmp.begin(), tmp.end());
+				} else {
+					heap_ptr_->assign(ids.begin(), ids.end());
+				}
 			}
-			heap_ptr_->assign(ids.begin(), ids.end());
 			size_ = kHeapMarker;
 		}
 	}
