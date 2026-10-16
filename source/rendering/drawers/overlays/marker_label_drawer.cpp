@@ -343,14 +343,26 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 					continue;
 				}
 
-				// AABB culling against view bounds on active floor
-				if (cluster.max_x < floor_bounds.start_x || cluster.min_x > floor_bounds.end_x ||
-				    cluster.max_y < floor_bounds.start_y || cluster.min_y > floor_bounds.end_y) {
+				// AABB intersection against view bounds on active floor
+				const int vis_min_x = std::max(cluster.min_x, floor_bounds.start_x);
+				const int vis_max_x = std::min(cluster.max_x, floor_bounds.end_x);
+				const int vis_min_y = std::max(cluster.min_y, floor_bounds.start_y);
+				const int vis_max_y = std::min(cluster.max_y, floor_bounds.end_y);
+
+				if (vis_min_x > vis_max_x || vis_min_y > vis_max_y) {
 					continue;
 				}
 
+				// Pick anchor point: use centroid if inside visible bounds, otherwise clamp to visible center
+				int anchor_x = cluster.centroid_pos.x;
+				int anchor_y = cluster.centroid_pos.y;
+				if (anchor_x < vis_min_x || anchor_x > vis_max_x || anchor_y < vis_min_y || anchor_y > vis_max_y) {
+					anchor_x = (vis_min_x + vis_max_x) / 2;
+					anchor_y = (vis_min_y + vis_max_y) / 2;
+				}
+
 				int unscaled_x = 0, unscaled_y = 0;
-				if (!view.IsTileVisible(cluster.centroid_pos.x, cluster.centroid_pos.y, check_z, unscaled_x, unscaled_y)) {
+				if (!view.IsTileVisible(anchor_x, anchor_y, check_z, unscaled_x, unscaled_y)) {
 					continue;
 				}
 
