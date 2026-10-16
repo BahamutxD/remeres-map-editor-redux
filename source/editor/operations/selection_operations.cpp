@@ -228,7 +228,7 @@ void SelectionOperations::moveSelection(Editor& editor, Position offset) {
 			} else {
 				new_dest_tile = editor.map.allocator(location);
 			}
-			TileOperations::merge(new_dest_tile.get(), tile);
+			TileOperations::merge(new_dest_tile.get(), tile, &editor.map);
 			// Removing old tile from memory since we merged it
 			delete tile;
 		} else {

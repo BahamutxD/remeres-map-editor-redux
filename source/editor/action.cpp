@@ -204,7 +204,7 @@ void Action::commit(DirtyList* dirty_list) {
 						editor.map.addSpawn(insertedTile);
 					}
 
-					if (!std::ranges::equal(insertedTile->getZoneIds(), displaced->getZoneIds())) {
+					if (editor.map.supportsZones() && !std::ranges::equal(insertedTile->getZoneIds(), displaced->getZoneIds())) {
 						editor.map.updateTileZones(pos, displaced->getZoneIds(), insertedTile->getZoneIds());
 					}
 
@@ -232,8 +232,10 @@ void Action::commit(DirtyList* dirty_list) {
 						editor.map.addSpawn(insertedTile);
 					}
 
-					for (uint16_t zid : insertedTile->getZoneIds()) {
-						editor.map.addTileToZone(zid, pos);
+					if (editor.map.supportsZones()) {
+						for (uint16_t zid : insertedTile->getZoneIds()) {
+							editor.map.addTileToZone(zid, pos);
+						}
 					}
 				} else if (displaced) {
 					if (displaced->isSelected()) {
@@ -249,8 +251,10 @@ void Action::commit(DirtyList* dirty_list) {
 						editor.map.removeSpawn(displaced);
 					}
 
-					for (uint16_t zid : displaced->getZoneIds()) {
-						editor.map.removeTileFromZone(zid, pos);
+					if (editor.map.supportsZones()) {
+						for (uint16_t zid : displaced->getZoneIds()) {
+							editor.map.removeTileFromZone(zid, pos);
+						}
 					}
 				}
 

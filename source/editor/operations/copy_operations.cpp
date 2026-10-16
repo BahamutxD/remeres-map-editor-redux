@@ -201,7 +201,7 @@ void CopyOperations::paste(Editor& editor, CopyBuffer& buffer, const Position& t
 				new_dest_tile_ptr = editor.map.allocator(dest_location);
 			}
 			// copy_tile may be partially moved-from after the merge call
-			TileOperations::merge(new_dest_tile_ptr.get(), copy_tile.get());
+			TileOperations::merge(new_dest_tile_ptr.get(), copy_tile.get(), &editor.map);
 		} else {
 			// If the copied tile has ground, replace target tile
 			new_dest_tile_ptr = std::move(copy_tile);

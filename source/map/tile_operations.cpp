@@ -165,7 +165,7 @@ namespace TileOperations {
 		return copy;
 	}
 
-	void merge(Tile* dest, Tile* src) {
+	void merge(Tile* dest, Tile* src, const BaseMap* target_map) {
 		if (src->isPZ()) {
 			dest->setPZ(true);
 		}
@@ -184,7 +184,7 @@ namespace TileOperations {
 		if (src->spawn) {
 			dest->spawn = std::move(src->spawn);
 		}
-		if (src->extra) {
+		if (src->extra && (!target_map || target_map->supportsZones())) {
 			for (const uint16_t zoneId : src->getZoneIds()) {
 				dest->addZone(zoneId);
 			}
