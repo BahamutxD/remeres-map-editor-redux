@@ -60,8 +60,8 @@ void EditorManager::CloseCurrentEditor() {
 
 	{
 		// Destroying the tab frees the whole map and its GL resources, which
-		// can take a moment on large maps; show what is happening.
-		ScopedLoadingBar closingBar("Closing map...", false, "Closing");
+		// can take a moment on large maps; tell the user what is happening.
+		ScopedBusyInfo closing("Closing map...");
 		g_gui.tabbook->DeleteTab(g_gui.tabbook->GetSelection());
 	}
 
