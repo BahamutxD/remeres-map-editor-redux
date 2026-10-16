@@ -10,7 +10,6 @@
 #include "palette/controls/tileset_grid_toolbar.h"
 #include <wx/srchctrl.h>
 #include <wx/notebook.h>
-#include <wx/splitter.h>
 #include <wx/dialog.h>
 #include <map>
 
