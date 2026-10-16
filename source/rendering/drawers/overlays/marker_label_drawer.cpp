@@ -10,6 +10,7 @@
 #include "game/house.h"
 #include <nanovg.h>
 #include <string>
+#include <deque>
 #include <vector>
 #include <unordered_map>
 #include <format>
@@ -84,7 +85,7 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 
 	static thread_local std::unordered_map<std::string, CachedMetrics> s_metrics_cache;
 	static thread_local std::vector<VisibleMarkerLabel> visible_labels;
-	static thread_local std::vector<std::string> s_frame_fallback_names;
+	static thread_local std::deque<std::string> s_frame_fallback_names;
 	visible_labels.clear();
 	s_frame_fallback_names.clear();
 
