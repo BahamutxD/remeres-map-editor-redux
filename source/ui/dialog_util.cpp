@@ -26,7 +26,13 @@ std::vector<wxString> SplitDialogItems(std::vector<std::string> items) {
 	for (size_t i = 0; i < items.size();) {
 		wxString str = items[i];
 		if (const size_t pos = str.find('\n'); pos != wxString::npos) {
-			lines.push_back(str.substr(0, pos));
+			wxString line = str.substr(0, pos);
+			if (line.EndsWith("\r")) {
+				// CRLF input would otherwise keep a stray carriage return that
+				// the join re-adds, producing "\r\r\n" in copied/exported text.
+				line.RemoveLast();
+			}
+			lines.push_back(line);
 			items[i] = str.substr(pos + 1).ToStdString();
 			continue;
 		}
@@ -85,27 +91,33 @@ void DialogUtil::ListDialog(wxWindow* parent, wxString title, const std::vector<
 	wxStaticText* feedback = newd wxStaticText(dlg, wxID_ANY, "Ctrl+C copies the selection, or every line when nothing is selected.");
 	sizer->Add(feedback, 0, wxLEFT | wxRIGHT | wxTOP, dlg->FromDIP(4));
 
-	// Copy helpers: the selected lines, or everything when nothing is selected.
-	auto selected_or_all = [item_list, lines]() {
+	// Copy helpers: Selected copies only what is selected (that is the button
+	// name), Ctrl+C falls back to every line when the selection is empty.
+	auto selected_lines = [item_list]() {
 		std::vector<wxString> picked;
 		for (unsigned int i = 0; i < item_list->GetCount(); ++i) {
 			if (item_list->IsSelected(i)) {
 				picked.push_back(item_list->GetString(i));
 			}
 		}
-		if (picked.empty()) {
-			picked = *lines;
-		}
 		return picked;
 	};
 
 	auto copy_lines = [feedback](const std::vector<wxString>& picked) {
+		if (picked.empty()) {
+			feedback->SetLabel("Nothing to copy.");
+			return;
+		}
 		if (!wxTheClipboard->Open()) {
 			feedback->SetLabel("Could not open the clipboard.");
 			return;
 		}
-		wxTheClipboard->SetData(new wxTextDataObject(JoinDialogItems(picked)));
+		const bool stored = wxTheClipboard->SetData(new wxTextDataObject(JoinDialogItems(picked)));
 		wxTheClipboard->Close();
+		if (!stored) {
+			feedback->SetLabel("Could not put the text in the clipboard.");
+			return;
+		}
 		feedback->SetLabel(wxString::Format("Copied %zu line(s) to the clipboard.", picked.size()));
 	};
 
@@ -113,8 +125,8 @@ void DialogUtil::ListDialog(wxWindow* parent, wxString title, const std::vector<
 
 	wxButton* copy_selected = newd wxButton(dlg, wxID_ANY, "Copy selected");
 	copy_selected->SetBitmap(IMAGE_MANAGER.GetBitmapBundle(ICON_COPY));
-	copy_selected->Bind(wxEVT_BUTTON, [copy_lines, selected_or_all](wxCommandEvent&) {
-		copy_lines(selected_or_all());
+	copy_selected->Bind(wxEVT_BUTTON, [copy_lines, selected_lines](wxCommandEvent&) {
+		copy_lines(selected_lines());
 	});
 	action_sizer->Add(copy_selected, wxSizerFlags(1).Expand().Border(wxRIGHT, 4));
 
@@ -133,20 +145,20 @@ void DialogUtil::ListDialog(wxWindow* parent, wxString title, const std::vector<
 			return;
 		}
 
-		wxFile file;
-		if (!file.Create(save_dlg.GetPath(), true)) {
-			feedback->SetLabel("Could not write the file.");
+		// wxTempFile replaces the destination only on Commit, so a failed write
+		// cannot truncate the file the user chose to overwrite.
+		wxTempFile file(save_dlg.GetPath());
+		if (!file.IsOpened()) {
+			feedback->SetLabel("Could not open the file for writing.");
 			return;
 		}
 
 		const wxScopedCharBuffer utf8 = JoinDialogItems(*lines).utf8_str();
-		const bool written = file.Write(utf8.data(), utf8.length()) == utf8.length();
-		file.Close();
-		if (written) {
-			feedback->SetLabel(wxString::Format("Exported %zu line(s).", lines->size()));
-		} else {
-			feedback->SetLabel("The file could not be written completely.");
+		if (file.Write(utf8.data(), utf8.length()) != utf8.length() || !file.Commit()) {
+			feedback->SetLabel("The file could not be written; the previous file is untouched.");
+			return;
 		}
+		feedback->SetLabel(wxString::Format("Exported %zu line(s).", lines->size()));
 	});
 	action_sizer->Add(export_button, wxSizerFlags(1).Expand().Border(wxRIGHT, 4));
 
@@ -156,9 +168,13 @@ void DialogUtil::ListDialog(wxWindow* parent, wxString title, const std::vector<
 
 	sizer->Add(action_sizer, 0, wxEXPAND | wxALL, dlg->FromDIP(4));
 
-	dlg->Bind(wxEVT_CHAR_HOOK, [copy_lines, selected_or_all](wxKeyEvent& event) {
+	dlg->Bind(wxEVT_CHAR_HOOK, [copy_lines, selected_lines, lines](wxKeyEvent& event) {
 		if (event.GetKeyCode() == 'C' && event.ControlDown()) {
-			copy_lines(selected_or_all());
+			std::vector<wxString> picked = selected_lines();
+			if (picked.empty()) {
+				picked = *lines;
+			}
+			copy_lines(picked);
 			return;
 		}
 		event.Skip();
