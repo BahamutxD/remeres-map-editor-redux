@@ -28,11 +28,17 @@ namespace {
 		if (!node.stream.getU16(count)) {
 			return false;
 		}
-		std::vector<uint16_t> zoneIds(count);
-		for (uint16_t& zoneId : zoneIds) {
+		if (node.stream.remaining() < static_cast<size_t>(count) * sizeof(uint16_t)) {
+			return false;
+		}
+		std::vector<uint16_t> zoneIds;
+		zoneIds.reserve(count);
+		for (size_t i = 0; i < count; ++i) {
+			uint16_t zoneId = 0;
 			if (!node.stream.getU16(zoneId)) {
 				return false;
 			}
+			zoneIds.push_back(zoneId);
 		}
 		// Verify there are no surplus bytes and no child nodes
 		if (node.stream.hasMoreProps() || (node.stream.p < node.stream.end && *node.stream.p == OTBM_NODE_START)) {
