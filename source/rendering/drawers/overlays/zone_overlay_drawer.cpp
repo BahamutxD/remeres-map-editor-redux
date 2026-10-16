@@ -503,7 +503,11 @@ namespace {
 		if (!tile || !tile->hasZones()) {
 			return 0;
 		}
-		return (active_zone != 0 && tile->hasZone(active_zone)) ? active_zone : tile->getZoneIds().front();
+		const auto ids = tile->getZoneIds();
+		if (active_zone != 0 && std::ranges::binary_search(ids, active_zone)) {
+			return active_zone;
+		}
+		return ids.front();
 	}
 
 } // namespace
@@ -582,8 +586,19 @@ void ZoneOverlayDrawer::drawFloorZones(SpriteBatch& sprite_batch,
 			const float fx = static_cast<float>(draw_x);
 			const float fy = static_cast<float>(draw_y);
 			const float depth = calculateTileDepth(x, y, RenderSublayer::GroundOverlay);
-
 			sprite_batch.drawRect(fx, fy, 32.0f, 32.0f, glm::vec4(rgb, active ? 0.45f : 0.25f), atlas, depth);
+
+			// Indicator for multi-zone tiles: draw an accent pip in the top-right corner with secondary zone color
+			const Tile* t = secondary_map ? secondary_map->getTile(x, y, z) : nullptr;
+			if (!t) {
+				t = map.getTile(x, y, z);
+			}
+			if (t && t->getZoneIds().size() > 1) {
+				const auto ids = t->getZoneIds();
+				const uint16_t secondary_id = (ids.front() == zone_id) ? ids[1] : ids.front();
+				const glm::vec3 sec_rgb = getZoneColor(secondary_id);
+				sprite_batch.drawRect(fx + 24.0f, fy, 8.0f, 8.0f, glm::vec4(sec_rgb, 0.9f), atlas, depth);
+			}
 
 			if (options.show_zone_borders) {
 				const glm::vec4 edge(rgb, 0.9f);
