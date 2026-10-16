@@ -7,6 +7,7 @@
 #include "ui/replace_tool/replacement_engine.h"
 #include "ui/replace_tool/rule_list_control.h"
 #include "ui/replace_tool/rule_builder_panel.h"
+#include "palette/controls/tileset_grid_toolbar.h"
 #include <wx/srchctrl.h>
 #include <wx/notebook.h>
 #include <wx/splitter.h>
@@ -52,6 +53,7 @@ private:
 
 	LibraryPanel* libraryPanel;
 	ItemGridPanel* similarItemsGrid;
+	TilesetGridToolbar* m_suggestionsToolbar = nullptr;
 	RuleBuilderPanel* ruleBuilder;
 	RuleListControl* savedRulesList;
 	// wxButton* m_saveBtn; // Removed

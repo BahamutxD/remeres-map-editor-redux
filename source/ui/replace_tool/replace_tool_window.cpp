@@ -173,6 +173,28 @@ void ReplaceToolWindow::InitLayout() {
 
 	similarItemsGrid = new ItemGridPanel(col3Card, this);
 	similarItemsGrid->SetDraggable(true);
+
+	TilesetGridToolbar::Actions suggestionActions;
+	suggestionActions.filter = [this](const std::string& query) {
+		similarItemsGrid->SetFilter(wxstr(query));
+	};
+	suggestionActions.sort = [this](TilesetSortKey, TilesetSortDirection) {
+		similarItemsGrid->SetFilter(wxstr(m_suggestionsToolbar->GetFilterQuery()));
+	};
+	suggestionActions.clear_sort = [this]() {
+		similarItemsGrid->SetFilter(wxstr(m_suggestionsToolbar->GetFilterQuery()));
+	};
+	suggestionActions.show_labels = [this](bool show) {
+		similarItemsGrid->SetShowLabels(show);
+	};
+	suggestionActions.icon_size = [this](int size) {
+		similarItemsGrid->SetIconSize(size);
+	};
+
+	m_suggestionsToolbar = new TilesetGridToolbar(col3Card, std::move(suggestionActions));
+	m_suggestionsToolbar->SetState(similarItemsGrid->GetShowLabels(), similarItemsGrid->GetIconSize(), false, TilesetSortKey::Name, TilesetSortDirection::Ascending, false);
+
+	col3Card->GetContentSizer()->Add(m_suggestionsToolbar, wxSizerFlags(0).Expand().Border(wxLEFT | wxRIGHT | wxTOP, padding));
 	col3Card->GetContentSizer()->Add(similarItemsGrid, wxSizerFlags(1).Expand().Border(wxALL, padding));
 	mainRowSizer->Add(col3Card, wxSizerFlags(3).Expand().Border(wxLEFT | wxRIGHT, padding / 2)); // Flex 3
 
@@ -335,6 +357,7 @@ void ReplaceToolWindow::OnLibraryItemSelected(uint16_t itemId) {
 		return;
 	}
 	similarItemsGrid->SetItems(VisualSimilarityService::Get().FindSimilar(itemId));
+	similarItemsGrid->SetFilter(wxstr(m_suggestionsToolbar->GetFilterQuery()));
 }
 
 void ReplaceToolWindow::OnRuleSelected(const RuleSet& rs) {
@@ -342,6 +365,7 @@ void ReplaceToolWindow::OnRuleSelected(const RuleSet& rs) {
 	ruleBuilder->SetRules(rs.rules);
 	if (!rs.rules.empty()) {
 		similarItemsGrid->SetItems(VisualSimilarityService::Get().FindSimilar(rs.rules[0].fromId));
+		similarItemsGrid->SetFilter(wxstr(m_suggestionsToolbar->GetFilterQuery()));
 	} else {
 		similarItemsGrid->SetItems({});
 	}
