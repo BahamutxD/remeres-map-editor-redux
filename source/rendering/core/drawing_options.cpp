@@ -22,6 +22,7 @@ void DrawingOptions::SetDefault() {
 	show_waypoints = true;
 	ingame = false;
 	is_drawing_mode = false;
+	is_drawing = false;
 	dragging = false;
 	boundbox_selection = false;
 

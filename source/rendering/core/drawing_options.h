@@ -65,6 +65,7 @@ struct DrawingOptions {
 	bool show_waypoints;
 	bool ingame;
 	bool is_drawing_mode;
+	bool is_drawing = false;
 	bool dragging;
 	bool boundbox_selection;
 

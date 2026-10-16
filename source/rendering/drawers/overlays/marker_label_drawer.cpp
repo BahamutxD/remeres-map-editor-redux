@@ -339,12 +339,13 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 		const ViewBounds floor_bounds = view.getBoundsForFloor(view.floor);
 		const int check_z = view.floor;
 		const uint16_t active_zone = (g_brush_manager.zone_brush ? g_brush_manager.zone_brush->getZone() : 0);
+		const bool recompute = !options.is_drawing;
 
 		for (const auto& zone : map.zones) {
 			if (zone.id == 0) {
 				continue;
 			}
-			const auto& clusters = map.getZoneClusters(zone.id);
+			const auto& clusters = map.getZoneClusters(zone.id, recompute);
 			if (clusters.empty()) {
 				continue;
 			}
