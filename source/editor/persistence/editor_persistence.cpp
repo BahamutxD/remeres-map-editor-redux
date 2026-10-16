@@ -20,6 +20,7 @@
 #include "lua/lua_script_manager.h"
 
 #include <fstream>
+#include <filesystem>
 #include <format>
 #include <algorithm>
 #include <unordered_map>
@@ -174,61 +175,43 @@ bool EditorPersistence::saveMap(Editor& editor, FileName filename, bool showdial
 
 		// Check for errors...
 		if (!success) {
-			// Rename the temporary backup files back to their previous names
-			if (!backup_otbm.empty()) {
-				converter.SetFullName(wxstr(savefile));
-				std::string otbm_filename = map_path + nstr(converter.GetName());
-				std::rename(backup_otbm.c_str(), std::string(otbm_filename + ".otbm").c_str());
+			auto restoreBackup = [](const std::string& backupPath, const std::string& targetPath) {
+				if (backupPath.empty()) {
+					if (!targetPath.empty()) {
+						std::error_code ec;
+						std::filesystem::remove(targetPath, ec);
+					}
+					return;
+				}
+				std::error_code ec;
+				std::filesystem::remove(targetPath, ec);
+				std::filesystem::rename(backupPath, targetPath, ec);
+				if (ec) {
+					spdlog::error("EditorPersistence: Failed to restore backup '{}' -> '{}': {}", backupPath, targetPath, ec.message());
+				}
+			};
+
+			restoreBackup(backup_otbm, savefile);
+			if (!editor.map.getHouseFilename().empty()) {
+				restoreBackup(backup_house, map_path + editor.map.getHouseFilename());
+			}
+			if (editor.map.getVersion().otbm == MAP_OTBM_5) {
+				if (!editor.map.getMonsterFilename().empty()) {
+					restoreBackup(backup_monster, map_path + editor.map.getMonsterFilename());
+				}
+				if (!editor.map.getNpcFilename().empty()) {
+					restoreBackup(backup_npc, map_path + editor.map.getNpcFilename());
+				}
+				if (!editor.map.getZoneFilename().empty()) {
+					restoreBackup(backup_zone, map_path + editor.map.getZoneFilename());
+				}
 			} else {
-				std::remove(savefile.c_str());
+				if (!editor.map.getSpawnFilename().empty()) {
+					restoreBackup(backup_spawn, map_path + editor.map.getSpawnFilename());
+				}
 			}
-
-			if (!backup_house.empty()) {
-				converter.SetFullName(wxstr(editor.map.getHouseFilename()));
-				std::string house_filename = map_path + nstr(converter.GetName());
-				std::rename(backup_house.c_str(), std::string(house_filename + ".xml").c_str());
-			} else if (!editor.map.getHouseFilename().empty()) {
-				std::remove((map_path + editor.map.getHouseFilename()).c_str());
-			}
-
-			if (!backup_spawn.empty()) {
-				converter.SetFullName(wxstr(editor.map.getSpawnFilename()));
-				std::string spawn_filename = map_path + nstr(converter.GetName());
-				std::rename(backup_spawn.c_str(), std::string(spawn_filename + ".xml").c_str());
-			} else if (!editor.map.getSpawnFilename().empty()) {
-				std::remove((map_path + editor.map.getSpawnFilename()).c_str());
-			}
-
-			if (!backup_monster.empty()) {
-				converter.SetFullName(wxstr(editor.map.getMonsterFilename()));
-				std::string monster_filename = map_path + nstr(converter.GetName());
-				std::rename(backup_monster.c_str(), std::string(monster_filename + ".xml").c_str());
-			} else if (!editor.map.getMonsterFilename().empty()) {
-				std::remove((map_path + editor.map.getMonsterFilename()).c_str());
-			}
-
-			if (!backup_npc.empty()) {
-				converter.SetFullName(wxstr(editor.map.getNpcFilename()));
-				std::string npc_filename = map_path + nstr(converter.GetName());
-				std::rename(backup_npc.c_str(), std::string(npc_filename + ".xml").c_str());
-			} else if (!editor.map.getNpcFilename().empty()) {
-				std::remove((map_path + editor.map.getNpcFilename()).c_str());
-			}
-
-			if (!backup_zone.empty()) {
-				converter.SetFullName(wxstr(editor.map.getZoneFilename()));
-				std::string zone_filename = map_path + nstr(converter.GetName());
-				std::rename(backup_zone.c_str(), std::string(zone_filename + ".xml").c_str());
-			} else if (!editor.map.getZoneFilename().empty()) {
-				std::remove((map_path + editor.map.getZoneFilename()).c_str());
-			}
-
-			if (!backup_waypoint.empty()) {
-				converter.SetFullName(wxstr(editor.map.getWaypointFilename()));
-				std::string waypoint_filename = map_path + nstr(converter.GetName());
-				std::rename(backup_waypoint.c_str(), std::string(waypoint_filename + ".xml").c_str());
-			} else if (!editor.map.getWaypointFilename().empty()) {
-				std::remove((map_path + editor.map.getWaypointFilename()).c_str());
+			if (!editor.map.getWaypointFilename().empty()) {
+				restoreBackup(backup_waypoint, map_path + editor.map.getWaypointFilename());
 			}
 
 			// Display the error
