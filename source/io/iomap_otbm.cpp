@@ -590,12 +590,16 @@ bool IOMapOTBM::loadMapFast(Map& map, const uint8_t* data, size_t size) {
 		}
 	}
 
-	// Register zone tiles sequentially into map.zone_index
+	// Register zone tiles in bulk into map.zone_index
 	map.zone_index.clear();
+	std::unordered_map<uint16_t, std::vector<Position>> aggregated_zones;
 	for (const auto& zlist : thread_zone_tiles) {
 		for (const auto& [zone_id, pos] : zlist) {
-			map.zone_index.addTile(zone_id, pos);
+			aggregated_zones[zone_id].push_back(pos);
 		}
+	}
+	for (const auto& [zone_id, positions] : aggregated_zones) {
+		map.zone_index.addTilesBulk(zone_id, positions);
 	}
 
 	g_gui.SetLoadDone(100);
