@@ -65,6 +65,9 @@ void EditorManager::CloseCurrentEditor() {
 		g_gui.tabbook->DeleteTab(g_gui.tabbook->GetSelection());
 	}
 
+	// wxAuiNotebook does not emit PAGE_CLOSED when the close event was vetoed
+	// and the page was deleted here, so report the result from this path too.
+	g_status.SetStatusText("Map closed.");
 	g_gui.root->UpdateMenubar();
 	spdlog::info("EditorManager::CloseCurrentEditor - Closed current tab");
 }
