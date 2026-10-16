@@ -41,11 +41,11 @@ namespace {
 }
 
 bool TechnicalIdFilter::matches(uint32_t sid, uint32_t cid) const noexcept {
-	if (cid != 0 && !client_ids.empty()) {
-		return std::ranges::binary_search(client_ids, cid);
+	if (cid != 0 && !client_ids.empty() && std::ranges::binary_search(client_ids, cid)) {
+		return true;
 	}
-	if (g_version.lastLoadHasOtb() && sid != 0 && !server_ids.empty()) {
-		return std::ranges::binary_search(server_ids, sid);
+	if (g_version.lastLoadHasOtb() && sid != 0 && !server_ids.empty() && std::ranges::binary_search(server_ids, sid)) {
+		return true;
 	}
 	return false;
 }
