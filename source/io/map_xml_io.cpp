@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <format>
 #include <filesystem>
-#include <sstream>
 #include <ranges>
 
 std::pair<std::string, std::string> MapXMLIO::normalizeMapFilePaths(const wxFileName& dir, const std::string& filename) {

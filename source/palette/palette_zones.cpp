@@ -19,11 +19,8 @@
 #include <wx/menu.h>
 
 #include <algorithm>
-#include <array>
 #include <format>
-#include <optional>
 #include <ranges>
-#include <span>
 
 ZonePalettePanel::ZonePalettePanel(wxWindow* parent, wxWindowID id) :
 	PalettePanel(parent, id) {

@@ -4,11 +4,9 @@
 #include <bit>
 #include <cstdint>
 #include <cstring>
-#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
-#include <concepts>
 #include "io/otbm/otbm_types.h"
 #include "io/otbm/invalid_otbm_content.h"
 
