@@ -205,7 +205,7 @@ const Map::Zone* Map::findZone(std::string_view name) const {
 }
 
 uint16_t Map::addZone(std::string name) {
-	if (name.empty() || findZone(name)) {
+	if (!supportsZones() || name.empty() || findZone(name)) {
 		return 0;
 	}
 	uint16_t id = std::max<uint16_t>(max_assigned_zone_id + 1, 1);
@@ -225,6 +225,9 @@ uint16_t Map::addZone(std::string name) {
 }
 
 bool Map::renameZone(uint16_t id, std::string name) {
+	if (!supportsZones()) {
+		return false;
+	}
 	const Zone* existing = findZone(name);
 	if (name.empty() || (existing && existing->id != id)) {
 		return false;
@@ -239,8 +242,11 @@ bool Map::renameZone(uint16_t id, std::string name) {
 }
 
 void Map::removeZone(uint16_t id) {
+	if (!supportsZones()) {
+		return;
+	}
 	std::erase_if(zones, [id](const Zone& zone) { return zone.id == id; });
-	const std::vector<Position> positions = zone_index.getPositions(id);
+	const auto& positions = zone_index.getPositions(id);
 	for (const Position& pos : positions) {
 		if (Tile* tile = getTile(pos)) {
 			tile->removeZone(id);
@@ -251,22 +257,33 @@ void Map::removeZone(uint16_t id) {
 }
 
 const std::vector<Position>& Map::getZoneTilePositions(uint16_t id) const noexcept {
-	return zone_index.getPositions(id);
+	static const std::vector<Position> s_empty;
+	return supportsZones() ? zone_index.getPositions(id) : s_empty;
 }
 
 const std::vector<ZoneCluster>& Map::getZoneClusters(uint16_t id) const {
-	return zone_index.getClusters(id);
+	static const std::vector<ZoneCluster> s_empty;
+	return supportsZones() ? zone_index.getClusters(id) : s_empty;
 }
 
 void Map::addTileToZone(uint16_t id, const Position& pos) {
+	if (!supportsZones()) {
+		return;
+	}
 	zone_index.addTile(id, pos);
 }
 
 void Map::removeTileFromZone(uint16_t id, const Position& pos) {
+	if (!supportsZones()) {
+		return;
+	}
 	zone_index.removeTile(id, pos);
 }
 
 void Map::updateTileZones(const Position& pos, std::span<const uint16_t> old_zones, std::span<const uint16_t> new_zones) {
+	if (!supportsZones()) {
+		return;
+	}
 	for (uint16_t old_id : old_zones) {
 		if (!std::ranges::binary_search(new_zones, old_id)) {
 			zone_index.removeTile(old_id, pos);
@@ -280,6 +297,10 @@ void Map::updateTileZones(const Position& pos, std::span<const uint16_t> old_zon
 }
 
 void Map::rebuildZoneIndex() {
+	if (!supportsZones()) {
+		zone_index.clear();
+		return;
+	}
 	zone_index.rebuild(*this);
 }
 
