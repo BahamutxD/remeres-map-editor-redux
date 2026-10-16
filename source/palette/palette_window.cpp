@@ -13,6 +13,7 @@
 #include "palette/house/house_palette.h"
 #include "palette/palette_waypoints.h"
 #include "palette/palette_zones.h"
+#include "brushes/zone/zone_brush.h"
 #include "palette/panels/brush_palette_panel.h"
 #include "rendering/ui/map_display.h"
 #include "game/materials.h"
@@ -119,7 +120,14 @@ void PaletteWindow::updateZonePage(Map* map) {
 		choicebook->AddPage(zone_palette, "Zone");
 		choicebook->Layout();
 	} else if (!supports_zones && zone_page_idx != wxNOT_FOUND) {
+		const bool was_selected = choicebook->GetSelection() == zone_page_idx;
 		choicebook->RemovePage(static_cast<size_t>(zone_page_idx));
+		if (was_selected && choicebook->GetPageCount() > 0) {
+			choicebook->SetSelection(0);
+		}
+		if (const Brush* current_brush = g_gui.GetCurrentBrush(); current_brush && current_brush->is<ZoneBrush>()) {
+			g_gui.SelectBrush();
+		}
 		choicebook->Layout();
 	}
 }
