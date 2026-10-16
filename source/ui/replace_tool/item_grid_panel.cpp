@@ -50,6 +50,7 @@ void ItemGridPanel::SetFilter(const wxString& filter) {
 			}
 		}
 	}
+	ApplySortTo(filteredItems);
 	SetScrollPosition(0);
 	RefreshGrid();
 }
