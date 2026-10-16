@@ -124,6 +124,7 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 		float y = initialY;
 		bool shifted = true;
 		int iterations = 0;
+		// First try nudging upwards
 		while (shifted && iterations < 8) {
 			shifted = false;
 			++iterations;
@@ -135,6 +136,25 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 				}
 			}
 		}
+
+		// If shifted off the top of the viewport, fallback to nudging downwards from initialY
+		if (y - h - paddingY * 2.0f < 0.0f) {
+			y = initialY;
+			shifted = true;
+			iterations = 0;
+			while (shifted && iterations < 8) {
+				shifted = false;
+				++iterations;
+				for (const auto& existing : visible_labels) {
+					if (overlaps(x, y, w, h, existing.x, existing.y, existing.width, existing.height)) {
+						y = existing.y + h + paddingY * 2.0f + 2.0f;
+						shifted = true;
+						break;
+					}
+				}
+			}
+		}
+
 		return y;
 	};
 
