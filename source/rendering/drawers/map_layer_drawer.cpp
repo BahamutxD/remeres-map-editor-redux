@@ -206,6 +206,10 @@ void MapLayerDrawer::Draw(SpriteBatch& sprite_batch, int map_z, LiveClient* live
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(GL_LEQUAL);
 		glDepthMask(GL_TRUE);
+		// The zoomed-out item handling happens per chunk inside renderFloorItems: chunks re-baked
+		// without items keep the town/waypoint/house-exit indicators and creatures visible, and
+		// only chunks still carrying baked items are suppressed (the dynamic overlay pass already
+		// skips animated items at this zoom, so this makes static and animated items consistent).
 		chunk_cache->renderFloorItems(map_z, ctx, view.projectionMatrix, ctx.atlas);
 
 		// 6. Dynamic overlay pass: ONLY tiles recorded with dynamic elements!

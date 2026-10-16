@@ -9,6 +9,7 @@
 #include "game/town.h"
 #include "game/house.h"
 #include <nanovg.h>
+#include "util/phase_profiler.h"
 #include <string>
 #include <deque>
 #include <vector>
@@ -63,6 +64,7 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 	if (!show_wp && !show_towns && !show_houses && !show_zones) {
 		return;
 	}
+	rme::prof::Scope labels_scope(rme::prof::Phase::MarkerLabels);
 
 	// Beyond LOD threshold (when zoomed out beyond 10% zoom, text is sub-legible)
 	if (view.zoom > 10.0f) {
@@ -248,59 +250,20 @@ void MarkerLabelDrawer::draw(NVGcontext* vg, const Map& map, const RenderView& v
 			if (!house_ptr) {
 				continue;
 			}
-			const auto& all_tiles = house_ptr->getTiles();
-			if (all_tiles.empty()) {
-				continue;
-			}
 
-			int count = 0;
-			int min_x = std::numeric_limits<int>::max();
-			int max_x = std::numeric_limits<int>::min();
-			int min_y = std::numeric_limits<int>::max();
-			int max_y = std::numeric_limits<int>::min();
-			double sum_x = 0.0;
-			double sum_y = 0.0;
-
-			for (const auto& p : all_tiles) {
-				if (p.z == check_z) {
-					++count;
-					min_x = std::min(min_x, p.x);
-					max_x = std::max(max_x, p.x);
-					min_y = std::min(min_y, p.y);
-					max_y = std::max(max_y, p.y);
-					sum_x += p.x;
-					sum_y += p.y;
-				}
-			}
-
-			if (count == 0) {
+			const House::FloorSummary& summary = house_ptr->getFloorSummary(check_z);
+			if (summary.count == 0) {
 				continue;
 			}
 
 			// AABB culling against view bounds on active floor
-			if (max_x < floor_bounds.start_x || min_x > floor_bounds.end_x ||
-			    max_y < floor_bounds.start_y || min_y > floor_bounds.end_y) {
+			if (summary.max_x < floor_bounds.start_x || summary.min_x > floor_bounds.end_x ||
+			    summary.max_y < floor_bounds.start_y || summary.min_y > floor_bounds.end_y) {
 				continue;
 			}
 
-			// Centroid of the room tiles on the active floor
-			const double avg_x = sum_x / static_cast<double>(count);
-			const double avg_y = sum_y / static_cast<double>(count);
-
-			// Choose the real room tile closest to centroid to guarantee it sits inside the room
-			Position best_pos;
-			double min_dist_sq = std::numeric_limits<double>::infinity();
-			for (const auto& p : all_tiles) {
-				if (p.z == check_z) {
-					const double dx = static_cast<double>(p.x) - avg_x;
-					const double dy = static_cast<double>(p.y) - avg_y;
-					const double dsq = dx * dx + dy * dy;
-					if (dsq < min_dist_sq) {
-						min_dist_sq = dsq;
-						best_pos = p;
-					}
-				}
-			}
+			// Room tile closest to the room centroid, so the label sits inside the room.
+			const Position& best_pos = summary.best_tile;
 
 			int unscaled_x = 0, unscaled_y = 0;
 			if (!view.IsTileVisible(best_pos.x, best_pos.y, check_z, unscaled_x, unscaled_y)) {

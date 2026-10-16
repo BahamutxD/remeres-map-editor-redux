@@ -58,6 +58,9 @@ private:
 		std::string path;
 		mutable std::shared_ptr<std::vector<uint8_t>> decoded_pixels;
 		mutable uint64_t last_access_tick = 0;
+		// Set while one thread is decoding this sheet, so concurrent requests wait for that
+		// decode instead of each running their own (LZMA over the whole sheet is expensive).
+		mutable std::shared_future<std::shared_ptr<std::vector<uint8_t>>> decode_future;
 
 		void releaseDecodedPixels() const {
 			decoded_pixels.reset();
@@ -70,7 +73,9 @@ private:
 
 	[[nodiscard]] bool readLegacyRgba(uint32_t sprite_id, bool use_alpha, std::unique_ptr<uint8_t[]>& target, ImageDimensions& dimensions) const;
 	[[nodiscard]] bool readProtobufRgba(uint32_t sprite_id, std::unique_ptr<uint8_t[]>& target, ImageDimensions& dimensions) const;
-	[[nodiscard]] bool loadSheetPixels(const ProtobufSheet& sheet) const;
+	// Decodes one protobuf sheet without touching shared state, so callers can run it
+	// concurrently for different sheets (sheet decoding is file I/O plus LZMA).
+	[[nodiscard]] std::shared_ptr<std::vector<uint8_t>> decodeSheetPixels(const std::string& path) const;
 	void pruneDecodedSheetCache(int32_t keep_sheet_index) const;
 
 	std::string filename_;
