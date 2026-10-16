@@ -67,10 +67,15 @@ constexpr int32_t kHouseStagePercent = 94;
 constexpr int32_t kWaypointStagePercent = 97;
 
 // Reports a named save stage and tells whether the save should continue
-// (the user can abort through the progress dialog).
+// (the user can abort through the progress dialog). Switching the message to
+// "Cancelling..." keeps the dialog responsive while the save unwinds.
 bool reportSaveStage(int32_t percent, const wxString& message) {
 	g_gui.SetLoadDone(percent, message);
-	return !g_gui.WasLoadCancelled();
+	if (g_gui.WasLoadCancelled()) {
+		g_gui.SetLoadText("Cancelling...");
+		return false;
+	}
+	return true;
 }
 } // namespace
 
@@ -837,10 +842,15 @@ bool IOMapOTBM::saveMap(Map& map, NodeFileWriteHandle& f) {
 
 bool IOMapOTBM::writeTileData(const Map& map, NodeFileWriteHandle& f) {
 	// Progress reported by the tile writer fills the tile stage of the bar;
-	// the callback returns false to abort a cancelled save.
+	// the callback returns false to abort a cancelled save, and reports the
+	// cancellation to the dialog before unwinding.
 	return TileSerializationOTBM::writeTileData(*this, map, f, [](int tilesWritten) {
 		g_gui.SetLoadDone(tilesWritten * kTileWriteStagePercent / 100);
-		return !g_gui.WasLoadCancelled();
+		if (g_gui.WasLoadCancelled()) {
+			g_gui.SetLoadText("Cancelling...");
+			return false;
+		}
+		return true;
 	});
 }
 

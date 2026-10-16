@@ -300,7 +300,7 @@ bool TileSerializationOTBM::writeTileData(const IOMapOTBM& iomap, const Map& map
 	// dialog on every tile would slow the save down, while a fixed stride
 	// makes the bar jump on small maps. This cadence also bounds how long a
 	// cancellation request takes to be noticed.
-	constexpr auto kProgressInterval = std::chrono::milliseconds(100);
+	constexpr auto kProgressInterval = std::chrono::milliseconds(50);
 	auto last_progress = std::chrono::steady_clock::now();
 
 	// Use modern ranges for iteration if possible, but the spatial hash grid iterator is already custom

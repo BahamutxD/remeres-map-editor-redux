@@ -202,8 +202,12 @@ bool EditorManager::SaveCurrentMap(FileName fileName, bool showdialog) {
 			}
 
 			g_status.UpdateTitle();
-			g_gui.root->UpdateMenubar();
-			g_gui.root->Refresh();
+			if (success) {
+				// A cancelled or failed save left the document untouched; skip
+				// the full frame/canvas repaint and the menubar refresh.
+				g_gui.root->UpdateMenubar();
+				g_gui.root->Refresh();
+			}
 			return success;
 		}
 	}
