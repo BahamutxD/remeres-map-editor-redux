@@ -69,13 +69,15 @@ bool LoadingManager::SetLoadDone(int32_t done, const wxString& newMessage) {
 
 	bool skip = false;
 	if (progressBar) {
-		progressBar->Update(
+		// Update() returns false once the user cancelled; the skip out-param
+		// only covers the (unused here) Skip button.
+		const bool still_running = progressBar->Update(
 			newProgress,
 			wxString::Format("%s (%d%%)", progressText, newProgress),
 			&skip
 		);
 		currentProgress = newProgress;
-		if (skip) {
+		if (!still_running || skip) {
 			cancelled = true;
 		}
 	}
@@ -104,7 +106,9 @@ void LoadingManager::SetLoadText(const wxString& message) {
 
 	const int32_t visible = std::max<int32_t>(0, currentProgress);
 	bool skip = false;
-	progressBar->Update(visible, wxString::Format("%s (%d%%)", progressText, visible), &skip);
+	if (!progressBar->Update(visible, wxString::Format("%s (%d%%)", progressText, visible), &skip) || skip) {
+		cancelled = true;
+	}
 }
 
 void LoadingManager::DestroyLoadBar() {
