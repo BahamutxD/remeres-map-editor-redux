@@ -230,11 +230,26 @@ void ZoneIndex::addTilesBulk(uint16_t zoneId, std::span<const Position> position
 	}
 
 	auto& entry = index_[zoneId];
-	entry.positions.reserve(entry.positions.size() + positions.size());
+	const size_t old_size = entry.positions.size();
+	if (old_size == 0) {
+		entry.positions.assign(positions.begin(), positions.end());
+		std::ranges::sort(entry.positions);
+		const auto [drop_it, end_it] = std::ranges::unique(entry.positions);
+		entry.positions.erase(drop_it, end_it);
+		entry.clusters_dirty = true;
+		return;
+	}
+
+	entry.positions.reserve(old_size + positions.size());
 	entry.positions.insert(entry.positions.end(), positions.begin(), positions.end());
-	std::sort(entry.positions.begin(), entry.positions.end());
-	const auto last = std::unique(entry.positions.begin(), entry.positions.end());
-	entry.positions.erase(last, entry.positions.end());
+
+	// Sort only the newly appended elements, then merge sorted ranges in linear time
+	auto middle = entry.positions.begin() + old_size;
+	std::sort(middle, entry.positions.end());
+	std::inplace_merge(entry.positions.begin(), middle, entry.positions.end());
+
+	const auto [drop_it, end_it] = std::ranges::unique(entry.positions);
+	entry.positions.erase(drop_it, end_it);
 	entry.clusters_dirty = true;
 }
 
