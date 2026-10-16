@@ -28,7 +28,11 @@ std::pair<std::string, std::string> MapXMLIO::normalizeMapFilePaths(const wxFile
 	// Security: Prevent path traversal attacks by ensuring the resolved sidecar path
 	// remains strictly contained within the map directory.
 	const wxString base_dir = dir.GetPath();
-	if (filename.find("..") != std::string::npos || (resolved.IsAbsolute() && !resolved.GetFullPath().StartsWith(base_dir))) {
+	wxString base_dir_with_sep = dir.GetPath(wxPATH_GET_SEPARATOR | wxPATH_GET_VOLUME);
+	if (!base_dir_with_sep.EndsWith(wxFileName::GetPathSeparator())) {
+		base_dir_with_sep += wxFileName::GetPathSeparator();
+	}
+	if (filename.find("..") != std::string::npos || (resolved.IsAbsolute() && !resolved.GetFullPath().StartsWith(base_dir_with_sep))) {
 		spdlog::warn("MapXMLIO: Sidecar file '{}' attempts path traversal outside map directory. Constraining to base name.", filename);
 		resolved = wxFileName(base_dir, resolved.GetFullName());
 	}
