@@ -126,10 +126,6 @@ void DrawingController::HandleClick(const Position& mouse_map_pos, bool shift_do
 
 					editor.draw(mouse_map_pos, shift_down || alt_down);
 
-					if (brush->is<ZoneBrush>()) {
-						g_gui.RefreshPalettes();
-					}
-
 					if (will_show_spawn) {
 						Tile* tile = editor.map.getTile(mouse_map_pos);
 						if (tile && tile->spawn) {
@@ -188,6 +184,10 @@ void DrawingController::HandleClick(const Position& mouse_map_pos, bool shift_do
 			}
 			// Change the doodad layout brush
 			g_gui.FillDoodadPreviewBuffer();
+
+			if (brush && brush->is<ZoneBrush>()) {
+				g_gui.RefreshPalettes();
+			}
 		}
 	}
 }
