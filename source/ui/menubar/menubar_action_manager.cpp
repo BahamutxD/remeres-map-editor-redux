@@ -249,11 +249,11 @@ void MenuBarActionManager::UpdateState(MainMenuBar* mb) {
 
 	const bool is_otbm5 = has_map && g_gui.GetCurrentMap().supportsZones();
 	mb->EnableItem(SHOW_ZONES, is_otbm5);
-	mb->EnableItem(ALWAYS_SHOW_ZONES, is_otbm5);
-	mb->EnableItem(SHOW_INVALID_ZONES, is_otbm5);
+	mb->EnableItem(ALWAYS_SHOW_ZONES, has_map);
+	mb->EnableItem(SHOW_INVALID_ZONES, has_map);
 	mb->EnableItem(MAP_REMOVE_ITEMS, is_host);
 	mb->EnableItem(MAP_REMOVE_UNREACHABLE_TILES, is_local);
-	mb->EnableItem(MAP_CLEAN_INVALID_ZONES, is_local && is_otbm5);
+	mb->EnableItem(MAP_CLEAN_INVALID_ZONES, is_local);
 	mb->EnableItem(CLEAR_INVALID_HOUSES, is_local);
 	mb->EnableItem(CLEAR_MODIFIED_STATE, is_local);
 

@@ -52,7 +52,7 @@ void ViewSettingsHandler::LoadValues() {
 	menuBar->CheckItem(SHOW_LIGHT_STR, g_settings.getBoolean(Config::SHOW_LIGHT_STR));
 	menuBar->CheckItem(SHOW_TECHNICAL_ITEMS, g_settings.getBoolean(Config::SHOW_TECHNICAL_ITEMS));
 	menuBar->CheckItem(SHOW_INVALID_TILES, g_settings.getBoolean(Config::SHOW_INVALID_TILES));
-	menuBar->CheckItem(SHOW_INVALID_ZONES, supports_zones && g_settings.getBoolean(Config::SHOW_INVALID_ZONES));
+	menuBar->CheckItem(SHOW_INVALID_ZONES, g_settings.getBoolean(Config::SHOW_INVALID_ZONES));
 	menuBar->CheckItem(SHOW_WAYPOINTS, g_settings.getBoolean(Config::SHOW_WAYPOINTS));
 	menuBar->CheckItem(SHOW_ALL_FLOORS, g_settings.getBoolean(Config::SHOW_ALL_FLOORS));
 	menuBar->CheckItem(GHOST_ITEMS, g_settings.getBoolean(Config::TRANSPARENT_ITEMS));
@@ -74,7 +74,7 @@ void ViewSettingsHandler::LoadValues() {
 	menuBar->CheckItem(SHOW_PREVIEW, g_settings.getBoolean(Config::SHOW_PREVIEW));
 	menuBar->CheckItem(SHOW_WALL_HOOKS, g_settings.getBoolean(Config::SHOW_WALL_HOOKS));
 	menuBar->CheckItem(SHOW_TOWNS, g_settings.getBoolean(Config::SHOW_TOWNS));
-	menuBar->CheckItem(ALWAYS_SHOW_ZONES, supports_zones && g_settings.getBoolean(Config::ALWAYS_SHOW_ZONES));
+	menuBar->CheckItem(ALWAYS_SHOW_ZONES, g_settings.getBoolean(Config::ALWAYS_SHOW_ZONES));
 	menuBar->CheckItem(EXT_HOUSE_SHADER, g_settings.getBoolean(Config::EXT_HOUSE_SHADER));
 	menuBar->CheckItem(EXT_PATHING_SHADER, g_settings.getBoolean(Config::EXT_PATHING_SHADER));
 
@@ -125,10 +125,11 @@ void ViewSettingsHandler::OnChangeViewSettings(wxCommandEvent& event) {
 	g_settings.setInteger(Config::SHOW_WALL_HOOKS, menuBar->IsItemChecked(SHOW_WALL_HOOKS));
 	g_settings.setInteger(Config::SHOW_TOWNS, menuBar->IsItemChecked(SHOW_TOWNS));
 
+	g_settings.setInteger(Config::SHOW_INVALID_ZONES, menuBar->IsItemChecked(SHOW_INVALID_ZONES));
+	g_settings.setInteger(Config::ALWAYS_SHOW_ZONES, menuBar->IsItemChecked(ALWAYS_SHOW_ZONES));
+
 	if (supports_zones) {
-		g_settings.setInteger(Config::SHOW_INVALID_ZONES, menuBar->IsItemChecked(SHOW_INVALID_ZONES));
 		g_settings.setInteger(Config::SHOW_ZONES, menuBar->IsItemChecked(SHOW_ZONES));
-		g_settings.setInteger(Config::ALWAYS_SHOW_ZONES, menuBar->IsItemChecked(ALWAYS_SHOW_ZONES));
 	}
 	g_settings.setInteger(Config::EXT_HOUSE_SHADER, menuBar->IsItemChecked(EXT_HOUSE_SHADER));
 	g_settings.setInteger(Config::EXT_PATHING_SHADER, menuBar->IsItemChecked(EXT_PATHING_SHADER));
