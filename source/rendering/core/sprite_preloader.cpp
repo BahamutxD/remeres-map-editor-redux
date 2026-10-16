@@ -13,8 +13,6 @@
 #include <span>
 
 namespace {
-	constexpr size_t RGBA_COMPONENTS = 4;
-
 	[[nodiscard]] size_t resultByteSize(const ImageDimensions& dimensions) {
 		return dimensions.pixelCount() * RGBA_COMPONENTS;
 	}

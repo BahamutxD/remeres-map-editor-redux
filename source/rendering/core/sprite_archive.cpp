@@ -25,19 +25,6 @@ namespace {
 	constexpr size_t kDecodedSheetCacheLimit = 64;
 	constexpr std::array<uint8_t, 5> kProtobufSheetMagic { 0x70, 0x0A, 0xFA, 0x80, 0x24 };
 
-	bool readSpriteCount(FileReadHandle& file, bool is_extended, uint32_t& sprite_count) {
-		if (is_extended) {
-			return file.getU32(sprite_count);
-		}
-
-		uint16_t compact_count = 0;
-		if (!file.getU16(compact_count)) {
-			return false;
-		}
-		sprite_count = compact_count;
-		return true;
-	}
-
 	bool readSpriteOffsets(FileReadHandle& file, uint32_t sprite_count, std::vector<uint32_t>& offsets) {
 		offsets.assign(static_cast<size_t>(sprite_count) + 1, 0);
 		for (uint32_t sprite_id = 1; sprite_id <= sprite_count; ++sprite_id) {
@@ -77,6 +64,19 @@ SpriteArchive::SpriteArchive(std::string filename, uint32_t sprite_count, std::v
 	backend_(Backend::Protobuf),
 	protobuf_sheets_(std::move(sheets)),
 	protobuf_sheet_lookup_(std::move(sheet_lookup)) {
+}
+
+bool SpriteArchive::readSpriteCount(FileReadHandle& file, bool is_extended, uint32_t& sprite_count) {
+	if (is_extended) {
+		return file.getU32(sprite_count);
+	}
+
+	uint16_t compact_count = 0;
+	if (!file.getU16(compact_count)) {
+		return false;
+	}
+	sprite_count = compact_count;
+	return true;
 }
 
 std::shared_ptr<SpriteArchive> SpriteArchive::load(const std::filesystem::path& path, bool is_extended, std::string& error, std::vector<std::string>& warnings) {

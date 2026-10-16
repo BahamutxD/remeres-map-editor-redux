@@ -87,8 +87,13 @@ set_target_properties(rme PROPERTIES CXX_STANDARD_REQUIRED ON)
 target_compile_definitions(rme PRIVATE WXWIN_COMPATIBILITY_3_3 NANOVG_GL3)
 target_precompile_headers(rme PRIVATE source/app/main.h)
 set_source_files_properties(${RME_PROTO_SRCS} PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+# Defines NANOVG_GL3_IMPLEMENTATION, which must not leak into a unity batch
+set_source_files_properties(source/util/nanovg_canvas.cpp PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 if(MSVC AND CMAKE_GENERATOR MATCHES "Visual Studio")
 	target_compile_options(rme PRIVATE /MP)
+endif()
+if(MSVC AND CMAKE_UNITY_BUILD)
+	target_compile_options(rme PRIVATE /bigobj)
 endif()
  
 # Copy assets to build directory

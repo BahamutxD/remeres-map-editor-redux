@@ -23,12 +23,6 @@
 #include "item_definitions/core/item_definition_store.h"
 #include "util/image_manager.h"
 
-namespace {
-	bool supportsClassificationTiers() {
-		return g_item_definitions.MajorVersion > 3 || (g_item_definitions.MajorVersion == 3 && g_item_definitions.MinorVersion >= 60);
-	}
-}
-
 // ============================================================================
 // Item Properties Window
 

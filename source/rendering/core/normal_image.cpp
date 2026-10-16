@@ -5,8 +5,6 @@
 #include <cstring>
 #include <ranges>
 
-constexpr int RGB_COMPONENTS = 3;
-
 namespace {
 	bool loadRgbaFromArchive(uint32_t id, std::unique_ptr<uint8_t[]>& rgba, ImageDimensions& dimensions) {
 		const auto archive = g_graphics.getSpriteArchive();
