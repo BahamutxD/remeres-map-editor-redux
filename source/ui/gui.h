@@ -110,6 +110,9 @@ public:
 	void SetLoadText(const wxString& message) {
 		g_loading.SetLoadText(message);
 	}
+	bool WasLoadCancelled() const {
+		return g_loading.WasCancelled();
+	}
 	bool SetLoadDone(int32_t done, const wxString& newMessage = "") {
 		return g_loading.SetLoadDone(done, newMessage);
 	}
@@ -432,6 +435,10 @@ public:
 
 	void SetLoadText(const wxString& message) {
 		g_loading.SetLoadText(message);
+	}
+
+	bool WasLoadCancelled() const {
+		return g_loading.WasCancelled();
 	}
 
 	void SetLoadScale(int32_t from, int32_t to) {

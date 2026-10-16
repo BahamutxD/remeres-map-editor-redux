@@ -14,6 +14,7 @@ LoadingManager g_loading;
 
 LoadingManager::LoadingManager() :
 	progressBar(nullptr),
+	cancelled(false),
 	progressFrom(0),
 	progressTo(100),
 	currentProgress(-1) {
@@ -29,6 +30,7 @@ void LoadingManager::CreateLoadBar(wxString message, bool canCancel, const wxStr
 	progressFrom = 0;
 	progressTo = 100;
 	currentProgress = -1;
+	cancelled = false;
 
 	progressBar = newd wxGenericProgressDialog(title, progressText + " (0%)", 100, g_gui.root, wxPD_APP_MODAL | wxPD_SMOOTH | (canCancel ? wxPD_CAN_ABORT : 0));
 	progressBar->Show(true);
@@ -73,6 +75,9 @@ bool LoadingManager::SetLoadDone(int32_t done, const wxString& newMessage) {
 			&skip
 		);
 		currentProgress = newProgress;
+		if (skip) {
+			cancelled = true;
+		}
 	}
 
 	if (g_gui.tabbook) {
@@ -106,6 +111,9 @@ void LoadingManager::DestroyLoadBar() {
 	if (progressBar) {
 		progressBar->Show(false);
 		currentProgress = -1;
+		// Cancellation belongs to the bar being closed; later operations that
+		// run without a bar must not inherit it.
+		cancelled = false;
 
 		progressBar->Destroy();
 		progressBar = nullptr;

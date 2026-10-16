@@ -50,9 +50,18 @@ public:
 		return progressBar != nullptr;
 	}
 
+	/**
+	 * True when the user pressed the abort button of the current progress bar.
+	 * Reset when a new bar is created; long operations poll it to stop early.
+	 */
+	bool WasCancelled() const {
+		return cancelled;
+	}
+
 private:
 	wxString progressText;
 	wxGenericProgressDialog* progressBar;
+	bool cancelled;
 
 	int32_t progressFrom;
 	int32_t progressTo;
