@@ -162,12 +162,13 @@ bool EditorPersistence::saveMap(Editor& editor, FileName filename, bool showdial
 		editor.map.name = fn.GetFullName().mb_str(wxConvUTF8);
 
 		if (showdialog) {
-			g_gui.CreateLoadBar("Saving map...", false, "Saving");
+			g_gui.CreateLoadBar("Saving map...", true, "Saving");
 		}
 
 		// Perform the actual save
 		IOMapOTBM mapsaver(editor.map.getVersion());
 		bool success = mapsaver.saveMap(editor.map, fn);
+		const bool cancelled = showdialog && g_gui.WasLoadCancelled();
 
 		if (showdialog) {
 			g_gui.DestroyLoadBar();
@@ -175,6 +176,17 @@ bool EditorPersistence::saveMap(Editor& editor, FileName filename, bool showdial
 
 		// Check for errors...
 		if (!success) {
+			if (cancelled) {
+				// Keep the bar up while the partial write is rolled back so the
+				// user sees the cancellation being processed instead of a frozen
+				// window; it is destroyed below, after the rollback.
+				g_gui.SetLoadText("Cancelling...");
+				g_gui.SetStatusText("Saving cancelled.");
+			} else if (showdialog) {
+				// Error path: the bar has to go before the modal error dialog.
+				g_gui.DestroyLoadBar();
+			}
+
 			auto restoreBackup = [](const std::string& backupPath, const std::string& targetPath) {
 				if (backupPath.empty()) {
 					if (!targetPath.empty()) {
@@ -215,7 +227,9 @@ bool EditorPersistence::saveMap(Editor& editor, FileName filename, bool showdial
 			}
 
 			// Display the error
-			DialogUtil::PopupDialog("Error", "Could not save, unable to open target for writing.", wxOK);
+			if (!cancelled) {
+				DialogUtil::PopupDialog("Error", "Could not save, unable to open target for writing.", wxOK);
+			}
 		}
 
 		// Remove temporary save runfile
