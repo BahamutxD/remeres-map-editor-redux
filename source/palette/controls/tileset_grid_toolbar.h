@@ -94,6 +94,7 @@ private:
 	wxSearchCtrl* m_searchCtrl = nullptr;
 	wxBoxSizer* m_toolbarRow = nullptr;
 	wxBoxSizer* m_searchRow = nullptr;
+	wxBoxSizer* m_rootSizer = nullptr;
 
 	bool m_showLabels = false;
 	int m_iconSize = 32;

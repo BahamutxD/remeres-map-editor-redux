@@ -108,21 +108,27 @@ void TilesetGridToolbar::SetStacked(bool stacked) {
 		return;
 	}
 
-	// The search box is always the flexible one within its row.
-	if (m_searchRow->GetItemCount() > 0) {
-		m_searchRow->Detach(m_searchCtrl);
-		m_searchRow->Add(m_searchCtrl, 1, wxALIGN_CENTER_VERTICAL);
+	if (!m_rootSizer) {
+		m_rootSizer = newd wxBoxSizer(stacked ? wxVERTICAL : wxHORIZONTAL);
+		SetSizer(m_rootSizer, false);
 	}
 
-	wxSizer* sizer = newd wxBoxSizer(stacked ? wxVERTICAL : wxHORIZONTAL);
+	// Only the outer sizer belongs to this window; the rows are detached and
+	// re-added so a layout change never deletes them (a second SetSizer with
+	// ownership would leave these pointers dangling).
+	m_rootSizer->Detach(m_toolbarRow);
+	m_rootSizer->Detach(m_searchRow);
+	m_rootSizer->SetOrientation(stacked ? wxVERTICAL : wxHORIZONTAL);
+
 	if (stacked) {
-		sizer->Add(m_toolbarRow, 0, wxEXPAND);
-		sizer->Add(m_searchRow, 0, wxEXPAND | wxTOP, FromDIP(2));
+		m_rootSizer->Add(m_toolbarRow, 0, wxEXPAND);
+		m_rootSizer->Add(m_searchRow, 0, wxEXPAND | wxTOP, FromDIP(2));
 	} else {
-		sizer->Add(m_toolbarRow, 0, wxALIGN_CENTER_VERTICAL);
-		sizer->Add(m_searchRow, 1, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(4));
+		m_rootSizer->Add(m_toolbarRow, 0, wxALIGN_CENTER_VERTICAL);
+		m_rootSizer->Add(m_searchRow, 1, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(4));
 	}
-	SetSizer(sizer, true);
+
+	Layout();
 }
 
 void TilesetGridToolbar::SetState(bool show_labels, int icon_size, bool has_sort, TilesetSortKey sort_key, TilesetSortDirection sort_dir, bool filter_all) {
