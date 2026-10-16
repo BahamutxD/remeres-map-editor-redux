@@ -492,6 +492,7 @@ bool MapXMLIO::loadZones(Map& map, const wxFileName& dir) {
 	}
 
 	map.zones.clear();
+	map.max_assigned_zone_id = 0;
 	for (auto zoneNode : node.children("zone")) {
 		const std::string name = zoneNode.attribute("name").as_string();
 		const unsigned int raw_id = zoneNode.attribute("zoneid").as_uint();
@@ -505,6 +506,7 @@ bool MapXMLIO::loadZones(Map& map, const wxFileName& dir) {
 			continue;
 		}
 		map.zones.push_back({ name, id });
+		map.max_assigned_zone_id = std::max(map.max_assigned_zone_id, id);
 	}
 	return true;
 }

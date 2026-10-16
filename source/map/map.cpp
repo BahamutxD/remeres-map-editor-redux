@@ -72,6 +72,7 @@ void Map::initializeEmpty() {
 	unnamed = true;
 	zones.clear();
 	zone_index.clear();
+	max_assigned_zone_id = 0;
 
 	doChange();
 }
@@ -207,7 +208,7 @@ uint16_t Map::addZone(std::string name) {
 	if (name.empty() || findZone(name)) {
 		return 0;
 	}
-	uint16_t id = 1;
+	uint16_t id = std::max<uint16_t>(max_assigned_zone_id + 1, 1);
 	// Skip IDs referenced by tiles too: a sidecar may omit a zone the tiles
 	// still point at, and handing that ID to a new zone would silently adopt
 	// those tiles.
@@ -217,6 +218,7 @@ uint16_t Map::addZone(std::string name) {
 		}
 		++id;
 	}
+	max_assigned_zone_id = id;
 	zones.push_back({ std::move(name), id });
 	doChange();
 	return id;

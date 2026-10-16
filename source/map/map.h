@@ -219,6 +219,7 @@ protected:
 public:
 	std::vector<Zone> zones;
 	ZoneIndex zone_index;
+	uint16_t max_assigned_zone_id = 0;
 
 	Towns towns;
 	Houses houses;
