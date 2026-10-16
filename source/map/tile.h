@@ -372,7 +372,23 @@ inline void Tile::setZoneIds(std::span<const uint16_t> zoneIds) {
 		}
 		return;
 	}
-	getOrCreateExtra().zoneIds.assign(zoneIds.begin(), zoneIds.end());
+	auto& ids = getOrCreateExtra().zoneIds;
+	ids.clear();
+	ids.reserve(zoneIds.size());
+	for (uint16_t id : zoneIds) {
+		if (id != 0) {
+			ids.push_back(id);
+		}
+	}
+	if (ids.empty()) {
+		if (extra && extra->empty()) {
+			extra.reset();
+		}
+		return;
+	}
+	std::ranges::sort(ids);
+	const auto [drop_it, end_it] = std::ranges::unique(ids);
+	ids.erase(drop_it, end_it);
 }
 
 inline void Tile::setMapFlags(uint32_t _flags) {
