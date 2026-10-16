@@ -519,7 +519,31 @@ void ZoneOverlayDrawer::drawFloorZones(SpriteBatch& sprite_batch,
 		return;
 	}
 
+	if (map.zone_index.totalTileCount() == 0 && (!secondary_map || !secondary_map->supportsZones())) {
+		return;
+	}
+
 	const ViewBounds bounds = view.getBoundsForFloor(z);
+
+	// Spatial culling: check if any zone clusters intersect the visible floor viewport bounds
+	bool floor_has_visible_zones = false;
+	for (const auto& zone : map.zones) {
+		for (const auto& cluster : map.zone_index.getClusters(zone.id)) {
+			if (cluster.centroid_pos.z == z &&
+			    cluster.max_x >= bounds.start_x && cluster.min_x <= bounds.end_x &&
+			    cluster.max_y >= bounds.start_y && cluster.min_y <= bounds.end_y) {
+				floor_has_visible_zones = true;
+				break;
+			}
+		}
+		if (floor_has_visible_zones) {
+			break;
+		}
+	}
+	if (!floor_has_visible_zones && !secondary_map) {
+		return;
+	}
+
 	const int min_x = bounds.start_x - 1;
 	const int max_x = bounds.end_x + 1;
 	const int row_width = max_x - min_x + 1;
@@ -561,18 +585,20 @@ void ZoneOverlayDrawer::drawFloorZones(SpriteBatch& sprite_batch,
 
 			sprite_batch.drawRect(fx, fy, 32.0f, 32.0f, glm::vec4(rgb, active ? 0.45f : 0.25f), atlas, depth);
 
-			const glm::vec4 edge(rgb, 0.9f);
-			if (zone_row_prev_[idx] != zone_id) {
-				sprite_batch.drawRect(fx, fy, 32.0f, kBorder, edge, atlas, depth);
-			}
-			if (zone_row_next_[idx] != zone_id) {
-				sprite_batch.drawRect(fx, fy + 32.0f - kBorder, 32.0f, kBorder, edge, atlas, depth);
-			}
-			if (zone_row_curr_[idx - 1] != zone_id) {
-				sprite_batch.drawRect(fx, fy, kBorder, 32.0f, edge, atlas, depth);
-			}
-			if (zone_row_curr_[idx + 1] != zone_id) {
-				sprite_batch.drawRect(fx + 32.0f - kBorder, fy, kBorder, 32.0f, edge, atlas, depth);
+			if (options.show_zone_borders) {
+				const glm::vec4 edge(rgb, 0.9f);
+				if (zone_row_prev_[idx] != zone_id) {
+					sprite_batch.drawRect(fx, fy, 32.0f, kBorder, edge, atlas, depth);
+				}
+				if (zone_row_next_[idx] != zone_id) {
+					sprite_batch.drawRect(fx, fy + 32.0f - kBorder, 32.0f, kBorder, edge, atlas, depth);
+				}
+				if (zone_row_curr_[idx - 1] != zone_id) {
+					sprite_batch.drawRect(fx, fy, kBorder, 32.0f, edge, atlas, depth);
+				}
+				if (zone_row_curr_[idx + 1] != zone_id) {
+					sprite_batch.drawRect(fx + 32.0f - kBorder, fy, kBorder, 32.0f, edge, atlas, depth);
+				}
 			}
 		}
 
