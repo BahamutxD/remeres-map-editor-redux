@@ -22,27 +22,54 @@
 #include <wx/textctrl.h>
 #include <wx/spinctrl.h>
 
+#include "map/position.h"
+
 class Map;
 class Town;
 class PositionCtrl;
 
 class EditTownDialog : public wxDialog {
 public:
-	EditTownDialog(wxWindow* parent, Map* map, Town* town);
-	virtual ~EditTownDialog();
+	enum CustomReturnCode {
+		DIALOG_PICK_TEMPLE = wxID_HIGHEST + 101
+	};
 
-	void OnClickSelectTemplePosition(wxCommandEvent& event);
+	EditTownDialog(wxWindow* parent, Map* map, Town* town, bool is_new = false);
+	~EditTownDialog() override;
+
+	void OnClickPickFromMap(wxCommandEvent& event);
+	void OnClickUseViewCenter(wxCommandEvent& event);
 	void OnClickOK(wxCommandEvent& event);
 	void OnClickCancel(wxCommandEvent& event);
 
+	std::string GetTownName() const;
+	uint32_t GetTownID() const;
+	Position GetTemplePosition() const;
+
+	void SetTemplePosition(const Position& pos);
+
 protected:
-	Map* map;
-	Town* town;
+	Map* map = nullptr;
+	Town* town = nullptr;
+	bool is_new_ = false;
 
 	wxString town_name;
-	wxTextCtrl* name_field;
-	wxSpinCtrl* id_field;
-	PositionCtrl* temple_position;
+	wxTextCtrl* name_field = nullptr;
+	wxSpinCtrl* id_field = nullptr;
+	PositionCtrl* temple_position = nullptr;
+	wxButton* pick_map_button = nullptr;
+	wxButton* use_view_button = nullptr;
+};
+
+// Custom styled wxWidgets confirmation dialogs (matching RME theme & English labels)
+class TownIdWarningDialog : public wxDialog {
+public:
+	TownIdWarningDialog(wxWindow* parent, uint32_t old_id, uint32_t new_id, size_t house_count);
+};
+
+class TownDeleteDialog : public wxDialog {
+public:
+	TownDeleteDialog(wxWindow* parent, const std::string& town_name, uint32_t town_id, size_t house_count);
 };
 
 #endif

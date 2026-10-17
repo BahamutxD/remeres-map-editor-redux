@@ -350,8 +350,19 @@ void DrawOperations::draw(Editor& editor, Position offset, bool alt, bool dodraw
 			return;
 		}
 
+		if (temple_brush->hasPlacementCallback()) {
+			temple_brush->invokePlacementCallback(offset);
+			g_gui.SelectPreviousBrush();
+			return;
+		}
+
 		Town* town = editor.map.towns.getTown(temple_brush->getTownID());
-		if (!town || town->getTemplePosition() == offset) {
+		if (!town) {
+			return;
+		}
+		if (town->getTemplePosition() == offset) {
+			g_gui.SetStatusText(wxstr(std::format("Town \"{}\" (ID: {}) temple position is already at ({}, {}, {}).", town->getName(), town->getID(), offset.x, offset.y, offset.z)));
+			g_gui.SelectPreviousBrush();
 			return;
 		}
 
@@ -363,6 +374,7 @@ void DrawOperations::draw(Editor& editor, Position offset, bool alt, bool dodraw
 		g_gui.SetStatusText(wxstr(std::format("Town \"{}\" (ID: {}) temple position set to ({}, {}, {})", town->getName(), town->getID(), offset.x, offset.y, offset.z)));
 		g_gui.SelectPreviousBrush();
 		g_gui.RefreshPalettes();
+		g_gui.RefreshView();
 	} else if (brush->is<WallBrush>()) {
 		std::unique_ptr<BatchAction> batch = editor.actionQueue->createBatch(ACTION_DRAW);
 		std::unique_ptr<Action> action = editor.actionQueue->createAction(batch.get());

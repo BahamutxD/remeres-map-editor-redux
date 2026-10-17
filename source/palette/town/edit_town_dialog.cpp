@@ -25,17 +25,119 @@
 #include "ui/positionctrl.h"
 #include "ui/gui.h"
 #include "ui/dialog_util.h"
+#include "ui/map_tab.h"
 #include "util/image_manager.h"
 #include "ui/managers/minimap_manager.h"
 
-EditTownDialog::EditTownDialog(wxWindow* parent, Map* map, Town* town) :
-	wxDialog(parent, wxID_ANY, "Edit Town", wxDefaultPosition, FROM_DIP(parent, wxSize(300, 260))),
+#include <wx/statbmp.h>
+#include <format>
+
+// ============================================================================
+// TownIdWarningDialog
+// ============================================================================
+TownIdWarningDialog::TownIdWarningDialog(wxWindow* parent, uint32_t old_id, uint32_t new_id, size_t house_count) :
+	wxDialog(parent, wxID_ANY, "Warning: Town ID Changed", wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE) {
+	auto* topsizer = newd wxBoxSizer(wxVERTICAL);
+
+	auto* content_sizer = newd wxBoxSizer(wxHORIZONTAL);
+	auto* icon = newd wxStaticBitmap(this, wxID_ANY, IMAGE_MANAGER.GetBitmap(ICON_TRIANGLE_EXCLAMATION, wxSize(32, 32)));
+	content_sizer->Add(icon, 0, wxALL | wxALIGN_TOP, 15);
+
+	wxString msg = wxString::Format(
+		"Changing Town ID from %u to %u has major consequences:\n\n"
+		"  - %zu houses are currently linked to this town in the OTBM map.\n"
+		"  - Server database: Player spawn points ('players' table) and NPC scripts rely on Town ID.\n\n"
+		"Do you want to update all %zu associated houses to use the new Town ID %u?",
+		old_id, new_id, house_count, house_count, new_id
+	);
+	auto* text = newd wxStaticText(this, wxID_ANY, msg);
+	text->Wrap(FromDIP(450));
+	content_sizer->Add(text, 1, wxTOP | wxBOTTOM | wxRIGHT | wxEXPAND, 15);
+	topsizer->Add(content_sizer, 1, wxEXPAND);
+
+	auto* btn_sizer = newd wxBoxSizer(wxHORIZONTAL);
+
+	auto* update_btn = newd wxButton(this, wxID_YES, "Update Houses");
+	update_btn->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_CHECK, wxSize(16, 16)));
+	update_btn->SetToolTip("Update town ID and automatically update all linked houses");
+	btn_sizer->Add(update_btn, 0, wxRIGHT, 8);
+
+	auto* keep_btn = newd wxButton(this, wxID_NO, "Keep Old IDs");
+	keep_btn->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_TRIANGLE_EXCLAMATION, wxSize(16, 16)));
+	keep_btn->SetToolTip("Update town ID only (houses will remain linked to the old town ID)");
+	btn_sizer->Add(keep_btn, 0, wxRIGHT, 8);
+
+	auto* cancel_btn = newd wxButton(this, wxID_CANCEL, "Cancel");
+	cancel_btn->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_XMARK, wxSize(16, 16)));
+	cancel_btn->SetToolTip("Abort changes");
+	btn_sizer->Add(cancel_btn, 0);
+
+	topsizer->Add(btn_sizer, 0, wxALIGN_RIGHT | wxALL, 15);
+
+	SetSizerAndFit(topsizer);
+	Centre(wxBOTH);
+
+	SetIcons(IMAGE_MANAGER.GetIconBundle(ICON_CITY));
+}
+
+// ============================================================================
+// TownDeleteDialog
+// ============================================================================
+TownDeleteDialog::TownDeleteDialog(wxWindow* parent, const std::string& name, uint32_t town_id, size_t house_count) :
+	wxDialog(parent, wxID_ANY, "Delete Town & Associated Houses", wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE) {
+	auto* topsizer = newd wxBoxSizer(wxVERTICAL);
+
+	auto* content_sizer = newd wxBoxSizer(wxHORIZONTAL);
+	auto* icon = newd wxStaticBitmap(this, wxID_ANY, IMAGE_MANAGER.GetBitmap(ICON_TRIANGLE_EXCLAMATION, wxSize(32, 32)));
+	content_sizer->Add(icon, 0, wxALL | wxALIGN_TOP, 15);
+
+	wxString msg = wxString::Format(
+		"Town '%s' (ID: %u) has %zu house(s) assigned to it.\n\n"
+		"Deleting this town will permanently delete all %zu associated houses, house tiles, and house exits!\n\n"
+		"Are you sure you want to delete town '%s' and wipe all of its houses?",
+		wxstr(name), town_id, house_count, house_count, wxstr(name)
+	);
+	auto* text = newd wxStaticText(this, wxID_ANY, msg);
+	text->Wrap(FromDIP(450));
+	content_sizer->Add(text, 1, wxTOP | wxBOTTOM | wxRIGHT | wxEXPAND, 15);
+	topsizer->Add(content_sizer, 1, wxEXPAND);
+
+	auto* btn_sizer = newd wxBoxSizer(wxHORIZONTAL);
+
+	auto* delete_btn = newd wxButton(this, wxID_YES, "Delete Town & Houses");
+	delete_btn->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_MINUS, wxSize(16, 16)));
+	delete_btn->SetToolTip("Delete the town and permanently remove all associated houses");
+	btn_sizer->Add(delete_btn, 0, wxRIGHT, 8);
+
+	auto* cancel_btn = newd wxButton(this, wxID_CANCEL, "Cancel");
+	cancel_btn->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_XMARK, wxSize(16, 16)));
+	cancel_btn->SetToolTip("Cancel and keep town");
+	btn_sizer->Add(cancel_btn, 0);
+
+	topsizer->Add(btn_sizer, 0, wxALIGN_RIGHT | wxALL, 15);
+
+	SetSizerAndFit(topsizer);
+	Centre(wxBOTH);
+
+	SetIcons(IMAGE_MANAGER.GetIconBundle(ICON_CITY));
+}
+
+// ============================================================================
+// EditTownDialog
+// ============================================================================
+EditTownDialog::EditTownDialog(wxWindow* parent, Map* map, Town* town, bool is_new) :
+	wxDialog(parent, wxID_ANY, is_new ? "Add Town" : "Edit Town", wxDefaultPosition, FROM_DIP(parent, wxSize(320, 290))),
 	map(map),
-	town(town) {
+	town(town),
+	is_new_(is_new) {
 	ASSERT(map);
 	ASSERT(town);
 
-	SetTitle(wxstr(std::format("Edit Town: {} (ID: {})", town->getName(), town->getID())));
+	if (is_new_) {
+		SetTitle("Add Town");
+	} else {
+		SetTitle(wxstr(std::format("Edit Town: {} (ID: {})", town->getName(), town->getID())));
+	}
 
 	auto* topsizer = newd wxBoxSizer(wxVERTICAL);
 
@@ -64,30 +166,40 @@ EditTownDialog::EditTownDialog(wxWindow* parent, Map* map, Town* town) :
 	temple_position = newd PositionCtrl(this, "Temple Position", 0, 0, 0, map->getWidth(), map->getHeight());
 	temple_position->SetPosition(town->getTemplePosition());
 
-	auto* goto_button = newd wxButton(temple_position->GetStaticBox(), wxID_ANY, "Go To");
-	goto_button->SetBitmap(IMAGE_MANAGER.GetBitmapBundle(ICON_LOCATION_ARROW));
-	goto_button->SetToolTip("Center map camera on temple position");
-	temple_position->Add(goto_button, 0, wxLEFT | wxRIGHT | wxBOTTOM, 5);
+	auto* pos_btns_sizer = newd wxBoxSizer(wxHORIZONTAL);
+
+	pick_map_button = newd wxButton(temple_position->GetStaticBox(), wxID_ANY, "Pick from Map");
+	pick_map_button->SetBitmap(IMAGE_MANAGER.GetBitmapBundle(ICON_CROSSHAIRS));
+	pick_map_button->SetToolTip("Click to pick temple position directly on the map");
+	pos_btns_sizer->Add(pick_map_button, 1, wxRIGHT, 5);
+
+	use_view_button = newd wxButton(temple_position->GetStaticBox(), wxID_ANY, "Set from View");
+	use_view_button->SetBitmap(IMAGE_MANAGER.GetBitmapBundle(ICON_LOCATION_ARROW));
+	use_view_button->SetToolTip("Use current map view center as temple position");
+	pos_btns_sizer->Add(use_view_button, 1);
+
+	temple_position->Add(pos_btns_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 5);
 	topsizer->Add(temple_position, 0, wxEXPAND | wxLEFT | wxRIGHT, 10);
 
 	// OK / Cancel buttons
 	auto* btnSizer = newd wxBoxSizer(wxHORIZONTAL);
-	auto* okBtn = newd wxButton(this, wxID_OK, "OK");
+	auto* okBtn = newd wxButton(this, wxID_OK, is_new_ ? "Create Town" : "OK");
 	okBtn->SetBitmap(IMAGE_MANAGER.GetBitmapBundle(ICON_CHECK));
-	okBtn->SetToolTip("Save changes");
+	okBtn->SetToolTip(is_new_ ? "Create town" : "Save changes");
 	btnSizer->Add(okBtn, wxSizerFlags(1).Center());
 
 	auto* cancelBtn = newd wxButton(this, wxID_CANCEL, "Cancel");
 	cancelBtn->SetBitmap(IMAGE_MANAGER.GetBitmapBundle(ICON_XMARK));
 	cancelBtn->SetToolTip("Cancel");
-	btnSizer->Add(cancelBtn, wxSizerFlags(1).Center());
+	btnSizer->Add(cancelBtn, wxSizerFlags(1).Center().Border(wxLEFT, 10));
 
 	topsizer->Add(btnSizer, 0, wxCENTER | wxALL, 10);
 
 	SetSizerAndFit(topsizer);
 	Centre(wxBOTH);
 
-	goto_button->Bind(wxEVT_BUTTON, &EditTownDialog::OnClickSelectTemplePosition, this);
+	pick_map_button->Bind(wxEVT_BUTTON, &EditTownDialog::OnClickPickFromMap, this);
+	use_view_button->Bind(wxEVT_BUTTON, &EditTownDialog::OnClickUseViewCenter, this);
 	okBtn->Bind(wxEVT_BUTTON, &EditTownDialog::OnClickOK, this);
 	cancelBtn->Bind(wxEVT_BUTTON, &EditTownDialog::OnClickCancel, this);
 
@@ -96,10 +208,33 @@ EditTownDialog::EditTownDialog(wxWindow* parent, Map* map, Town* town) :
 
 EditTownDialog::~EditTownDialog() = default;
 
-void EditTownDialog::OnClickSelectTemplePosition(wxCommandEvent& WXUNUSED(event)) {
-	Position templepos = temple_position->GetPosition();
-	if (templepos.isValid()) {
-		g_gui.SetScreenCenterPosition(templepos);
+std::string EditTownDialog::GetTownName() const {
+	return name_field ? name_field->GetValue().ToStdString() : "";
+}
+
+uint32_t EditTownDialog::GetTownID() const {
+	return id_field ? static_cast<uint32_t>(id_field->GetValue()) : 0;
+}
+
+Position EditTownDialog::GetTemplePosition() const {
+	return temple_position ? temple_position->GetPosition() : Position();
+}
+
+void EditTownDialog::SetTemplePosition(const Position& pos) {
+	if (temple_position && pos.isValid()) {
+		temple_position->SetPosition(pos);
+	}
+}
+
+void EditTownDialog::OnClickPickFromMap(wxCommandEvent& WXUNUSED(event)) {
+	EndModal(DIALOG_PICK_TEMPLE);
+}
+
+void EditTownDialog::OnClickUseViewCenter(wxCommandEvent& WXUNUSED(event)) {
+	MapTab* mapTab = g_gui.GetCurrentMapTab();
+	Position center = mapTab ? mapTab->GetScreenCenterPosition() : Position();
+	if (center.isValid()) {
+		temple_position->SetPosition(center);
 	}
 }
 
@@ -121,6 +256,22 @@ void EditTownDialog::OnClickOK(wxCommandEvent& WXUNUSED(event)) {
 	}
 
 	uint32_t new_id = static_cast<uint32_t>(id_field->GetValue());
+
+	if (is_new_) {
+		// Check for duplicate ID
+		if (map->towns.getTown(new_id) != nullptr) {
+			DialogUtil::PopupDialog(this, "Error", wxstr(std::format("A town with ID {} already exists.", new_id)), wxOK);
+			return;
+		}
+
+		town->setName(nstr(new_name));
+		town->setTemplePosition(new_temple);
+		town->setID(new_id);
+		EndModal(wxID_OK);
+		return;
+	}
+
+	// Editing existing town
 	uint32_t old_id = town->getID();
 	bool cascade_houses = false;
 
@@ -138,27 +289,13 @@ void EditTownDialog::OnClickOK(wxCommandEvent& WXUNUSED(event)) {
 		}
 
 		if (house_count > 0) {
-			wxString msg = wxString::Format(
-				"Changing Town ID from %u to %u has major consequences:\n\n"
-				"• OTBM Map & Houses: %zu houses are currently linked to this town.\n"
-				"• Server Database: Player spawn points ('players' table) and NPC scripts rely on Town ID.\n\n"
-				"Do you want to update all %zu associated houses to use the new Town ID %u?",
-				old_id, new_id, house_count, house_count, new_id
-			);
-			int answer = DialogUtil::PopupDialog(this, "Warning: Town ID Changed", msg, wxYES_NO | wxCANCEL);
-			if (answer == wxCANCEL || answer == wxID_CANCEL) {
+			TownIdWarningDialog warn_dlg(this, old_id, new_id, house_count);
+			int answer = warn_dlg.ShowModal();
+			if (answer == wxID_CANCEL) {
 				return;
 			}
-			if (answer == wxYES || answer == wxID_YES) {
+			if (answer == wxID_YES) {
 				cascade_houses = true;
-			}
-		} else {
-			int answer = DialogUtil::PopupDialog(this, "Warning",
-				"Changing existing town IDs on a production server WILL HAVE DATABASE CONSEQUENCES\n"
-				"such as invalidating player spawn points and scripts.\n\n"
-				"Are you sure you want to continue?", wxYES | wxNO);
-			if (answer == wxNO || answer == wxID_NO) {
-				return;
 			}
 		}
 
@@ -206,6 +343,7 @@ void EditTownDialog::OnClickOK(wxCommandEvent& WXUNUSED(event)) {
 
 	map->doChange();
 	g_gui.RefreshPalettes();
+	g_gui.RefreshView();
 	EndModal(wxID_OK);
 }
 

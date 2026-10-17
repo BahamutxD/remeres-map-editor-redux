@@ -19,6 +19,7 @@
 #define RME_TOWN_TEMPLE_BRUSH_H_
 
 #include "brushes/brush.h"
+#include <functional>
 
 class Town;
 
@@ -52,6 +53,36 @@ public:
 	void setTown(Town* town);
 	uint32_t getTownID() const;
 
+	void setPlacementCallback(std::function<void(const Position&)> callback) {
+		on_placement_callback_ = std::move(callback);
+	}
+	void setCancelCallback(std::function<void()> callback) {
+		on_cancel_callback_ = std::move(callback);
+	}
+	bool hasPlacementCallback() const {
+		return static_cast<bool>(on_placement_callback_);
+	}
+	void invokePlacementCallback(const Position& pos) {
+		if (on_placement_callback_) {
+			auto cb = std::move(on_placement_callback_);
+			on_placement_callback_ = nullptr;
+			on_cancel_callback_ = nullptr;
+			cb(pos);
+		}
+	}
+	void invokeCancelCallback() {
+		if (on_cancel_callback_) {
+			auto cb = std::move(on_cancel_callback_);
+			on_placement_callback_ = nullptr;
+			on_cancel_callback_ = nullptr;
+			cb();
+		}
+	}
+	void clearCallbacks() {
+		on_placement_callback_ = nullptr;
+		on_cancel_callback_ = nullptr;
+	}
+
 	int getLookID() const override {
 		return 0;
 	}
@@ -61,6 +92,8 @@ public:
 
 protected:
 	uint32_t draw_town;
+	std::function<void(const Position&)> on_placement_callback_;
+	std::function<void()> on_cancel_callback_;
 };
 
 #endif

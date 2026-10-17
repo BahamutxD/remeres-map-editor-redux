@@ -56,6 +56,7 @@ public:
 	void SetMap(Map* map);
 
 protected:
+	bool RunEditTownModal(wxWindow* parent, Map* map, Town* town, bool is_new);
 	Town* GetSelectedTown() const;
 
 	Map* map = nullptr;

@@ -113,6 +113,10 @@ void KeyboardHandler::OnKeyDown(MapCanvas* canvas, wxKeyEvent& event) {
 		}
 		case WXK_ESCAPE: {
 			if (g_gui.GetCurrentBrush() && g_gui.GetCurrentBrush()->is<TownTempleBrush>()) {
+				auto* temple_brush = g_gui.GetCurrentBrush()->as<TownTempleBrush>();
+				if (temple_brush && temple_brush->hasPlacementCallback()) {
+					temple_brush->invokeCancelCallback();
+				}
 				g_gui.SelectPreviousBrush();
 				g_gui.SetStatusText("Temple placement cancelled.");
 				break;

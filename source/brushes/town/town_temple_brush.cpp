@@ -38,14 +38,14 @@ uint32_t TownTempleBrush::getTownID() const {
 }
 
 bool TownTempleBrush::canDraw(BaseMap* map, const Position& position) const {
-	if (draw_town == 0 || !map) {
+	if (!map || !position.isValid()) {
+		return false;
+	}
+	if (!hasPlacementCallback() && draw_town == 0) {
 		return false;
 	}
 	Tile* tile = map->getTile(position);
-	if (!tile || !tile->hasGround()) {
-		return false;
-	}
-	return true;
+	return tile != nullptr && tile->hasGround();
 }
 
 void TownTempleBrush::undraw(BaseMap* map, Tile* tile) {

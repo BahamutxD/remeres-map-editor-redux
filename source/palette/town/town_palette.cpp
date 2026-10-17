@@ -29,12 +29,16 @@
 #include "ui/gui_ids.h"
 #include "ui/theme.h"
 #include "ui/dialog_util.h"
+#include "ui/map_tab.h"
 #include "ui/managers/minimap_manager.h"
 #include "util/image_manager.h"
 
+#include <wx/evtloop.h>
+#include <wx/msgdlg.h>
 #include <algorithm>
 #include <unordered_map>
 #include <format>
+#include <vector>
 
 TownPalettePanel::TownPalettePanel(wxWindow* parent, wxWindowID id) :
 	PalettePanel(parent, id),
@@ -47,14 +51,13 @@ TownPalettePanel::TownPalettePanel(wxWindow* parent, wxWindowID id) :
 	search_ctrl->SetFont(Theme::GetFont(9, false));
 	sidesizer->Add(search_ctrl, 0, wxEXPAND | wxALL, 5);
 
-	// Table control
+	// Table control (ID, Name, Temple, Houses)
 	town_table = newd NanoVGTableCtrl(this, PALETTE_TOWN_LISTBOX);
 	std::vector<TableColumn> cols = {
-		{ "index", "#", 30, NVG_ALIGN_CENTER, true },
-		{ "id", "ID", 45, NVG_ALIGN_RIGHT, true },
+		{ "id", "ID", 50, NVG_ALIGN_RIGHT, true },
 		{ "name", "Name", 0, NVG_ALIGN_LEFT, true },
-		{ "temple", "Temple", 85, NVG_ALIGN_LEFT, true },
-		{ "houses", "Houses", 50, NVG_ALIGN_RIGHT, true }
+		{ "temple", "Temple", 95, NVG_ALIGN_LEFT, true },
+		{ "houses", "Houses", 55, NVG_ALIGN_RIGHT, true }
 	};
 	town_table->SetColumns(std::move(cols));
 
@@ -152,12 +155,8 @@ Town* TownPalettePanel::GetSelectedTown() const {
 }
 
 Brush* TownPalettePanel::GetSelectedBrush() const {
-	if (!g_brush_manager.temple_brush) {
-		return nullptr;
-	}
-	Town* town = GetSelectedTown();
-	g_brush_manager.temple_brush->setTown(town);
-	return g_brush_manager.temple_brush;
+	// Browsing towns is not drawing. Do not auto-select temple brush or crosshair cursor.
+	return nullptr;
 }
 
 bool TownPalettePanel::SelectBrush(const Brush* whatbrush) {
@@ -208,7 +207,6 @@ void TownPalettePanel::OnUpdate() {
 	}
 
 	std::vector<TableRow> rows;
-	int idx = 1;
 	for (const auto& [id, town] : map->towns) {
 		if (!town) {
 			continue;
@@ -230,7 +228,6 @@ void TownPalettePanel::OnUpdate() {
 			TableRow row;
 			row.id = static_cast<int>(id);
 			row.key = std::to_string(id);
-			row.cells.push_back(std::to_string(idx));
 			row.cells.push_back(std::to_string(id));
 			row.cells.push_back(town->getName());
 			row.cells.push_back(pos_str);
@@ -238,28 +235,24 @@ void TownPalettePanel::OnUpdate() {
 			row.client_data = town.get();
 			rows.push_back(std::move(row));
 		}
-		++idx;
 	}
 
 	const int sort_col = town_table->GetSortColumn();
 	const bool asc = town_table->IsSortAscending();
 
 	if (sort_col == 0) {
-		std::stable_sort(rows.begin(), rows.end(), [asc](const TableRow& a, const TableRow& b) {
-			int idA = 0, idB = 0;
-			try { idA = std::stoi(a.cells[0]); idB = std::stoi(b.cells[0]); } catch (...) {}
-			return asc ? (idA < idB) : (idB < idA);
-		});
-	} else if (sort_col == 1) {
+		// Sort by ID
 		std::stable_sort(rows.begin(), rows.end(), [asc](const TableRow& a, const TableRow& b) {
 			return asc ? (a.id < b.id) : (b.id < a.id);
 		});
-	} else if (sort_col == 2) {
+	} else if (sort_col == 1) {
+		// Sort by Name
 		std::stable_sort(rows.begin(), rows.end(), [asc](const TableRow& a, const TableRow& b) {
-			int cmp = wxStricmp(wxstr(a.cells[2]), wxstr(b.cells[2]));
+			int cmp = wxStricmp(wxstr(a.cells[1]), wxstr(b.cells[1]));
 			return asc ? (cmp < 0) : (cmp > 0);
 		});
-	} else if (sort_col == 3) {
+	} else if (sort_col == 2) {
+		// Sort by Temple Position
 		std::stable_sort(rows.begin(), rows.end(), [asc](const TableRow& a, const TableRow& b) {
 			auto* tA = static_cast<const Town*>(a.client_data);
 			auto* tB = static_cast<const Town*>(b.client_data);
@@ -271,10 +264,11 @@ void TownPalettePanel::OnUpdate() {
 			}
 			return asc ? (tA->getID() < tB->getID()) : (tB->getID() < tA->getID());
 		});
-	} else if (sort_col == 4) {
+	} else if (sort_col == 3) {
+		// Sort by House count
 		std::stable_sort(rows.begin(), rows.end(), [asc](const TableRow& a, const TableRow& b) {
 			size_t cA = 0, cB = 0;
-			try { cA = std::stoull(a.cells[4]); cB = std::stoull(b.cells[4]); } catch (...) {}
+			try { cA = std::stoull(a.cells[3]); cB = std::stoull(b.cells[3]); } catch (...) {}
 			return asc ? (cA < cB) : (cB < cA);
 		});
 	}
@@ -294,9 +288,6 @@ void TownPalettePanel::OnSelectTown(int /*index*/, const TableRow& row) {
 	auto* town = static_cast<Town*>(row.client_data);
 	if (town) {
 		selected_town_id_ = town->getID();
-		if (g_brush_manager.temple_brush) {
-			g_brush_manager.temple_brush->setTown(town);
-		}
 		edit_town_button->Enable(true);
 		remove_town_button->Enable(true);
 		change_temple_button->Enable(true);
@@ -353,30 +344,83 @@ void TownPalettePanel::OnGoToTemple(wxCommandEvent& /*event*/) {
 	}
 }
 
+bool TownPalettePanel::RunEditTownModal(wxWindow* parent, Map* map, Town* town, bool is_new) {
+	EditTownDialog dlg(parent, map, town, is_new);
+	while (true) {
+		int ret = dlg.ShowModal();
+		if (ret == EditTownDialog::DIALOG_PICK_TEMPLE) {
+			Position picked_pos;
+			bool picked = false;
+
+			if (g_brush_manager.temple_brush) {
+				g_brush_manager.temple_brush->setTown(town);
+
+				wxEventLoop loop;
+				g_brush_manager.temple_brush->setPlacementCallback([&](const Position& pos) {
+					picked_pos = pos;
+					picked = true;
+					if (loop.IsRunning()) {
+						loop.Exit(1);
+					}
+				});
+				g_brush_manager.temple_brush->setCancelCallback([&]() {
+					picked = false;
+					if (loop.IsRunning()) {
+						loop.Exit(0);
+					}
+				});
+
+				g_gui.SelectBrush(g_brush_manager.temple_brush);
+				g_gui.SetStatusText(wxstr(std::format("Click on map to pick temple position for town '{}'... [Esc to cancel]", dlg.GetTownName())));
+
+				loop.Run();
+
+				g_brush_manager.temple_brush->clearCallbacks();
+			}
+
+			if (picked && picked_pos.isValid()) {
+				dlg.SetTemplePosition(picked_pos);
+			}
+			continue;
+		}
+		return ret == wxID_OK;
+	}
+}
+
 void TownPalettePanel::OnClickAddTown(wxCommandEvent& /*event*/) {
 	if (!map) {
 		return;
 	}
 
 	uint32_t next_id = map->towns.getEmptyID();
-	auto new_town = std::make_unique<Town>(next_id);
-	new_town->setName(std::format("Town {}", next_id));
-	new_town->setTemplePosition(Position(100, 100, 7));
-
-	Town* town_ptr = new_town.get();
-	if (!map->towns.addTown(std::move(new_town))) {
-		return;
+	MapTab* mapTab = g_gui.GetCurrentMapTab();
+	Position default_pos = mapTab ? mapTab->GetScreenCenterPosition() : Position();
+	if (!default_pos.isValid()) {
+		default_pos = Position(map->getWidth() / 2, map->getHeight() / 2, 7);
 	}
 
-	selected_town_id_ = town_ptr->getID();
-	map->doChange();
-	OnUpdate();
+	auto new_town = std::make_unique<Town>(next_id);
+	new_town->setName(std::format("Town {}", next_id));
+	new_town->setTemplePosition(default_pos);
 
-	EditTownDialog dlg(this, map, town_ptr);
-	dlg.ShowModal();
-
-	selected_town_id_ = town_ptr->getID();
-	OnUpdate();
+	Town* town_ptr = new_town.get();
+	if (RunEditTownModal(this, map, town_ptr, true)) {
+		Position temple = new_town->getTemplePosition();
+		if (auto* tile = map->getOrCreateTile(temple)) {
+			if (auto* loc = tile->getLocation()) {
+				loc->increaseTownCount();
+			}
+		}
+		if (temple.isValid()) {
+			map->getChangeTracker().markTileDirty(temple);
+			g_minimap.MarkTileDirty(*map, temple);
+		}
+		selected_town_id_ = new_town->getID();
+		map->towns.addTown(std::move(new_town));
+		map->doChange();
+		g_gui.RefreshPalettes();
+		g_gui.RefreshView();
+	}
 }
 
 void TownPalettePanel::OnClickEditTown(wxCommandEvent& /*event*/) {
@@ -385,8 +429,7 @@ void TownPalettePanel::OnClickEditTown(wxCommandEvent& /*event*/) {
 		return;
 	}
 
-	EditTownDialog dlg(this, map, town);
-	if (dlg.ShowModal() == wxID_OK) {
+	if (RunEditTownModal(this, map, town, false)) {
 		selected_town_id_ = town->getID();
 		OnUpdate();
 	}
@@ -399,25 +442,42 @@ void TownPalettePanel::OnClickRemoveTown(wxCommandEvent& /*event*/) {
 	}
 
 	size_t house_count = 0;
+	std::vector<House*> houses_to_wipe;
 	for (const auto& [_, house] : map->houses) {
 		if (house && house->townid == town->getID()) {
+			houses_to_wipe.push_back(house.get());
 			++house_count;
 		}
 	}
 
 	if (house_count > 0) {
-		DialogUtil::PopupDialog(this, "Error",
-			wxstr(std::format("You cannot delete town '{}' (ID: {}) because it still has {} house(s) associated with it.\n\nPlease reassign or delete these houses before deleting the town.",
-				town->getName(), town->getID(), house_count)), wxOK);
-		return;
-	}
+		TownDeleteDialog del_dlg(this, town->getName(), town->getID(), house_count);
+		if (del_dlg.ShowModal() != wxID_YES) {
+			return;
+		}
 
-	int ret = DialogUtil::PopupDialog(this, "Confirm Removal",
-		wxstr(std::format("Are you sure you want to remove town '{}' (ID: {})?", town->getName(), town->getID())),
-		wxYES_NO);
-
-	if (ret != wxYES && ret != wxID_YES) {
-		return;
+		// User confirmed wiping all associated houses!
+		for (House* h : houses_to_wipe) {
+			for (const auto& pos : h->getTiles()) {
+				map->getChangeTracker().markTileDirty(pos);
+				g_minimap.MarkTileDirty(*map, pos);
+			}
+			if (h->getExit().isValid()) {
+				map->getChangeTracker().markTileDirty(h->getExit());
+				g_minimap.MarkTileDirty(*map, h->getExit());
+			}
+			map->houses.removeHouse(h);
+		}
+	} else {
+		const int ret = wxMessageBox(
+			wxString::Format("Are you sure you want to remove town '%s' (ID: %u)?", wxstr(town->getName()), town->getID()),
+			"Confirm Removal",
+			wxYES_NO | wxICON_QUESTION | wxCENTER,
+			this
+		);
+		if (ret != wxYES) {
+			return;
+		}
 	}
 
 	// Remove town flag from tile
@@ -438,6 +498,7 @@ void TownPalettePanel::OnClickRemoveTown(wxCommandEvent& /*event*/) {
 	selected_town_id_ = 0;
 	map->doChange();
 	g_gui.RefreshPalettes();
+	g_gui.RefreshView();
 }
 
 void TownPalettePanel::OnClickChangeTemple(wxCommandEvent& /*event*/) {
@@ -448,6 +509,7 @@ void TownPalettePanel::OnClickChangeTemple(wxCommandEvent& /*event*/) {
 	}
 
 	if (g_brush_manager.temple_brush) {
+		g_brush_manager.temple_brush->clearCallbacks();
 		g_brush_manager.temple_brush->setTown(town);
 		g_gui.SelectBrush(g_brush_manager.temple_brush);
 		g_gui.SetStatusText(wxstr(std::format("Click on map to set temple position for town '{}' (ID: {})... [Esc to cancel]", town->getName(), town->getID())));

@@ -29,6 +29,7 @@
 #include "brushes/waypoint/waypoint_brush.h"
 #include "brushes/door/door_brush.h"
 #include "brushes/zone/zone_brush.h"
+#include "brushes/town/town_temple_brush.h"
 
 DrawingController::DrawingController(MapCanvas* canvas, Editor& editor) :
 	canvas(canvas),
@@ -159,7 +160,7 @@ void DrawingController::HandleClick(const Position& mouse_map_pos, bool shift_do
 						editor.draw(tilestodraw, tilestoborder, alt_down);
 					}
 				} else if (brush->oneSizeFitsAll()) {
-					if (brush->is<HouseExitBrush>() || brush->is<WaypointBrush>()) {
+					if (brush->is<HouseExitBrush>() || brush->is<WaypointBrush>() || brush->is<TownTempleBrush>()) {
 						editor.draw(mouse_map_pos, alt_down);
 					} else {
 						PositionVector tilestodraw;
@@ -393,6 +394,8 @@ void DrawingController::HandleRelease(const Position& mouse_map_pos, bool shift_
 			house_id = heb->getHouseID();
 		}
 		g_gui.UpdateHousePalette(house_id);
+	} else if (brush && brush->is<TownTempleBrush>()) {
+		g_gui.RefreshPalettes();
 	}
 
 	editor.actionQueue->resetTimer();
