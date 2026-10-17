@@ -10,6 +10,7 @@
 #include "game/house.h"
 #include "game/town.h"
 #include "ui/gui.h"
+#include "ui/gui_ids.h"
 #include "ui/dialog_util.h"
 #include "util/image_manager.h"
 #include "util/common.h"
@@ -21,19 +22,9 @@
 #include "ui/theme.h"
 
 #include <wx/stattext.h>
+#include <wx/menu.h>
 #include <algorithm>
 #include <sstream>
-
-enum {
-	ID_TOWN_CHOICE = 10000,
-	ID_SEARCH_CTRL,
-	ID_HOUSE_TABLE,
-	ID_ADD_HOUSE,
-	ID_EDIT_HOUSE,
-	ID_REMOVE_HOUSE,
-	ID_HOUSE_BRUSH,
-	ID_EXIT_BRUSH
-};
 
 HousePalette::HousePalette(wxWindow* parent) :
 	PalettePanel(parent, wxID_ANY),
@@ -44,19 +35,19 @@ HousePalette::HousePalette(wxWindow* parent) :
 	// Header section (Town & Search)
 	wxBoxSizer* filter_sizer = newd wxBoxSizer(wxVERTICAL);
 
-	town_choice = newd wxChoice(this, ID_TOWN_CHOICE);
+	town_choice = newd wxChoice(this, PALETTE_HOUSE_TOWN_CHOICE);
 	town_choice->SetFont(Theme::GetFont(9, false));
 	filter_sizer->Add(town_choice, 0, wxEXPAND | wxBOTTOM, 4);
 
-	search_ctrl = newd wxTextCtrl(this, ID_SEARCH_CTRL, "", wxDefaultPosition, wxDefaultSize, 0);
-	search_ctrl->SetHint("Search houses...");
+	search_ctrl = newd PaletteSearchCtrl(this, PALETTE_HOUSE_SEARCH, "", wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
+	search_ctrl->SetDescriptiveText("Search houses...");
 	search_ctrl->SetFont(Theme::GetFont(9, false));
 	filter_sizer->Add(search_ctrl, 0, wxEXPAND);
 
 	main_sizer->Add(filter_sizer, 0, wxEXPAND | wxALL, 5);
 
 	// Table section (NanoVG Table)
-	house_table = newd NanoVGTableCtrl(this, ID_HOUSE_TABLE);
+	house_table = newd NanoVGTableCtrl(this, PALETTE_HOUSE_LISTBOX);
 	std::vector<TableColumn> cols = {
 		{ "guild", "Guild", 40, NVG_ALIGN_CENTER, true },
 		{ "id", "ID", 45, NVG_ALIGN_LEFT, true },
@@ -75,16 +66,24 @@ HousePalette::HousePalette(wxWindow* parent) :
 	house_table->SetOnSort([this](int col, bool asc) {
 		OnHouseSort(col, asc);
 	});
+	house_table->SetOnContextMenu([this](int idx, const TableRow* row, const wxPoint& pos) {
+		OnHouseContextMenu(idx, row, pos);
+	});
 
 	main_sizer->Add(house_table, 1, wxEXPAND | wxLEFT | wxRIGHT, 5);
 
 	// Action buttons (Add, Edit, Remove)
 	wxBoxSizer* action_sizer = newd wxBoxSizer(wxHORIZONTAL);
-	add_button = newd wxButton(this, ID_ADD_HOUSE, "Add", wxDefaultPosition, wxSize(50, -1));
+	add_button = newd wxButton(this, PALETTE_HOUSE_ADD_HOUSE, "Add", wxDefaultPosition, wxSize(50, -1));
+	add_button->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_PLUS, wxSize(16, 16)));
 	add_button->SetFont(Theme::GetFont(9, false));
-	edit_button = newd wxButton(this, ID_EDIT_HOUSE, "Edit", wxDefaultPosition, wxSize(50, -1));
+
+	edit_button = newd wxButton(this, PALETTE_HOUSE_EDIT_HOUSE, "Edit", wxDefaultPosition, wxSize(50, -1));
+	edit_button->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_PEN, wxSize(16, 16)));
 	edit_button->SetFont(Theme::GetFont(9, false));
-	remove_button = newd wxButton(this, ID_REMOVE_HOUSE, "Remove", wxDefaultPosition, wxSize(60, -1));
+
+	remove_button = newd wxButton(this, PALETTE_HOUSE_REMOVE_HOUSE, "Remove", wxDefaultPosition, wxSize(60, -1));
+	remove_button->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_MINUS, wxSize(16, 16)));
 	remove_button->SetFont(Theme::GetFont(9, false));
 
 	action_sizer->Add(add_button, 1, wxEXPAND | wxRIGHT, 2);
@@ -96,9 +95,12 @@ HousePalette::HousePalette(wxWindow* parent) :
 	// Brush buttons (House tiles, Select Exit)
 	wxBoxSizer* brush_sizer = newd wxBoxSizer(wxHORIZONTAL);
 
-	house_brush_button = newd wxToggleButton(this, ID_HOUSE_BRUSH, "House tiles");
+	house_brush_button = newd wxToggleButton(this, PALETTE_HOUSE_BRUSH_BUTTON, "House tiles");
+	house_brush_button->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_PAINTBRUSH, wxSize(16, 16)));
 	house_brush_button->SetFont(Theme::GetFont(9, false));
-	select_exit_button = newd wxToggleButton(this, ID_EXIT_BRUSH, "Select Exit");
+
+	select_exit_button = newd wxToggleButton(this, PALETTE_HOUSE_SELECT_EXIT_BUTTON, "Select Exit");
+	select_exit_button->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_DOOR_OPEN, wxSize(16, 16)));
 	select_exit_button->SetFont(Theme::GetFont(9, false));
 
 	brush_sizer->Add(house_brush_button, 1, wxEXPAND | wxRIGHT, 2);
@@ -108,17 +110,22 @@ HousePalette::HousePalette(wxWindow* parent) :
 
 	SetSizer(main_sizer);
 
-	search_ctrl->Bind(wxEVT_CHAR_HOOK, &HousePalette::OnSearchCharHook, this);
+	Bind(wxEVT_CHOICE, &HousePalette::OnTownChange, this, PALETTE_HOUSE_TOWN_CHOICE);
+	Bind(wxEVT_TEXT, &HousePalette::OnSearchChange, this, PALETTE_HOUSE_SEARCH);
 
-	Bind(wxEVT_CHOICE, &HousePalette::OnTownChange, this, ID_TOWN_CHOICE);
-	Bind(wxEVT_TEXT, &HousePalette::OnSearchChange, this, ID_SEARCH_CTRL);
+	Bind(wxEVT_BUTTON, &HousePalette::OnAddHouse, this, PALETTE_HOUSE_ADD_HOUSE);
+	Bind(wxEVT_BUTTON, &HousePalette::OnEditHouse, this, PALETTE_HOUSE_EDIT_HOUSE);
+	Bind(wxEVT_BUTTON, &HousePalette::OnRemoveHouse, this, PALETTE_HOUSE_REMOVE_HOUSE);
 
-	Bind(wxEVT_BUTTON, &HousePalette::OnAddHouse, this, ID_ADD_HOUSE);
-	Bind(wxEVT_BUTTON, &HousePalette::OnEditHouse, this, ID_EDIT_HOUSE);
-	Bind(wxEVT_BUTTON, &HousePalette::OnRemoveHouse, this, ID_REMOVE_HOUSE);
+	Bind(wxEVT_MENU, &HousePalette::OnAddHouse, this, PALETTE_HOUSE_ADD_HOUSE);
+	Bind(wxEVT_MENU, &HousePalette::OnEditHouse, this, PALETTE_HOUSE_EDIT_HOUSE);
+	Bind(wxEVT_MENU, &HousePalette::OnRemoveHouse, this, PALETTE_HOUSE_REMOVE_HOUSE);
+	Bind(wxEVT_MENU, &HousePalette::OnGoToExit, this, PALETTE_HOUSE_GOTO_EXIT);
+	Bind(wxEVT_MENU, &HousePalette::OnHouseBrushButton, this, PALETTE_HOUSE_BRUSH_BUTTON);
+	Bind(wxEVT_MENU, &HousePalette::OnSelectExitButton, this, PALETTE_HOUSE_SELECT_EXIT_BUTTON);
 
-	Bind(wxEVT_TOGGLEBUTTON, &HousePalette::OnHouseBrushButton, this, ID_HOUSE_BRUSH);
-	Bind(wxEVT_TOGGLEBUTTON, &HousePalette::OnSelectExitButton, this, ID_EXIT_BRUSH);
+	Bind(wxEVT_TOGGLEBUTTON, &HousePalette::OnHouseBrushButton, this, PALETTE_HOUSE_BRUSH_BUTTON);
+	Bind(wxEVT_TOGGLEBUTTON, &HousePalette::OnSelectExitButton, this, PALETTE_HOUSE_SELECT_EXIT_BUTTON);
 }
 
 HousePalette::~HousePalette() = default;
@@ -206,11 +213,11 @@ void HousePalette::FilterHouses() {
 			row.client_data = house;
 
 			if (house->guildhall) {
-				row.icon_id = 1;
 				row.icon_col = 0;
+				row.icon_name = std::string(ICON_HOUSE_USER);
 			}
 
-			row.cells.push_back(house->guildhall ? "GH" : "—");
+			row.cells.push_back(""); // Guild column - renders ICON_HOUSE_USER if guildhall, blank if not
 			row.cells.push_back(std::to_string(house->getID()));
 			row.cells.push_back(house->name);
 			row.cells.push_back(format_thousands_separator(house->rent));
@@ -400,8 +407,37 @@ void HousePalette::OnHouseSort(int /*column*/, bool /*ascending*/) {
 	FilterHouses();
 }
 
-void HousePalette::OnSearchCharHook(wxKeyEvent& event) {
-	event.Skip();
+void HousePalette::OnHouseContextMenu(int /*index*/, const TableRow* row, const wxPoint& /*pos*/) {
+	if (!map) {
+		return;
+	}
+
+	wxMenu menu;
+	if (row && row->client_data) {
+		auto* house = static_cast<House*>(row->client_data);
+		selected_house_id_ = house->getID();
+
+		if (house->getExit() != Position(0, 0, 0) && house->getExit().isValid()) {
+			menu.Append(PALETTE_HOUSE_GOTO_EXIT, "Go to exit (double-click)")->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_MAP_PIN, wxSize(16, 16)));
+			menu.AppendSeparator();
+		}
+		menu.Append(PALETTE_HOUSE_BRUSH_BUTTON, "Paint house tiles")->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_PAINTBRUSH, wxSize(16, 16)));
+		menu.Append(PALETTE_HOUSE_SELECT_EXIT_BUTTON, "Select house exit")->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_DOOR_OPEN, wxSize(16, 16)));
+		menu.AppendSeparator();
+		menu.Append(PALETTE_HOUSE_EDIT_HOUSE, "Edit house...")->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_PEN, wxSize(16, 16)));
+		menu.Append(PALETTE_HOUSE_REMOVE_HOUSE, "Remove house...")->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_MINUS, wxSize(16, 16)));
+		menu.AppendSeparator();
+	}
+
+	menu.Append(PALETTE_HOUSE_ADD_HOUSE, "Add house...")->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_PLUS, wxSize(16, 16)));
+	PopupMenu(&menu);
+}
+
+void HousePalette::OnGoToExit(wxCommandEvent& /*event*/) {
+	House* house = GetSelectedHouse();
+	if (house && house->getExit() != Position(0, 0, 0) && house->getExit().isValid()) {
+		g_gui.SetScreenCenterPosition(house->getExit());
+	}
 }
 
 void HousePalette::OnAddHouse(wxCommandEvent& /*event*/) {
@@ -460,23 +496,9 @@ void HousePalette::OnRemoveHouse(wxCommandEvent& /*event*/) {
 }
 
 void HousePalette::OnHouseBrushButton(wxCommandEvent& /*event*/) {
-	if (house_brush_button->GetValue()) {
-		select_exit_button->SetValue(false);
-		House* house = GetSelectedHouse();
-		if (g_brush_manager.house_brush) {
-			g_brush_manager.house_brush->setHouse(house);
-		}
-	}
-	g_gui.SelectBrush();
+	SelectHouseBrush();
 }
 
 void HousePalette::OnSelectExitButton(wxCommandEvent& /*event*/) {
-	if (select_exit_button->GetValue()) {
-		house_brush_button->SetValue(false);
-		House* house = GetSelectedHouse();
-		if (g_brush_manager.house_exit_brush) {
-			g_brush_manager.house_exit_brush->setHouse(house);
-		}
-	}
-	g_gui.SelectBrush();
+	SelectExitBrush();
 }

@@ -6,12 +6,12 @@
 #define RME_HOUSE_PALETTE_H_
 
 #include "palette/palette_common.h"
+#include "palette/controls/palette_search_ctrl.h"
 #include "util/nanovg_table_ctrl.h"
 #include "brushes/brush.h"
 
 #include <wx/panel.h>
 #include <wx/choice.h>
-#include <wx/textctrl.h>
 #include <wx/tglbtn.h>
 #include <memory>
 
@@ -42,15 +42,15 @@ public:
 	void OnHouseSelected(int index, const TableRow& row);
 	void OnHouseActivated(int index, const TableRow& row);
 	void OnHouseSort(int column, bool ascending);
+	void OnHouseContextMenu(int index, const TableRow* row, const wxPoint& pos);
 
 	void OnAddHouse(wxCommandEvent& event);
 	void OnEditHouse(wxCommandEvent& event);
 	void OnRemoveHouse(wxCommandEvent& event);
+	void OnGoToExit(wxCommandEvent& event);
 
 	void OnHouseBrushButton(wxCommandEvent& event);
 	void OnSelectExitButton(wxCommandEvent& event);
-
-	void OnSearchCharHook(wxKeyEvent& event);
 
 protected:
 	void FilterHouses();
@@ -61,7 +61,7 @@ protected:
 	uint32_t selected_house_id_ = 0;
 
 	wxChoice* town_choice = nullptr;
-	wxTextCtrl* search_ctrl = nullptr;
+	PaletteSearchCtrl* search_ctrl = nullptr;
 	NanoVGTableCtrl* house_table = nullptr;
 
 	wxToggleButton* house_brush_button = nullptr;
