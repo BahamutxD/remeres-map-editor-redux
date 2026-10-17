@@ -48,10 +48,10 @@ class SearchResultWindow;
 class MinimapWindow;
 class PaletteWindow;
 class ItemPropertiesWindow;
-class EditTownsDialog;
 class ItemButton;
 class HousePalette;
 class ZonePalettePanel;
+class TownPalettePanel;
 
 class LiveSocket;
 
@@ -370,6 +370,7 @@ public:
 
 	HousePalette* house_palette;
 	ZonePalettePanel* zone_palette;
+	TownPalettePanel* town_palette;
 
 	ToolOptionsWindow* tool_options;
 	TilePropertiesPanel* tile_properties_panel;

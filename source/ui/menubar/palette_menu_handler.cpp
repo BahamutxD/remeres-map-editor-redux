@@ -39,6 +39,9 @@ void SetMenuIcon(wxMenuItem* item, std::string_view icon) {
 	if (name == "Waypoint") {
 		return "Waypoint\tW";
 	}
+	if (name == "Town") {
+		return "Town\tT";
+	}
 	return wxString::FromUTF8(std::string(name).c_str());
 }
 
@@ -51,6 +54,9 @@ void SetMenuIcon(wxMenuItem* item, std::string_view icon) {
 	}
 	if (name == "Zone") {
 		return ICON_VECTOR_SQUARE;
+	}
+	if (name == "Town") {
+		return ICON_CITY;
 	}
 	return ICON_PALETTE;
 }

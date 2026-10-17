@@ -41,6 +41,7 @@ BrushManager::BrushManager() :
 	nolog_brush(nullptr),
 	pvp_brush(nullptr),
 	zone_brush(nullptr),
+	temple_brush(nullptr),
 
 	current_brush(nullptr),
 	previous_brush(nullptr),
@@ -145,6 +146,7 @@ void BrushManager::Clear() {
 	nolog_brush = nullptr;
 	pvp_brush = nullptr;
 	zone_brush = nullptr;
+	temple_brush = nullptr;
 }
 
 BrushShape BrushManager::GetBrushShape() const {

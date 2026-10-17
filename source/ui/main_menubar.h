@@ -79,7 +79,6 @@ namespace MenuBar {
 		CUT,
 		COPY,
 		PASTE,
-		EDIT_TOWNS,
 		EDIT_ITEMS,
 		EDIT_MONSTERS,
 		MAP_CLEANUP,
@@ -263,7 +262,6 @@ public:
 	void OnClearModifiedState(wxCommandEvent& event);
 	void OnMapCleanHouseItems(wxCommandEvent& event);
 
-	void OnMapEditTowns(wxCommandEvent& event);
 	void OnMapEditItems(wxCommandEvent& event);
 	void OnMapEditMonsters(wxCommandEvent& event);
 

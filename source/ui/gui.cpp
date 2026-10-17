@@ -103,6 +103,7 @@ GUI::GUI() :
 	root(nullptr),
 	house_palette(nullptr),
 	zone_palette(nullptr),
+	town_palette(nullptr),
 	tool_options(nullptr),
 	tile_properties_panel(nullptr),
 	pasting(false),
@@ -238,6 +239,7 @@ void GUI::SyncCurrentMapCanvasPreviewState() {
 			|| (map_tab->GetMode() == DRAWING_MODE && GetCurrentBrush() != nullptr)
 			|| map_tab->GetSession()->secondary_map != nullptr;
 		map_tab->GetCanvas()->SetHoverPreviewActive(hover_preview_active);
+		map_tab->GetCanvas()->UpdateCursor();
 	}
 }
 

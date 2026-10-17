@@ -57,6 +57,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/brushes/wall/wall_brush_loader.h
     ${CMAKE_CURRENT_LIST_DIR}/brushes/waypoint/waypoint_brush.h
     ${CMAKE_CURRENT_LIST_DIR}/brushes/zone/zone_brush.h
+    ${CMAKE_CURRENT_LIST_DIR}/brushes/town/town_temple_brush.h
     ${CMAKE_CURRENT_LIST_DIR}/editor/action.h
     ${CMAKE_CURRENT_LIST_DIR}/editor/action_queue.h
     ${CMAKE_CURRENT_LIST_DIR}/editor/copybuffer.h
@@ -172,6 +173,8 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_zones.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/house/house_palette.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/house/edit_house_dialog.h
+    ${CMAKE_CURRENT_LIST_DIR}/palette/town/town_palette.h
+    ${CMAKE_CURRENT_LIST_DIR}/palette/town/edit_town_dialog.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_window.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/controls/virtual_brush_grid.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/controls/tileset_grid_toolbar.h
@@ -329,7 +332,6 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/find_dialog.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/missing_items_dialog.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/map/map_properties_window.h
-    ${CMAKE_CURRENT_LIST_DIR}/ui/map/towns_window.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/map/import_map_window.h
 
     ${CMAKE_CURRENT_LIST_DIR}/ui/map/export_minimap_window.h
@@ -493,6 +495,7 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/brushes/wall/wall_brush_arrays.cpp
     ${CMAKE_CURRENT_LIST_DIR}/brushes/waypoint/waypoint_brush.cpp
     ${CMAKE_CURRENT_LIST_DIR}/brushes/zone/zone_brush.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/brushes/town/town_temple_brush.cpp
     ${CMAKE_CURRENT_LIST_DIR}/editor/action.cpp
     ${CMAKE_CURRENT_LIST_DIR}/editor/action_queue.cpp
     ${CMAKE_CURRENT_LIST_DIR}/editor/copybuffer.cpp
@@ -591,6 +594,8 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_zones.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/house/house_palette.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/house/edit_house_dialog.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/palette/town/town_palette.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/palette/town/edit_town_dialog.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_window.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/controls/virtual_brush_grid.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/controls/tileset_grid_toolbar.cpp
@@ -731,7 +736,6 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/find_dialog.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/missing_items_dialog.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/map/map_properties_window.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/ui/map/towns_window.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/map/import_map_window.cpp
 
     ${CMAKE_CURRENT_LIST_DIR}/ui/map/export_minimap_window.cpp

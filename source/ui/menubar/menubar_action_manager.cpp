@@ -75,7 +75,6 @@ void MenuBarActionManager::RegisterActions(MainMenuBar* mb, std::unordered_map<s
 	MAKE_ACTION_ICON(COPY, wxITEM_NORMAL, ICON_COPY, OnCopy);
 	MAKE_ACTION_ICON(PASTE, wxITEM_NORMAL, ICON_PASTE, OnPaste);
 
-	MAKE_ACTION_ICON(EDIT_TOWNS, wxITEM_NORMAL, ICON_CITY, OnMapEditTowns);
 	MAKE_ACTION_ICON(EDIT_ITEMS, wxITEM_NORMAL, ICON_CUBES, OnMapEditItems);
 	MAKE_ACTION_ICON(EDIT_MONSTERS, wxITEM_NORMAL, ICON_DRAGON, OnMapEditMonsters);
 
@@ -257,7 +256,6 @@ void MenuBarActionManager::UpdateState(MainMenuBar* mb) {
 	mb->EnableItem(CLEAR_INVALID_HOUSES, is_local);
 	mb->EnableItem(CLEAR_MODIFIED_STATE, is_local);
 
-	mb->EnableItem(EDIT_TOWNS, is_local);
 	mb->EnableItem(EDIT_ITEMS, false);
 	mb->EnableItem(EDIT_MONSTERS, false);
 
