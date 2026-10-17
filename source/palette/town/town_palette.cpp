@@ -142,16 +142,10 @@ void TownPalettePanel::SelectFirstBrush() {
 }
 
 Town* TownPalettePanel::GetSelectedTown() const {
-	if (!map) {
+	if (!map || selected_town_id_ == 0) {
 		return nullptr;
 	}
-	if (selected_town_id_ != 0) {
-		return map->towns.getTown(selected_town_id_);
-	}
-	if (!map->towns.empty()) {
-		return map->towns.begin()->second.get();
-	}
-	return nullptr;
+	return map->towns.getTown(selected_town_id_);
 }
 
 Brush* TownPalettePanel::GetSelectedBrush() const {
@@ -348,6 +342,7 @@ void TownPalettePanel::OnGoToTemple(wxCommandEvent& /*event*/) {
 
 bool TownPalettePanel::RunEditTownModal(wxWindow* parent, Map* map, Town* town, bool is_new) {
 	EditTownDialog dlg(parent, map, town, is_new);
+	const uint32_t saved_town_id = town ? town->getID() : 0;
 	while (true) {
 		int ret = dlg.ShowModal();
 		if (ret == EditTownDialog::DIALOG_PICK_TEMPLE) {
@@ -378,6 +373,21 @@ bool TownPalettePanel::RunEditTownModal(wxWindow* parent, Map* map, Town* town, 
 				loop.Run();
 
 				g_brush_manager.temple_brush->clearCallbacks();
+			}
+
+			// Verify map tab and map are still valid
+			MapTab* mapTab = g_gui.GetCurrentMapTab();
+			if (!mapTab || mapTab->GetMap() != map) {
+				return false;
+			}
+
+			// If not a new town, re-resolve town using saved ID to ensure it wasn't deleted
+			if (!is_new) {
+				Town* resolved_town = map->towns.getTown(saved_town_id);
+				if (!resolved_town) {
+					return false;
+				}
+				town = resolved_town;
 			}
 
 			if (picked && picked_pos.isValid()) {
@@ -431,9 +441,17 @@ void TownPalettePanel::OnClickEditTown(wxCommandEvent& /*event*/) {
 		return;
 	}
 
+	const uint32_t old_id = town->getID();
 	if (RunEditTownModal(this, map, town, false)) {
-		selected_town_id_ = town->getID();
-		OnUpdate();
+		MapTab* mapTab = g_gui.GetCurrentMapTab();
+		if (mapTab && mapTab->GetMap() == map) {
+			if (map->towns.getTown(town->getID())) {
+				selected_town_id_ = town->getID();
+			} else if (map->towns.getTown(old_id)) {
+				selected_town_id_ = old_id;
+			}
+			OnUpdate();
+		}
 	}
 }
 
@@ -511,7 +529,7 @@ void TownPalettePanel::OnClickChangeTemple(wxCommandEvent& /*event*/) {
 	}
 
 	if (g_brush_manager.temple_brush) {
-		g_brush_manager.temple_brush->clearCallbacks();
+		g_brush_manager.temple_brush->invokeCancelCallback();
 		g_brush_manager.temple_brush->setTown(town);
 		g_gui.SelectBrush(g_brush_manager.temple_brush);
 		g_gui.SetStatusText(wxstr(std::format("Click on map to set temple position for town '{}' (ID: {})... [Esc to cancel]", town->getName(), town->getID())));
