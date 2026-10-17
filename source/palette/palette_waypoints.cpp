@@ -23,6 +23,8 @@
 #include <format>
 #include <algorithm>
 
+#include <wx/menu.h>
+
 #include "ui/gui.h"
 #include "ui/gui_ids.h"
 #include "ui/theme.h"
@@ -38,8 +40,15 @@ WaypointPalettePanel::WaypointPalettePanel(wxWindow* parent, wxWindowID id) :
 	map(nullptr) {
 	wxSizer* sidesizer = newd wxBoxSizer(wxVERTICAL);
 
+	// Search control
+	search_ctrl = newd PaletteSearchCtrl(this, PALETTE_WAYPOINT_SEARCH, "", wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
+	search_ctrl->SetDescriptiveText("Search waypoints...");
+	search_ctrl->SetFont(Theme::GetFont(9, false));
+	sidesizer->Add(search_ctrl, 0, wxEXPAND | wxALL, 5);
+
 	waypoint_table = newd NanoVGTableCtrl(this, PALETTE_WAYPOINT_LISTBOX);
 	std::vector<TableColumn> cols = {
+		{ "index", "#", 35, NVG_ALIGN_CENTER, true },
 		{ "name", "Name", 0, NVG_ALIGN_LEFT, true },
 		{ "pos", "Position", 110, NVG_ALIGN_LEFT, true }
 	};
@@ -54,8 +63,11 @@ WaypointPalettePanel::WaypointPalettePanel(wxWindow* parent, wxWindowID id) :
 	waypoint_table->SetOnSort([this](int col, bool asc) {
 		OnSortWaypoints(col, asc);
 	});
+	waypoint_table->SetOnContextMenu([this](int idx, const TableRow* row, const wxPoint& pos) {
+		OnWaypointContextMenu(idx, row, pos);
+	});
 
-	sidesizer->Add(waypoint_table, 1, wxEXPAND);
+	sidesizer->Add(waypoint_table, 1, wxEXPAND | wxLEFT | wxRIGHT, 5);
 
 	wxSizer* tmpsizer = newd wxBoxSizer(wxHORIZONTAL);
 	add_waypoint_button = newd wxButton(this, PALETTE_WAYPOINT_ADD_WAYPOINT, "Add", wxDefaultPosition, wxSize(50, -1));
@@ -72,13 +84,20 @@ WaypointPalettePanel::WaypointPalettePanel(wxWindow* parent, wxWindowID id) :
 	remove_waypoint_button->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_MINUS, wxSize(16, 16)));
 	remove_waypoint_button->SetFont(Theme::GetFont(9, false));
 	tmpsizer->Add(remove_waypoint_button, 1, wxEXPAND);
-	sidesizer->Add(tmpsizer, 0, wxEXPAND | wxTOP, 4);
+	sidesizer->Add(tmpsizer, 0, wxEXPAND | wxALL, 5);
 
-	SetSizerAndFit(sidesizer);
+	SetSizer(sidesizer);
+
+	Bind(wxEVT_TEXT, &WaypointPalettePanel::OnSearchChange, this, PALETTE_WAYPOINT_SEARCH);
 
 	Bind(wxEVT_BUTTON, &WaypointPalettePanel::OnClickAddWaypoint, this, PALETTE_WAYPOINT_ADD_WAYPOINT);
 	Bind(wxEVT_BUTTON, &WaypointPalettePanel::OnClickRenameWaypoint, this, PALETTE_WAYPOINT_RENAME_WAYPOINT);
 	Bind(wxEVT_BUTTON, &WaypointPalettePanel::OnClickRemoveWaypoint, this, PALETTE_WAYPOINT_REMOVE_WAYPOINT);
+
+	Bind(wxEVT_MENU, &WaypointPalettePanel::OnClickAddWaypoint, this, PALETTE_WAYPOINT_ADD_WAYPOINT);
+	Bind(wxEVT_MENU, &WaypointPalettePanel::OnClickRenameWaypoint, this, PALETTE_WAYPOINT_RENAME_WAYPOINT);
+	Bind(wxEVT_MENU, &WaypointPalettePanel::OnClickRemoveWaypoint, this, PALETTE_WAYPOINT_REMOVE_WAYPOINT);
+	Bind(wxEVT_MENU, &WaypointPalettePanel::OnGoToWaypoint, this, PALETTE_WAYPOINT_GOTO);
 }
 
 void WaypointPalettePanel::OnSwitchIn() {
@@ -149,6 +168,9 @@ void WaypointPalettePanel::OnUpdate() {
 	if (!map) {
 		waypoint_table->ClearRows();
 		waypoint_table->Enable(false);
+		if (search_ctrl) {
+			search_ctrl->Enable(false);
+		}
 		add_waypoint_button->Enable(false);
 		rename_waypoint_button->Enable(false);
 		remove_waypoint_button->Enable(false);
@@ -156,28 +178,59 @@ void WaypointPalettePanel::OnUpdate() {
 	}
 
 	waypoint_table->Enable(true);
+	if (search_ctrl) {
+		search_ctrl->Enable(true);
+	}
 	add_waypoint_button->Enable(true);
 	rename_waypoint_button->Enable(true);
 	remove_waypoint_button->Enable(true);
 
+	const wxString search_query = search_ctrl ? search_ctrl->GetValue().Lower() : wxString();
+
 	std::vector<TableRow> rows;
+	int idx = 1;
 	for (const auto& [name, wp] : map->waypoints) {
-		TableRow row;
-		row.key = wp->name;
-		row.cells.push_back(wp->name);
-		if (wp->pos != Position()) {
-			row.cells.push_back(std::format("{}, {}, {}", wp->pos.x, wp->pos.y, wp->pos.z));
-		} else {
-			row.cells.push_back("—");
+		if (!wp) {
+			continue;
 		}
-		row.client_data = wp.get();
-		rows.push_back(std::move(row));
+
+		const std::string pos_str = (wp->pos != Position())
+			? std::format("{}, {}, {}", wp->pos.x, wp->pos.y, wp->pos.z)
+			: "—";
+
+		const bool search_match = search_query.IsEmpty() ||
+			wxstr(wp->name).Lower().Contains(search_query) ||
+			wxstr(std::to_string(idx)).Contains(search_query) ||
+			wxstr(pos_str).Lower().Contains(search_query);
+
+		if (search_match) {
+			TableRow row;
+			row.id = idx;
+			row.key = wp->name;
+			row.cells.push_back(std::to_string(idx));
+			row.cells.push_back(wp->name);
+			row.cells.push_back(pos_str);
+			row.client_data = wp.get();
+			rows.push_back(std::move(row));
+		}
+		++idx;
 	}
 
 	const int sort_col = waypoint_table->GetSortColumn();
 	const bool asc = waypoint_table->IsSortAscending();
 
-	if (sort_col == 1) {
+	if (sort_col == 0) {
+		// Sort by # index
+		std::stable_sort(rows.begin(), rows.end(), [asc](const TableRow& a, const TableRow& b) {
+			return asc ? (a.id < b.id) : (b.id < a.id);
+		});
+	} else if (sort_col == 1) {
+		// Sort by name
+		std::stable_sort(rows.begin(), rows.end(), [asc](const TableRow& a, const TableRow& b) {
+			int cmp = wxStricmp(wxstr(a.cells[1]), wxstr(b.cells[1]));
+			return asc ? (cmp < 0) : (cmp > 0);
+		});
+	} else if (sort_col == 2) {
 		// Sort by position (X, then Y, then Z)
 		std::stable_sort(rows.begin(), rows.end(), [asc](const TableRow& a, const TableRow& b) {
 			auto* wpA = static_cast<const Waypoint*>(a.client_data);
@@ -195,12 +248,6 @@ void WaypointPalettePanel::OnUpdate() {
 			}
 			return asc ? (wpA->name < wpB->name) : (wpB->name < wpA->name);
 		});
-	} else if (sort_col == 0) {
-		// Sort by name
-		std::stable_sort(rows.begin(), rows.end(), [asc](const TableRow& a, const TableRow& b) {
-			int cmp = wxStricmp(wxstr(a.cells[0]), wxstr(b.cells[0]));
-			return asc ? (cmp < 0) : (cmp > 0);
-		});
 	}
 
 	waypoint_table->SetRows(std::move(rows));
@@ -208,6 +255,10 @@ void WaypointPalettePanel::OnUpdate() {
 	if (!selected_waypoint_name_.empty()) {
 		waypoint_table->SelectByKey(selected_waypoint_name_);
 	}
+}
+
+void WaypointPalettePanel::OnSearchChange(wxCommandEvent& /*event*/) {
+	OnUpdate();
 }
 
 void WaypointPalettePanel::OnSelectWaypoint(int /*index*/, const TableRow& row) {
@@ -246,6 +297,43 @@ void WaypointPalettePanel::OnActivateWaypoint(int /*index*/, const TableRow& row
 
 void WaypointPalettePanel::OnSortWaypoints(int /*column*/, bool /*ascending*/) {
 	OnUpdate();
+}
+
+void WaypointPalettePanel::OnWaypointContextMenu(int /*index*/, const TableRow* row, const wxPoint& /*pos*/) {
+	if (!map) {
+		return;
+	}
+
+	wxMenu menu;
+	if (row && !row->key.empty()) {
+		Waypoint* wp = map->waypoints.getWaypoint(row->key);
+		if (wp) {
+			selected_waypoint_name_ = wp->name;
+			if (g_brush_manager.waypoint_brush) {
+				g_brush_manager.waypoint_brush->setWaypoint(wp);
+			}
+			g_gui.SelectBrush();
+
+			if (wp->pos != Position()) {
+				menu.Append(PALETTE_WAYPOINT_GOTO, "Go to waypoint (double-click)")->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_MAP_PIN, wxSize(16, 16)));
+				menu.AppendSeparator();
+			}
+
+			menu.Append(PALETTE_WAYPOINT_RENAME_WAYPOINT, "Rename...")->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_PEN, wxSize(16, 16)));
+			menu.Append(PALETTE_WAYPOINT_REMOVE_WAYPOINT, "Remove...")->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_MINUS, wxSize(16, 16)));
+			menu.AppendSeparator();
+		}
+	}
+
+	menu.Append(PALETTE_WAYPOINT_ADD_WAYPOINT, "Add waypoint...")->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_PLUS, wxSize(16, 16)));
+	PopupMenu(&menu);
+}
+
+void WaypointPalettePanel::OnGoToWaypoint(wxCommandEvent& /*event*/) {
+	Waypoint* wp = GetSelectedWaypoint();
+	if (wp && wp->pos != Position()) {
+		g_gui.SetScreenCenterPosition(wp->pos);
+	}
 }
 
 void WaypointPalettePanel::OnClickAddWaypoint(wxCommandEvent& /*event*/) {
