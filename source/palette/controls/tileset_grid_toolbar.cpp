@@ -1,5 +1,6 @@
 #include "app/main.h"
 #include "palette/controls/tileset_grid_toolbar.h"
+#include "palette/controls/palette_search_ctrl.h"
 
 #include "ui/theme.h"
 #include "util/image_manager.h"
@@ -19,33 +20,6 @@ namespace {
 		MENU_SIZE_32,
 		MENU_SIZE_64,
 		MENU_SIZE_128,
-	};
-
-	/**
-	 * Search box for grids: it must not hand accelerators to the frame nor let
-	 * MSW preprocess keystrokes, otherwise typing triggers map hotkeys instead
-	 * of filtering.
-	 */
-	class GridSearchCtrl final : public wxSearchCtrl {
-	public:
-		using wxSearchCtrl::wxSearchCtrl;
-
-		bool IsTopNavigationDomain(NavigationKind kind) const override {
-			if (kind == Navigation_Accel) {
-				return true;
-			}
-			return wxSearchCtrl::IsTopNavigationDomain(kind);
-		}
-
-#ifdef __WXMSW__
-		bool MSWTranslateMessage(WXMSG* msg) override {
-			return false;
-		}
-
-		bool MSWShouldPreProcessMessage(WXMSG* msg) override {
-			return false;
-		}
-#endif
 	};
 } // namespace
 
@@ -71,7 +45,7 @@ TilesetGridToolbar::TilesetGridToolbar(wxWindow* parent, Actions actions, bool w
 	m_toolbar->Realize();
 	m_toolbar->Bind(wxEVT_TOOL, &TilesetGridToolbar::OnToolClick, this);
 
-	m_searchCtrl = newd GridSearchCtrl(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
+	m_searchCtrl = newd PaletteSearchCtrl(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
 	m_searchCtrl->SetDescriptiveText("Search...");
 	m_searchCtrl->ShowCancelButton(true);
 	m_searchCtrl->SetMinSize(FromDIP(wxSize(60, -1)));

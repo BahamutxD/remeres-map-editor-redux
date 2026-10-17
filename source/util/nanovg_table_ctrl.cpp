@@ -10,6 +10,7 @@ NanoVGTableCtrl::NanoVGTableCtrl(wxWindow* parent, wxWindowID id, long style) :
 	NanoVGCanvas(parent, id, style) {
 	Bind(wxEVT_SIZE, &NanoVGTableCtrl::OnSize, this);
 	Bind(wxEVT_LEFT_DOWN, &NanoVGTableCtrl::OnMouseDown, this);
+	Bind(wxEVT_RIGHT_DOWN, &NanoVGTableCtrl::OnRightDown, this);
 	Bind(wxEVT_LEFT_DCLICK, &NanoVGTableCtrl::OnLeftDClick, this);
 	Bind(wxEVT_MOTION, &NanoVGTableCtrl::OnMotion, this);
 	Bind(wxEVT_LEAVE_WINDOW, &NanoVGTableCtrl::OnLeave, this);
@@ -327,6 +328,20 @@ void NanoVGTableCtrl::OnMouseDown(wxMouseEvent& event) {
 	SetFocus();
 }
 
+void NanoVGTableCtrl::OnRightDown(wxMouseEvent& event) {
+	const int y = event.GetY();
+	const int row = HitTestRow(y);
+	if (row >= 0 && row < static_cast<int>(rows_.size())) {
+		SetSelection(row, true);
+	}
+	SetFocus();
+
+	if (on_context_menu_) {
+		const TableRow* r = (row >= 0 && row < static_cast<int>(rows_.size())) ? &rows_[row] : nullptr;
+		on_context_menu_(row, r, event.GetPosition());
+	}
+}
+
 void NanoVGTableCtrl::OnLeftDClick(wxMouseEvent& event) {
 	const int y = event.GetY();
 	const int header_h = HeaderHeight();
@@ -497,23 +512,22 @@ void NanoVGTableCtrl::OnNanoVGPaint(NVGcontext* vg, int width, int height) {
 			nvgSave(vg);
 			nvgScissor(vg, cell_x + 3.0f, row_y, cell_w - 6.0f, static_cast<float>(row_h));
 
-			if (row_data.icon_col == static_cast<int>(c) && row_data.icon_id != 0) {
-				// Draw icon badge or indicator
-				const float icon_sz = static_cast<float>(FromDIP(14));
-				const float icon_x = cell_x + (cell_w - icon_sz) * 0.5f;
-				const float icon_y = row_y + (row_h - icon_sz) * 0.5f;
+			if (row_data.icon_col == static_cast<int>(c)) {
+				if (!row_data.icon_name.empty()) {
+					const float icon_sz = static_cast<float>(FromDIP(14));
+					const float icon_x = cell_x + (cell_w - icon_sz) * 0.5f;
+					const float icon_y = row_y + (row_h - icon_sz) * 0.5f;
 
-				// Circular colored guild badge
-				nvgBeginPath(vg);
-				nvgCircle(vg, icon_x + icon_sz * 0.5f, icon_y + icon_sz * 0.5f, icon_sz * 0.45f);
-				nvgFillColor(vg, nvgRGBA(70, 160, 245, 230));
-				nvgFill(vg);
-
-				nvgFontFace(vg, "sans");
-				nvgFontSize(vg, 9.0f);
-				nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-				nvgFillColor(vg, nvgRGBA(255, 255, 255, 255));
-				nvgText(vg, icon_x + icon_sz * 0.5f, icon_y + icon_sz * 0.5f, "G", nullptr);
+					const wxColour icon_tint = is_selected ? Theme::Get(Theme::Role::TextOnAccent) : Theme::Get(Theme::Role::Accent);
+					int tex = IMAGE_MANAGER.GetNanoVGImage(vg, row_data.icon_name, icon_tint);
+					if (tex > 0) {
+						NVGpaint imgPaint = nvgImagePattern(vg, icon_x, icon_y, icon_sz, icon_sz, 0.0f, tex, 1.0f);
+						nvgBeginPath(vg);
+						nvgRect(vg, icon_x, icon_y, icon_sz, icon_sz);
+						nvgFillPaint(vg, imgPaint);
+						nvgFill(vg);
+					}
+				}
 			} else if (c < row_data.cells.size()) {
 				const std::string& text = row_data.cells[c];
 				nvgFontFace(vg, "sans");

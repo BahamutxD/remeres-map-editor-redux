@@ -21,7 +21,7 @@ struct TableRow {
 	uint64_t id = 0;
 	std::string key;
 	std::vector<std::string> cells;
-	int icon_id = 0;            // Optional icon (e.g. ICON_HOUSE_USER or 0 for none)
+	std::string icon_name;      // SVG asset path (e.g. ICON_HOUSE_USER or empty)
 	int icon_col = -1;          // Column to draw icon in (-1 for none)
 	void* client_data = nullptr;
 };
@@ -72,10 +72,12 @@ public:
 	using SelectionCallback = std::function<void(int index, const TableRow& row)>;
 	using ActivationCallback = std::function<void(int index, const TableRow& row)>;
 	using SortCallback = std::function<void(int column, bool ascending)>;
+	using ContextMenuCallback = std::function<void(int index, const TableRow* row, const wxPoint& pos)>;
 
 	void SetOnSelect(SelectionCallback callback) { on_select_ = std::move(callback); }
 	void SetOnActivate(ActivationCallback callback) { on_activate_ = std::move(callback); }
 	void SetOnSort(SortCallback callback) { on_sort_ = std::move(callback); }
+	void SetOnContextMenu(ContextMenuCallback callback) { on_context_menu_ = std::move(callback); }
 
 protected:
 	void OnNanoVGPaint(NVGcontext* vg, int width, int height) override;
@@ -83,6 +85,7 @@ protected:
 
 	void OnSize(wxSizeEvent& event);
 	void OnMouseDown(wxMouseEvent& event);
+	void OnRightDown(wxMouseEvent& event);
 	void OnLeftDClick(wxMouseEvent& event);
 	void OnMotion(wxMouseEvent& event);
 	void OnLeave(wxMouseEvent& event);
@@ -113,6 +116,7 @@ protected:
 	SelectionCallback on_select_;
 	ActivationCallback on_activate_;
 	SortCallback on_sort_;
+	ContextMenuCallback on_context_menu_;
 };
 
 #endif // RME_UTIL_NANOVG_TABLE_CTRL_H_
