@@ -78,15 +78,18 @@ void WaypointPalettePanel::SelectFirstBrush() {
 }
 
 Brush* WaypointPalettePanel::GetSelectedBrush() const {
+	if (!g_brush_manager.waypoint_brush) {
+		return nullptr;
+	}
 	long item = waypoint_list->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
 	g_brush_manager.waypoint_brush->setWaypoint(
-		item == -1 ? nullptr : map->waypoints.getWaypoint(nstr(waypoint_list->GetItemText(item)))
+		(item == -1 || !map) ? nullptr : map->waypoints.getWaypoint(nstr(waypoint_list->GetItemText(item)))
 	);
 	return g_brush_manager.waypoint_brush;
 }
 
 bool WaypointPalettePanel::SelectBrush(const Brush* whatbrush) {
-	return whatbrush == g_brush_manager.waypoint_brush;
+	return g_brush_manager.waypoint_brush && whatbrush == g_brush_manager.waypoint_brush;
 }
 
 int WaypointPalettePanel::GetSelectedBrushSize() const {
@@ -98,11 +101,13 @@ wxString WaypointPalettePanel::GetName() const {
 }
 
 void WaypointPalettePanel::OnUpdate() {
-	if (wxTextCtrl* tc = waypoint_list->GetEditControl()) {
-		Waypoint* wp = map->waypoints.getWaypoint(nstr(tc->GetValue()));
-		if (wp && wp->pos == Position()) {
-			// Unplaced waypoints are never counted on a tile, drop it as is.
-			map->waypoints.removeWaypoint(wp->name);
+	if (map) {
+		if (wxTextCtrl* tc = waypoint_list->GetEditControl()) {
+			Waypoint* wp = map->waypoints.getWaypoint(nstr(tc->GetValue()));
+			if (wp && wp->pos == Position()) {
+				// Unplaced waypoints are never counted on a tile, drop it as is.
+				map->waypoints.removeWaypoint(wp->name);
+			}
 		}
 	}
 
@@ -152,7 +157,7 @@ void WaypointPalettePanel::OnUpdate() {
 }
 
 void WaypointPalettePanel::OnSelectWaypoint(wxListEvent& event) {
-	if (!map) {
+	if (!map || !g_brush_manager.waypoint_brush) {
 		return;
 	}
 
@@ -167,7 +172,7 @@ void WaypointPalettePanel::OnSelectWaypoint(wxListEvent& event) {
 }
 
 void WaypointPalettePanel::OnActivateWaypoint(wxListEvent& event) {
-	if (!map) {
+	if (!map || !g_brush_manager.waypoint_brush) {
 		return;
 	}
 
@@ -243,7 +248,9 @@ void WaypointPalettePanel::OnEditWaypointLabel(wxListEvent& event) {
 				}
 
 				map->waypoints.addWaypoint(std::move(nwp_ptr));
-				g_brush_manager.waypoint_brush->setWaypoint(nwp);
+				if (g_brush_manager.waypoint_brush) {
+					g_brush_manager.waypoint_brush->setWaypoint(nwp);
+				}
 
 				// Refresh other palettes
 				refresh_timer.Start(300, true);
