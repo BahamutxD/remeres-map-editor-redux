@@ -103,6 +103,8 @@
 		<item name="Find Everything" action="SEARCH_ON_MAP_EVERYTHING" help="Find all unique/action/text/container items."/>
 	</menu>
 	<menu name="Map">
+		<item name="Edit Towns..." action="EDIT_TOWNS" help="Open towns palette."/>
+		<separator/>
 		<item name="Cleanup invalid tiles..." action="MAP_CLEANUP" help="Removes all invalid or unresolved items from the map."/>
 		<item name="Cleanup invalid zones..." action="MAP_CLEAN_INVALID_ZONES" help="Removes preserved invalid tile flags and opaque OTBM tile fragments from the map."/>
 		<item name="Remove unreachable tiles..." action="MAP_REMOVE_UNREACHABLE_TILES" help="Removes unreachable and invisible tiles from the map."/>

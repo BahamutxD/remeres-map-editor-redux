@@ -427,6 +427,10 @@ void MainMenuBar::OnMapCleanHouseItems(wxCommandEvent& event) {
 	mapActionsHandler->OnMapCleanHouseItems(event);
 }
 
+void MainMenuBar::OnMapEditTowns(wxCommandEvent& WXUNUSED(event)) {
+	g_gui.SelectPalettePage("Town");
+}
+
 void MainMenuBar::OnMapEditItems(wxCommandEvent& WXUNUSED(event)) {
 	;
 }
