@@ -53,10 +53,12 @@ void LibraryPanel::InitLayout() {
 	itemActions.filter = [this](const std::string& query) {
 		m_allItemsGrid->SetFilter(wxstr(query));
 	};
-	itemActions.sort = [this](TilesetSortKey, TilesetSortDirection) {
+	itemActions.sort = [this](TilesetSortKey key, TilesetSortDirection dir) {
+		m_allItemsGrid->SetSort(key, dir);
 		m_allItemsGrid->SetFilter(wxstr(m_itemsToolbar->GetFilterQuery()));
 	};
 	itemActions.clear_sort = [this]() {
+		m_allItemsGrid->ClearSort();
 		m_allItemsGrid->SetFilter(wxstr(m_itemsToolbar->GetFilterQuery()));
 	};
 	itemActions.show_labels = [this](bool show) {
@@ -90,10 +92,12 @@ void LibraryPanel::InitLayout() {
 	brushActions.filter = [this](const std::string&) {
 		PopulateBrushGrid();
 	};
-	brushActions.sort = [this](TilesetSortKey, TilesetSortDirection) {
+	brushActions.sort = [this](TilesetSortKey key, TilesetSortDirection dir) {
+		m_brushGrid->SetSort(key, dir);
 		PopulateBrushGrid();
 	};
 	brushActions.clear_sort = [this]() {
+		m_brushGrid->ClearSort();
 		PopulateBrushGrid();
 	};
 	brushActions.show_labels = [this](bool show) {
@@ -192,8 +196,7 @@ void LibraryPanel::PopulateBrushGrid() {
 			}
 		}
 	}
-	m_brushGrid->SetItems(brushIds);
-	m_brushGrid->SetOverrideNames(overrides);
+	m_brushGrid->SetItems(brushIds, std::move(overrides));
 }
 
 void LibraryPanel::PopulateRelatedItems(uint16_t brushLookId) {

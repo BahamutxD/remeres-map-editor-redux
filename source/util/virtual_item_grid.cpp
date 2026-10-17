@@ -85,8 +85,7 @@ void VirtualItemGrid::ApplySortTo(std::vector<uint16_t>& items) const {
 	std::vector<std::pair<std::string, uint16_t>> keyed;
 	keyed.reserve(items.size());
 	for (uint16_t id : items) {
-		const auto definition = g_item_definitions.get(id);
-		keyed.emplace_back(definition ? std::string(definition.name()) : std::string(), id);
+		keyed.emplace_back(GetSortName(id), id);
 	}
 
 	std::ranges::sort(keyed, [ascending](const auto& lhs, const auto& rhs) {
@@ -99,6 +98,11 @@ void VirtualItemGrid::ApplySortTo(std::vector<uint16_t>& items) const {
 	std::ranges::transform(keyed, items.begin(), [](const auto& entry) {
 		return entry.second;
 	});
+}
+
+std::string VirtualItemGrid::GetSortName(uint16_t id) const {
+	const auto definition = g_item_definitions.get(id);
+	return definition ? std::string(definition.name()) : std::string();
 }
 
 void VirtualItemGrid::RefreshGrid() {

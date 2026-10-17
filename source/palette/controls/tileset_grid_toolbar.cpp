@@ -301,9 +301,13 @@ void TilesetGridToolbar::OnSearchCancelIfNeeded() {
 	if (m_searchCtrl) {
 		m_searchCtrl->ChangeValue(wxEmptyString);
 	}
+	const bool hadFilterAll = m_filterAll;
 	m_filterAll = false;
 	if (m_toolbar && m_toolbar->GetToolIndex(TOOL_FILTER_ALL) != wxNOT_FOUND) {
 		m_toolbar->ToggleTool(TOOL_FILTER_ALL, false);
+	}
+	if (hadFilterAll && m_actions.filter_all) {
+		m_actions.filter_all(false);
 	}
 	if (m_actions.filter) {
 		m_actions.filter(std::string());

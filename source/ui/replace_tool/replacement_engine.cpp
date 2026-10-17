@@ -205,13 +205,22 @@ std::vector<uint32_t> ReplacementEngine::CountMatchesByRule(Editor* editor, cons
 		return perRule;
 	}
 
-	// Attribute every match to the effective rule for its source id, but only
-	// for rules that can actually pick a target: a rule without targets or
-	// with non-positive total probability never replaces anything.
+	// Attribute every match to the effective rule for its source id, matching
+	// ExecuteReplacement precedence: the last rule for each source id wins.
+	// If that effective rule has no targets or non-positive total probability,
+	// it replaces nothing and is excluded from counts.
 	std::map<uint16_t, size_t> ruleIndices;
 	for (size_t index = 0; index < rules.size(); ++index) {
 		const ReplacementRule& rule = rules[index];
-		if (rule.fromId == 0 || rule.targets.empty()) {
+		if (rule.fromId != 0) {
+			ruleIndices[rule.fromId] = index;
+		}
+	}
+
+	for (auto it = ruleIndices.begin(); it != ruleIndices.end(); ) {
+		const ReplacementRule& rule = rules[it->second];
+		if (rule.targets.empty()) {
+			it = ruleIndices.erase(it);
 			continue;
 		}
 
@@ -220,10 +229,10 @@ std::vector<uint32_t> ReplacementEngine::CountMatchesByRule(Editor* editor, cons
 			totalProbability += target.probability;
 		}
 		if (totalProbability <= 0) {
+			it = ruleIndices.erase(it);
 			continue;
 		}
-
-		ruleIndices[rule.fromId] = index;
+		++it;
 	}
 
 	if (ruleIndices.empty()) {

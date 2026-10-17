@@ -177,10 +177,12 @@ void ReplaceToolWindow::InitLayout() {
 	suggestionActions.filter = [this](const std::string& query) {
 		similarItemsGrid->SetFilter(wxstr(query));
 	};
-	suggestionActions.sort = [this](TilesetSortKey, TilesetSortDirection) {
+	suggestionActions.sort = [this](TilesetSortKey key, TilesetSortDirection dir) {
+		similarItemsGrid->SetSort(key, dir);
 		similarItemsGrid->SetFilter(wxstr(m_suggestionsToolbar->GetFilterQuery()));
 	};
 	suggestionActions.clear_sort = [this]() {
+		similarItemsGrid->ClearSort();
 		similarItemsGrid->SetFilter(wxstr(m_suggestionsToolbar->GetFilterQuery()));
 	};
 	suggestionActions.show_labels = [this](bool show) {

@@ -78,6 +78,7 @@ protected:
 	 * after rebuilding the list they display.
 	 */
 	void ApplySortTo(std::vector<uint16_t>& items) const;
+	virtual std::string GetSortName(uint16_t id) const;
 
 	/**
 	 * Card size implied by the icon size and the label toggle.

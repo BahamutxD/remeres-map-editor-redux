@@ -417,6 +417,9 @@ void WaypointPalettePanel::OnClickRemoveWaypoint(wxCommandEvent& /*event*/) {
 
 	if (selected_waypoint_name_ == name) {
 		selected_waypoint_name_.clear();
+		if (waypoint_table) {
+			waypoint_table->ClearSelection();
+		}
 		if (g_brush_manager.waypoint_brush) {
 			g_brush_manager.waypoint_brush->setWaypoint(nullptr);
 		}

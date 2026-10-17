@@ -192,13 +192,12 @@ void MapLayerDrawer::Draw(SpriteBatch& sprite_batch, int map_z, LiveClient* live
 			sprite_batch.flush(ctx.atlas);
 		}
 
-		// 4. Ground-level zone & blocking overlay pass: Special Zones, Spawns, Blocking, Houses, Waypoints (underneath items)
+		// 4. Ground-level zone & blocking overlay pass: Special Zones, Spawns, Blocking, Houses (underneath items)
 		if (zone_overlay_drawer && !options.ingame) {
 			zone_overlay_drawer->drawFloor(sprite_batch, map_z, view, map, secondary_map, options, ctx.atlas);
 			zone_overlay_drawer->drawFloorBlocking(sprite_batch, map_z, view, map, secondary_map, options, ctx.atlas);
 			zone_overlay_drawer->drawFloorHouses(sprite_batch, map_z, view, map, secondary_map, options, ctx.atlas);
 			zone_overlay_drawer->drawFloorZones(sprite_batch, map_z, view, map, secondary_map, options, ctx.atlas);
-			zone_overlay_drawer->drawFloorWaypoints(sprite_batch, map_z, view, map, options, ctx.atlas);
 			sprite_batch.flush(ctx.atlas);
 		}
 
@@ -217,10 +216,11 @@ void MapLayerDrawer::Draw(SpriteBatch& sprite_batch, int map_z, LiveClient* live
 		chunk_cache->renderDynamicOverlays(map_z, map, ctx, sprite_batch, *tile_renderer);
 		sprite_batch.flush(ctx.atlas);
 
-		// 7. Badges pass: cluster zone badges (floating on top of all items and terrain)
+		// 7. Badges pass: cluster zone badges and waypoint indicators (floating on top of all items and terrain)
 		glDisable(GL_DEPTH_TEST);
 		glDepthMask(GL_FALSE);
 		if (zone_overlay_drawer && !options.ingame) {
+			zone_overlay_drawer->drawFloorWaypoints(sprite_batch, map_z, view, map, options, ctx.atlas);
 			zone_overlay_drawer->drawFloorBadges(sprite_batch, map_z, view, map, secondary_map, options, ctx.atlas);
 			sprite_batch.flush(ctx.atlas);
 		}
@@ -249,7 +249,6 @@ void MapLayerDrawer::Draw(SpriteBatch& sprite_batch, int map_z, LiveClient* live
 			zone_overlay_drawer->drawFloorBlocking(sprite_batch, map_z, view, map, secondary_map, options, ctx.atlas);
 			zone_overlay_drawer->drawFloorHouses(sprite_batch, map_z, view, map, secondary_map, options, ctx.atlas);
 			zone_overlay_drawer->drawFloorZones(sprite_batch, map_z, view, map, secondary_map, options, ctx.atlas);
-			zone_overlay_drawer->drawFloorWaypoints(sprite_batch, map_z, view, map, options, ctx.atlas);
 			sprite_batch.flush(ctx.atlas);
 		}
 
@@ -268,10 +267,11 @@ void MapLayerDrawer::Draw(SpriteBatch& sprite_batch, int map_z, LiveClient* live
 		});
 		sprite_batch.flush(ctx.atlas);
 
-		// 5. Badges pass
+		// 5. Badges pass: cluster zone badges and waypoint indicators (floating on top of all items and terrain)
 		glDisable(GL_DEPTH_TEST);
 		glDepthMask(GL_FALSE);
 		if (zone_overlay_drawer && !options.ingame) {
+			zone_overlay_drawer->drawFloorWaypoints(sprite_batch, map_z, view, map, options, ctx.atlas);
 			zone_overlay_drawer->drawFloorBadges(sprite_batch, map_z, view, map, secondary_map, options, ctx.atlas);
 			sprite_batch.flush(ctx.atlas);
 		}

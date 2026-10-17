@@ -85,6 +85,9 @@ bool Waypoints::renameWaypoint(const std::string& old_name, const std::string& n
 	if (old_key == new_key) {
 		auto it = waypoints.find(old_key);
 		if (it != waypoints.end()) {
+			if (it->second->name == new_name) {
+				return true;
+			}
 			it->second->name = new_name;
 			map.doChange();
 			return true;
