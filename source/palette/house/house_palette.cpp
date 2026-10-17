@@ -18,11 +18,46 @@
 #include "brushes/house/house_brush.h"
 #include "brushes/house/house_exit_brush.h"
 
+#include "ui/theme.h"
+
 #include <wx/dcclient.h>
 #include <wx/stattext.h>
 #include <wx/renderer.h>
 
 #include <algorithm>
+
+namespace {
+
+wxColour GetPersistentSelectionBg() {
+	return wxSystemSettings::GetAppearance().IsDark() ? wxColour(38, 79, 120) : wxColour(204, 232, 255);
+}
+
+wxColour GetPersistentSelectionFg() {
+	return wxSystemSettings::GetAppearance().IsDark() ? *wxWHITE : *wxBLACK;
+}
+
+class PersistentHouseListStore : public wxDataViewListStore {
+public:
+	explicit PersistentHouseListStore(const uint32_t& selected_id) :
+		selected_id_(selected_id) {}
+
+	bool GetAttrByRow(unsigned int row, unsigned int col, wxDataViewItemAttr& attr) const override {
+		if (selected_id_ != 0 && row < m_data.size()) {
+			House* h = reinterpret_cast<House*>(m_data[row]->GetData());
+			if (h && h->getID() == selected_id_) {
+				attr.SetBackgroundColour(GetPersistentSelectionBg());
+				attr.SetColour(GetPersistentSelectionFg());
+				return true;
+			}
+		}
+		return false;
+	}
+
+private:
+	const uint32_t& selected_id_;
+};
+
+} // namespace
 
 enum {
 	ID_TOWN_CHOICE = 10000,
@@ -45,16 +80,23 @@ HousePalette::HousePalette(wxWindow* parent) :
 	wxBoxSizer* filter_sizer = newd wxBoxSizer(wxVERTICAL);
 
 	town_choice = newd wxChoice(this, ID_TOWN_CHOICE);
+	town_choice->SetFont(Theme::GetFont(9, false));
 	filter_sizer->Add(town_choice, 0, wxEXPAND | wxBOTTOM, 4);
 
 	search_ctrl = newd wxTextCtrl(this, ID_SEARCH_CTRL, "", wxDefaultPosition, wxDefaultSize, 0);
 	search_ctrl->SetHint("Search houses...");
+	search_ctrl->SetFont(Theme::GetFont(9, false));
 	filter_sizer->Add(search_ctrl, 0, wxEXPAND);
 
 	main_sizer->Add(filter_sizer, 0, wxEXPAND | wxALL, 5);
 
 	// Table section
 	house_list = newd wxDataViewListCtrl(this, ID_HOUSE_LIST, wxDefaultPosition, wxDefaultSize, wxDV_SINGLE | wxDV_ROW_LINES);
+	auto* store = new PersistentHouseListStore(selected_house_id_);
+	house_list->AssociateModel(store);
+	store->DecRef();
+	house_list->SetFont(Theme::GetFont(9, false));
+
 	house_list->AppendIconTextColumn("Guild", wxDATAVIEW_CELL_INERT, 40, wxALIGN_CENTER, wxDATAVIEW_COL_SORTABLE | wxDATAVIEW_COL_RESIZABLE);
 	house_list->AppendTextColumn("ID", wxDATAVIEW_CELL_INERT, 40, wxALIGN_LEFT, wxDATAVIEW_COL_SORTABLE | wxDATAVIEW_COL_RESIZABLE);
 	house_list->AppendTextColumn("Name", wxDATAVIEW_CELL_INERT, 120, wxALIGN_LEFT, wxDATAVIEW_COL_SORTABLE | wxDATAVIEW_COL_RESIZABLE);
@@ -66,8 +108,11 @@ HousePalette::HousePalette(wxWindow* parent) :
 	// Action buttons (Add, Edit, Remove)
 	wxBoxSizer* action_sizer = newd wxBoxSizer(wxHORIZONTAL);
 	add_button = newd wxButton(this, ID_ADD_HOUSE, "Add", wxDefaultPosition, wxSize(50, -1));
+	add_button->SetFont(Theme::GetFont(9, false));
 	edit_button = newd wxButton(this, ID_EDIT_HOUSE, "Edit", wxDefaultPosition, wxSize(50, -1));
+	edit_button->SetFont(Theme::GetFont(9, false));
 	remove_button = newd wxButton(this, ID_REMOVE_HOUSE, "Remove", wxDefaultPosition, wxSize(60, -1));
+	remove_button->SetFont(Theme::GetFont(9, false));
 
 	action_sizer->Add(add_button, 1, wxEXPAND | wxRIGHT, 2);
 	action_sizer->Add(edit_button, 1, wxEXPAND | wxRIGHT, 2);
@@ -79,7 +124,9 @@ HousePalette::HousePalette(wxWindow* parent) :
 	wxBoxSizer* brush_sizer = newd wxBoxSizer(wxHORIZONTAL);
 
 	house_brush_button = newd wxToggleButton(this, ID_HOUSE_BRUSH, "House tiles");
+	house_brush_button->SetFont(Theme::GetFont(9, false));
 	select_exit_button = newd wxToggleButton(this, ID_EXIT_BRUSH, "Select Exit");
+	select_exit_button->SetFont(Theme::GetFont(9, false));
 
 	brush_sizer->Add(house_brush_button, 1, wxEXPAND | wxRIGHT, 2);
 	brush_sizer->Add(select_exit_button, 1, wxEXPAND);
@@ -218,6 +265,7 @@ void HousePalette::FilterHouses() {
 	}
 
 	house_list->Thaw();
+	house_list->Refresh();
 }
 
 House* HousePalette::GetSelectedHouse() const {
@@ -260,6 +308,7 @@ void HousePalette::UpdateHouseSize(uint32_t house_id) {
 			}
 		}
 	}
+	house_list->Refresh();
 }
 
 Brush* HousePalette::GetSelectedBrush() const {
@@ -331,6 +380,7 @@ void HousePalette::OnHouseSelected(wxDataViewEvent& event) {
 		} else if (select_exit_button->GetValue()) {
 			g_brush_manager.house_exit_brush->setHouse(house);
 		}
+		house_list->Refresh();
 		g_gui.SelectBrush();
 	}
 }
@@ -340,6 +390,7 @@ void HousePalette::OnHouseActivated(wxDataViewEvent& event) {
 	if (house) {
 		selected_house_id_ = house->getID();
 		SelectHouseBrush();
+		house_list->Refresh();
 		g_gui.SelectBrush(); // Ensure brush is activated
 		if (house->getExit() != Position(0, 0, 0) && house->getExit().isValid()) {
 			g_gui.SetScreenCenterPosition(house->getExit());
