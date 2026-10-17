@@ -18,12 +18,11 @@
 #ifndef RME_PALETTE_WAYPOINTS_H_
 #define RME_PALETTE_WAYPOINTS_H_
 
-#include <wx/dataview.h>
-
-#include <string>
-
+#include "util/nanovg_table_ctrl.h"
 #include "game/waypoints.h"
 #include "palette/palette_common.h"
+
+#include <string>
 
 class WaypointPalettePanel : public PalettePanel {
 public:
@@ -45,10 +44,12 @@ public:
 	void OnSwitchIn() override;
 	void OnSwitchOut() override;
 
-public:
-	// wxWidgets event handling
-	void OnSelectWaypoint(wxDataViewEvent& event);
-	void OnActivateWaypoint(wxDataViewEvent& event);
+	// Table callbacks
+	void OnSelectWaypoint(int index, const TableRow& row);
+	void OnActivateWaypoint(int index, const TableRow& row);
+	void OnSortWaypoints(int column, bool ascending);
+
+	// Button handlers
 	void OnClickAddWaypoint(wxCommandEvent& event);
 	void OnClickRenameWaypoint(wxCommandEvent& event);
 	void OnClickRemoveWaypoint(wxCommandEvent& event);
@@ -56,18 +57,17 @@ public:
 	void SetMap(Map* map);
 
 protected:
-	// Removes a waypoint from the map, keeping the tile waypoint count
-	// consistent (unplaced waypoints are never counted).
 	void RemoveWaypointFromMap(Waypoint* wp);
 	Waypoint* GetSelectedWaypoint() const;
 
-	Map* map;
+	Map* map = nullptr;
 	std::string selected_waypoint_name_;
 
-	wxDataViewListCtrl* waypoint_list;
-	wxButton* add_waypoint_button;
-	wxButton* rename_waypoint_button;
-	wxButton* remove_waypoint_button;
+	NanoVGTableCtrl* waypoint_table = nullptr;
+	wxButton* add_waypoint_button = nullptr;
+	wxButton* rename_waypoint_button = nullptr;
+	wxButton* remove_waypoint_button = nullptr;
 };
 
 #endif
+
