@@ -395,8 +395,6 @@ void DrawingController::HandleRelease(const Position& mouse_map_pos, bool shift_
 		g_gui.UpdateHousePalette(house_id);
 	}
 
-	g_gui.RefreshView();
-
 	editor.actionQueue->resetTimer();
 	drawing = false;
 	dragging_draw = false;

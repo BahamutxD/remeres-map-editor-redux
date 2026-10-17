@@ -323,7 +323,6 @@ void DrawOperations::draw(Editor& editor, Position offset, bool alt, bool dodraw
 		action->addChange(std::unique_ptr<Change>(Change::Create(house, offset)));
 		batch->addAndCommitAction(std::move(action));
 		editor.addBatch(std::move(batch), 2);
-		g_gui.RefreshView();
 		g_gui.SetStatusText(wxstr(std::format("House \"{}\" (ID: {}) exit set to ({}, {}, {})", house->name, house->getID(), offset.x, offset.y, offset.z)));
 	} else if (brush->is<WaypointBrush>()) {
 		WaypointBrush* waypoint_brush = brush->as<WaypointBrush>();
@@ -341,7 +340,6 @@ void DrawOperations::draw(Editor& editor, Position offset, bool alt, bool dodraw
 		action->addChange(std::unique_ptr<Change>(Change::Create(waypoint, offset)));
 		batch->addAndCommitAction(std::move(action));
 		editor.addBatch(std::move(batch), 2);
-		g_gui.RefreshView();
 		g_gui.SetStatusText(wxstr(std::format("Waypoint \"{}\" moved to ({}, {}, {})", waypoint->name, offset.x, offset.y, offset.z)));
 	} else if (brush->is<WallBrush>()) {
 		std::unique_ptr<BatchAction> batch = editor.actionQueue->createBatch(ACTION_DRAW);
