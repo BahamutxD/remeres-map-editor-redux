@@ -24,52 +24,6 @@
 
 #include <algorithm>
 
-namespace {
-
-class AlwaysFocusedSelectionRenderer : public wxDelegateRendererNative {
-public:
-	AlwaysFocusedSelectionRenderer(wxRendererNative& renderer, wxWindow* target_ctrl) :
-		wxDelegateRendererNative(renderer), target(target_ctrl) {}
-
-	void SetTarget(wxWindow* target_ctrl) {
-		target = target_ctrl;
-	}
-
-	void DrawItemSelectionRect(wxWindow* win, wxDC& dc, const wxRect& rect, int flags = 0) override {
-		if (target && isTargetOrChild(win)) {
-			if (flags & wxCONTROL_SELECTED) {
-				flags |= wxCONTROL_FOCUSED;
-			}
-		}
-		m_rendererNative.DrawItemSelectionRect(win, dc, rect, flags);
-	}
-
-	void DrawItemText(wxWindow* win, wxDC& dc, const wxString& text, const wxRect& rect,
-	                  int align = wxALIGN_LEFT | wxALIGN_CENTRE_VERTICAL,
-	                  int flags = 0, wxEllipsizeMode ellipsizeMode = wxELLIPSIZE_END) override {
-		if (target && isTargetOrChild(win)) {
-			if (flags & wxCONTROL_SELECTED) {
-				flags |= wxCONTROL_FOCUSED;
-			}
-		}
-		m_rendererNative.DrawItemText(win, dc, text, rect, align, flags, ellipsizeMode);
-	}
-
-private:
-	bool isTargetOrChild(wxWindow* win) const {
-		for (wxWindow* w = win; w != nullptr; w = w->GetParent()) {
-			if (w == target) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	wxWindow* target;
-};
-
-} // namespace
-
 enum {
 	ID_TOWN_CHOICE = 10000,
 	ID_SEARCH_CTRL,
@@ -106,10 +60,6 @@ HousePalette::HousePalette(wxWindow* parent) :
 	house_list->AppendTextColumn("Name", wxDATAVIEW_CELL_INERT, 120, wxALIGN_LEFT, wxDATAVIEW_COL_SORTABLE | wxDATAVIEW_COL_RESIZABLE);
 	house_list->AppendTextColumn("Rent", wxDATAVIEW_CELL_INERT, 75, wxALIGN_LEFT, wxDATAVIEW_COL_SORTABLE | wxDATAVIEW_COL_RESIZABLE);
 	house_list->AppendTextColumn("Size", wxDATAVIEW_CELL_INERT, 50, wxALIGN_LEFT, wxDATAVIEW_COL_SORTABLE | wxDATAVIEW_COL_RESIZABLE);
-
-	auto renderer = std::make_unique<AlwaysFocusedSelectionRenderer>(wxRendererNative::Get(), house_list);
-	prev_renderer = wxRendererNative::Set(renderer.get());
-	custom_renderer = std::move(renderer);
 
 	main_sizer->Add(house_list, 1, wxEXPAND | wxLEFT | wxRIGHT, 5);
 
@@ -168,10 +118,6 @@ HousePalette::HousePalette(wxWindow* parent) :
 }
 
 HousePalette::~HousePalette() {
-	if (custom_renderer) {
-		wxRendererNative::Set(prev_renderer);
-		custom_renderer.reset();
-	}
 }
 
 wxString HousePalette::GetName() const {
@@ -181,8 +127,12 @@ wxString HousePalette::GetName() const {
 void HousePalette::SetMap(Map* m) {
 	if (map != m) {
 		selected_house_id_ = 0;
-		g_brush_manager.house_brush->setHouse(nullptr);
-		g_brush_manager.house_exit_brush->setHouse(nullptr);
+		if (g_brush_manager.house_brush) {
+			g_brush_manager.house_brush->setHouse(nullptr);
+		}
+		if (g_brush_manager.house_exit_brush) {
+			g_brush_manager.house_exit_brush->setHouse(nullptr);
+		}
 	}
 	map = m;
 	UpdateHouses();
@@ -315,23 +265,25 @@ void HousePalette::UpdateHouseSize(uint32_t house_id) {
 Brush* HousePalette::GetSelectedBrush() const {
 	House* house = GetSelectedHouse();
 	if (select_exit_button->GetValue()) {
-		if (house) {
+		if (g_brush_manager.house_exit_brush) {
 			g_brush_manager.house_exit_brush->setHouse(house);
+			return (g_brush_manager.house_exit_brush->getHouseID() != 0 ? g_brush_manager.house_exit_brush : nullptr);
 		}
-		return (g_brush_manager.house_exit_brush->getHouseID() != 0 ? g_brush_manager.house_exit_brush : nullptr);
 	} else if (house_brush_button->GetValue()) {
-		g_brush_manager.house_brush->setHouse(house);
-		return (g_brush_manager.house_brush->getHouseID() != 0 ? g_brush_manager.house_brush : nullptr);
+		if (g_brush_manager.house_brush) {
+			g_brush_manager.house_brush->setHouse(house);
+			return (g_brush_manager.house_brush->getHouseID() != 0 ? g_brush_manager.house_brush : nullptr);
+		}
 	}
 	return nullptr;
 }
 
 bool HousePalette::SelectBrush(const Brush* whatbrush) {
-	if (whatbrush == g_brush_manager.house_brush) {
+	if (whatbrush && whatbrush == g_brush_manager.house_brush) {
 		SelectHouseBrush();
 		return true;
 	}
-	if (whatbrush == g_brush_manager.house_exit_brush) {
+	if (whatbrush && whatbrush == g_brush_manager.house_exit_brush) {
 		SelectExitBrush();
 		return true;
 	}
@@ -346,7 +298,7 @@ void HousePalette::SelectHouseBrush() {
 	house_brush_button->SetValue(true);
 	select_exit_button->SetValue(false);
 	House* house = GetSelectedHouse();
-	if (house) {
+	if (g_brush_manager.house_brush) {
 		g_brush_manager.house_brush->setHouse(house);
 	}
 	g_gui.SelectBrush();
@@ -356,7 +308,7 @@ void HousePalette::SelectExitBrush() {
 	house_brush_button->SetValue(false);
 	select_exit_button->SetValue(true);
 	House* house = GetSelectedHouse();
-	if (house) {
+	if (g_brush_manager.house_exit_brush) {
 		g_brush_manager.house_exit_brush->setHouse(house);
 	}
 	g_gui.SelectBrush();
@@ -459,7 +411,7 @@ void HousePalette::OnHouseBrushButton(wxCommandEvent& event) {
 	if (house_brush_button->GetValue()) {
 		select_exit_button->SetValue(false);
 		House* house = GetSelectedHouse();
-		if (house) {
+		if (g_brush_manager.house_brush) {
 			g_brush_manager.house_brush->setHouse(house);
 		}
 	}
@@ -470,7 +422,7 @@ void HousePalette::OnSelectExitButton(wxCommandEvent& event) {
 	if (select_exit_button->GetValue()) {
 		house_brush_button->SetValue(false);
 		House* house = GetSelectedHouse();
-		if (house) {
+		if (g_brush_manager.house_exit_brush) {
 			g_brush_manager.house_exit_brush->setHouse(house);
 		}
 	}

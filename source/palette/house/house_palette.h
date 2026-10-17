@@ -61,8 +61,6 @@ protected:
 
 	Map* map;
 
-	std::unique_ptr<wxRendererNative> custom_renderer;
-	wxRendererNative* prev_renderer = nullptr;
 	uint32_t selected_house_id_ = 0;
 
 	wxChoice* town_choice;
