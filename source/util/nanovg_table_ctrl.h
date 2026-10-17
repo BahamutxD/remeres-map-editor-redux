@@ -24,6 +24,19 @@ struct TableRow {
 	std::string icon_name;      // SVG asset path (e.g. ICON_HOUSE_USER or empty)
 	int icon_col = -1;          // Column to draw icon in (-1 for none)
 	void* client_data = nullptr;
+
+	// Optional color swatch
+	bool has_color_swatch = false;
+	int color_swatch_col = -1;
+	uint8_t swatch_r = 0;
+	uint8_t swatch_g = 0;
+	uint8_t swatch_b = 0;
+
+	// Optional hierarchy / tree group
+	int indent_level = 0;       // Indentation level (0 = root, 1 = child, etc.)
+	int group_col = -1;         // Column containing the expander arrow and indentation (-1 for none)
+	bool is_group = false;      // True if row can expand/collapse children
+	bool is_expanded = false;   // Current expand/collapse state
 };
 
 /**
@@ -73,11 +86,13 @@ public:
 	using ActivationCallback = std::function<void(int index, const TableRow& row)>;
 	using SortCallback = std::function<void(int column, bool ascending)>;
 	using ContextMenuCallback = std::function<void(int index, const TableRow* row, const wxPoint& pos)>;
+	using ToggleGroupCallback = std::function<void(int index, const TableRow& row)>;
 
 	void SetOnSelect(SelectionCallback callback) { on_select_ = std::move(callback); }
 	void SetOnActivate(ActivationCallback callback) { on_activate_ = std::move(callback); }
 	void SetOnSort(SortCallback callback) { on_sort_ = std::move(callback); }
 	void SetOnContextMenu(ContextMenuCallback callback) { on_context_menu_ = std::move(callback); }
+	void SetOnToggleGroup(ToggleGroupCallback callback) { on_toggle_group_ = std::move(callback); }
 
 protected:
 	void OnNanoVGPaint(NVGcontext* vg, int width, int height) override;
@@ -117,6 +132,7 @@ protected:
 	ActivationCallback on_activate_;
 	SortCallback on_sort_;
 	ContextMenuCallback on_context_menu_;
+	ToggleGroupCallback on_toggle_group_;
 };
 
 #endif // RME_UTIL_NANOVG_TABLE_CTRL_H_

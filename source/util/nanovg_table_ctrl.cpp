@@ -321,7 +321,26 @@ void NanoVGTableCtrl::OnMouseDown(wxMouseEvent& event) {
 	} else {
 		const int row = HitTestRow(y);
 		if (row >= 0 && row < static_cast<int>(rows_.size())) {
-			SetSelection(row, true);
+			const TableRow& r = rows_[row];
+			bool toggled = false;
+			if (r.is_group && r.group_col >= 0 && r.group_col < static_cast<int>(columns_.size())) {
+				const auto widths = CalculateColumnWidths(GetClientSize().x);
+				int col_x = 0;
+				for (int i = 0; i < r.group_col; ++i) {
+					col_x += widths[i];
+				}
+				const int arrow_left = col_x + r.indent_level * FromDIP(14);
+				const int arrow_right = arrow_left + FromDIP(20);
+				if (event.GetX() >= arrow_left && event.GetX() <= arrow_right) {
+					if (on_toggle_group_) {
+						on_toggle_group_(row, r);
+						toggled = true;
+					}
+				}
+			}
+			if (!toggled) {
+				SetSelection(row, true);
+			}
 		}
 	}
 
@@ -420,6 +439,24 @@ void NanoVGTableCtrl::OnKeyDown(wxKeyEvent& event) {
 			next = std::min(static_cast<int>(rows_.size()) - 1, selected_index_ + page_rows);
 			break;
 		}
+		case WXK_RIGHT:
+			if (selected_index_ >= 0 && selected_index_ < static_cast<int>(rows_.size())) {
+				const TableRow& r = rows_[selected_index_];
+				if (r.is_group && !r.is_expanded && on_toggle_group_) {
+					on_toggle_group_(selected_index_, r);
+					return;
+				}
+			}
+			break;
+		case WXK_LEFT:
+			if (selected_index_ >= 0 && selected_index_ < static_cast<int>(rows_.size())) {
+				const TableRow& r = rows_[selected_index_];
+				if (r.is_group && r.is_expanded && on_toggle_group_) {
+					on_toggle_group_(selected_index_, r);
+					return;
+				}
+			}
+			break;
 		case WXK_RETURN:
 		case WXK_NUMPAD_ENTER:
 			if (selected_index_ >= 0 && selected_index_ < static_cast<int>(rows_.size()) && on_activate_) {
@@ -512,7 +549,26 @@ void NanoVGTableCtrl::OnNanoVGPaint(NVGcontext* vg, int width, int height) {
 			nvgSave(vg);
 			nvgScissor(vg, cell_x + 3.0f, row_y, cell_w - 6.0f, static_cast<float>(row_h));
 
-			if (row_data.icon_col == static_cast<int>(c)) {
+			if (row_data.has_color_swatch && row_data.color_swatch_col == static_cast<int>(c)) {
+				const float swatch_w = static_cast<float>(FromDIP(14));
+				const float swatch_h = static_cast<float>(FromDIP(14));
+				const float swatch_x = cell_x + (cell_w - swatch_w) * 0.5f;
+				const float swatch_y = row_y + (row_h - swatch_h) * 0.5f;
+
+				nvgBeginPath(vg);
+				nvgRoundedRect(vg, swatch_x, swatch_y, swatch_w, swatch_h, 3.0f);
+				nvgFillColor(vg, nvgRGBA(row_data.swatch_r, row_data.swatch_g, row_data.swatch_b, 255));
+				nvgFill(vg);
+
+				nvgStrokeWidth(vg, 1.0f);
+				nvgStrokeColor(vg, nvgRGBA(
+					static_cast<unsigned char>(row_data.swatch_r * 0.65f),
+					static_cast<unsigned char>(row_data.swatch_g * 0.65f),
+					static_cast<unsigned char>(row_data.swatch_b * 0.65f),
+					255
+				));
+				nvgStroke(vg);
+			} else if (row_data.icon_col == static_cast<int>(c)) {
 				if (!row_data.icon_name.empty()) {
 					const float icon_sz = static_cast<float>(FromDIP(14));
 					const float icon_x = cell_x + (cell_w - icon_sz) * 0.5f;
@@ -542,6 +598,21 @@ void NanoVGTableCtrl::OnNanoVGPaint(NVGcontext* vg, int width, int height) {
 					text_x = cell_x + cell_w * 0.5f;
 				} else if (columns_[c].align & NVG_ALIGN_RIGHT) {
 					text_x = cell_x + cell_w - 6.0f;
+				} else if (row_data.group_col == static_cast<int>(c)) {
+					// Apply indent and expander arrow
+					if (row_data.indent_level > 0) {
+						text_x += row_data.indent_level * FromDIP(14.0f);
+					}
+					if (row_data.is_group) {
+						nvgSave(vg);
+						nvgFontFace(vg, "sans");
+						nvgFontSize(vg, 9.0f);
+						nvgFillColor(vg, is_selected ? text_col : NvgUtils::ToNvColor(Theme::Get(Theme::Role::TextSubtle)));
+						nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
+						nvgText(vg, text_x, cell_center_y, row_data.is_expanded ? "▼" : "▶", nullptr);
+						nvgRestore(vg);
+						text_x += FromDIP(14.0f);
+					}
 				}
 
 				nvgText(vg, text_x, cell_center_y, text.c_str(), nullptr);
