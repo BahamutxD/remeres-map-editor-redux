@@ -38,7 +38,7 @@ ZonePalettePanel::ZonePalettePanel(wxWindow* parent, wxWindowID id) :
 	// NanoVG Table
 	zone_table = newd NanoVGTableCtrl(this, PALETTE_ZONE_LISTBOX);
 	std::vector<TableColumn> cols = {
-		{ "swatch", "Color", 30, NVG_ALIGN_CENTER, false },
+		{ "swatch", "#", 30, NVG_ALIGN_CENTER, false },
 		{ "id", "ID", 38, NVG_ALIGN_CENTER, true },
 		{ "name", "Name", 0, NVG_ALIGN_LEFT, true },
 		{ "areas", "Areas", 46, NVG_ALIGN_CENTER, true },
@@ -302,10 +302,10 @@ void ZonePalettePanel::OnUpdate() {
 				child_row.is_group = false;
 				child_row.is_expanded = false;
 
-				child_row.cells.push_back("↳");
-				child_row.cells.push_back(std::format("·{}", ci + 1));
+				child_row.cells.push_back("");
+				child_row.cells.push_back("");
 				child_row.cells.push_back(std::format("Area {} @ ({}, {}, z{})", ci + 1, c.centroid_pos.x, c.centroid_pos.y, c.centroid_pos.z));
-				child_row.cells.push_back("—");
+				child_row.cells.push_back("");
 				child_row.cells.push_back(format_thousands_separator(c.tile_count));
 
 				rows.push_back(std::move(child_row));

@@ -330,7 +330,7 @@ void NanoVGTableCtrl::OnMouseDown(wxMouseEvent& event) {
 					col_x += widths[i];
 				}
 				const int arrow_left = col_x + r.indent_level * FromDIP(14);
-				const int arrow_right = arrow_left + FromDIP(20);
+				const int arrow_right = arrow_left + FromDIP(22);
 				if (event.GetX() >= arrow_left && event.GetX() <= arrow_right) {
 					if (on_toggle_group_) {
 						on_toggle_group_(row, r);
@@ -601,17 +601,30 @@ void NanoVGTableCtrl::OnNanoVGPaint(NVGcontext* vg, int width, int height) {
 				} else if (row_data.group_col == static_cast<int>(c)) {
 					// Apply indent and expander arrow
 					if (row_data.indent_level > 0) {
-						text_x += row_data.indent_level * FromDIP(14.0f);
+						text_x += row_data.indent_level * static_cast<float>(FromDIP(14));
 					}
 					if (row_data.is_group) {
-						nvgSave(vg);
-						nvgFontFace(vg, "sans");
-						nvgFontSize(vg, 9.0f);
-						nvgFillColor(vg, is_selected ? text_col : NvgUtils::ToNvColor(Theme::Get(Theme::Role::TextSubtle)));
-						nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
-						nvgText(vg, text_x, cell_center_y, row_data.is_expanded ? "▼" : "▶", nullptr);
-						nvgRestore(vg);
-						text_x += FromDIP(14.0f);
+						const float arrow_sz = static_cast<float>(FromDIP(7));
+						const float ax = text_x + static_cast<float>(FromDIP(2));
+						const NVGcolor arrow_col = is_selected ? text_col : NvgUtils::ToNvColor(Theme::Get(Theme::Role::TextSubtle));
+
+						nvgBeginPath(vg);
+						if (row_data.is_expanded) {
+							// Downward pointing triangle (expanded)
+							nvgMoveTo(vg, ax, cell_center_y - arrow_sz * 0.4f);
+							nvgLineTo(vg, ax + arrow_sz, cell_center_y - arrow_sz * 0.4f);
+							nvgLineTo(vg, ax + arrow_sz * 0.5f, cell_center_y + arrow_sz * 0.5f);
+						} else {
+							// Rightward pointing triangle (collapsed)
+							nvgMoveTo(vg, ax, cell_center_y - arrow_sz * 0.5f);
+							nvgLineTo(vg, ax + arrow_sz * 0.866f, cell_center_y);
+							nvgLineTo(vg, ax, cell_center_y + arrow_sz * 0.5f);
+						}
+						nvgClosePath(vg);
+						nvgFillColor(vg, arrow_col);
+						nvgFill(vg);
+
+						text_x += static_cast<float>(FromDIP(16));
 					}
 				}
 
