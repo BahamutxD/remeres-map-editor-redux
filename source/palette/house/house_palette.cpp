@@ -12,6 +12,7 @@
 #include "ui/gui.h"
 #include "ui/dialog_util.h"
 #include "util/image_manager.h"
+#include "util/common.h"
 
 #include "brushes/managers/brush_manager.h"
 #include "brushes/house/house_brush.h"
@@ -19,8 +20,55 @@
 
 #include <wx/dcclient.h>
 #include <wx/stattext.h>
+#include <wx/renderer.h>
 
 #include <algorithm>
+
+namespace {
+
+class AlwaysFocusedSelectionRenderer : public wxDelegateRendererNative {
+public:
+	AlwaysFocusedSelectionRenderer(wxRendererNative& renderer, wxWindow* target_ctrl) :
+		wxDelegateRendererNative(renderer), target(target_ctrl) {}
+
+	void SetTarget(wxWindow* target_ctrl) {
+		target = target_ctrl;
+	}
+
+	void DrawItemSelectionRect(wxWindow* win, wxDC& dc, const wxRect& rect, int flags = 0) override {
+		if (target && isTargetOrChild(win)) {
+			if (flags & wxCONTROL_SELECTED) {
+				flags |= wxCONTROL_FOCUSED;
+			}
+		}
+		m_rendererNative.DrawItemSelectionRect(win, dc, rect, flags);
+	}
+
+	void DrawItemText(wxWindow* win, wxDC& dc, const wxString& text, const wxRect& rect,
+	                  int align = wxALIGN_LEFT | wxALIGN_CENTRE_VERTICAL,
+	                  int flags = 0, wxEllipsizeMode ellipsizeMode = wxELLIPSIZE_END) override {
+		if (target && isTargetOrChild(win)) {
+			if (flags & wxCONTROL_SELECTED) {
+				flags |= wxCONTROL_FOCUSED;
+			}
+		}
+		m_rendererNative.DrawItemText(win, dc, text, rect, align, flags, ellipsizeMode);
+	}
+
+private:
+	bool isTargetOrChild(wxWindow* win) const {
+		for (wxWindow* w = win; w != nullptr; w = w->GetParent()) {
+			if (w == target) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	wxWindow* target;
+};
+
+} // namespace
 
 enum {
 	ID_TOWN_CHOICE = 10000,
@@ -42,11 +90,8 @@ HousePalette::HousePalette(wxWindow* parent) :
 	// Header section (Town & Search)
 	wxBoxSizer* filter_sizer = newd wxBoxSizer(wxVERTICAL);
 
-	wxBoxSizer* town_row = newd wxBoxSizer(wxHORIZONTAL);
-	town_row->Add(newd wxStaticText(this, wxID_ANY, "Town:"), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 4);
 	town_choice = newd wxChoice(this, ID_TOWN_CHOICE);
-	town_row->Add(town_choice, 1, wxEXPAND);
-	filter_sizer->Add(town_row, 0, wxEXPAND | wxBOTTOM, 4);
+	filter_sizer->Add(town_choice, 0, wxEXPAND | wxBOTTOM, 4);
 
 	search_ctrl = newd wxTextCtrl(this, ID_SEARCH_CTRL, "", wxDefaultPosition, wxDefaultSize, 0);
 	search_ctrl->SetHint("Search houses...");
@@ -59,8 +104,12 @@ HousePalette::HousePalette(wxWindow* parent) :
 	house_list->AppendIconTextColumn("Guild", wxDATAVIEW_CELL_INERT, 40, wxALIGN_CENTER, wxDATAVIEW_COL_SORTABLE | wxDATAVIEW_COL_RESIZABLE);
 	house_list->AppendTextColumn("ID", wxDATAVIEW_CELL_INERT, 40, wxALIGN_LEFT, wxDATAVIEW_COL_SORTABLE | wxDATAVIEW_COL_RESIZABLE);
 	house_list->AppendTextColumn("Name", wxDATAVIEW_CELL_INERT, 120, wxALIGN_LEFT, wxDATAVIEW_COL_SORTABLE | wxDATAVIEW_COL_RESIZABLE);
-	house_list->AppendTextColumn("Rent", wxDATAVIEW_CELL_INERT, 60, wxALIGN_LEFT, wxDATAVIEW_COL_SORTABLE | wxDATAVIEW_COL_RESIZABLE);
+	house_list->AppendTextColumn("Rent", wxDATAVIEW_CELL_INERT, 75, wxALIGN_LEFT, wxDATAVIEW_COL_SORTABLE | wxDATAVIEW_COL_RESIZABLE);
 	house_list->AppendTextColumn("Size", wxDATAVIEW_CELL_INERT, 50, wxALIGN_LEFT, wxDATAVIEW_COL_SORTABLE | wxDATAVIEW_COL_RESIZABLE);
+
+	auto renderer = std::make_unique<AlwaysFocusedSelectionRenderer>(wxRendererNative::Get(), house_list);
+	prev_renderer = wxRendererNative::Set(renderer.get());
+	custom_renderer = std::move(renderer);
 
 	main_sizer->Add(house_list, 1, wxEXPAND | wxLEFT | wxRIGHT, 5);
 
@@ -119,6 +168,10 @@ HousePalette::HousePalette(wxWindow* parent) :
 }
 
 HousePalette::~HousePalette() {
+	if (custom_renderer) {
+		wxRendererNative::Set(prev_renderer);
+		custom_renderer.reset();
+	}
 }
 
 wxString HousePalette::GetName() const {
@@ -127,7 +180,9 @@ wxString HousePalette::GetName() const {
 
 void HousePalette::SetMap(Map* m) {
 	if (map != m) {
+		selected_house_id_ = 0;
 		g_brush_manager.house_brush->setHouse(nullptr);
+		g_brush_manager.house_exit_brush->setHouse(nullptr);
 	}
 	map = m;
 	UpdateHouses();
@@ -173,6 +228,8 @@ void HousePalette::FilterHouses() {
 		}
 	}
 
+	wxDataViewItem item_to_select;
+
 	for (auto& it : map->houses) {
 		House* house = it.second.get();
 
@@ -193,13 +250,23 @@ void HousePalette::FilterHouses() {
 			data.push_back(wxVariant(wxDataViewIconText("", house->guildhall ? guild_icon : no_guild_icon)));
 			data.push_back(wxVariant(wxstr(std::to_string(house->getID()))));
 			data.push_back(wxVariant(wxstr(house->name)));
-			data.push_back(wxVariant(wxstr(std::to_string(house->rent))));
+			data.push_back(wxVariant(wxstr(format_thousands_separator(house->rent))));
 			data.push_back(wxVariant(wxstr(std::to_string(house->size()))));
 
 			// Store the house pointer as row data; wxDataViewListCtrl supports it.
 			house_list->AppendItem(data, (wxUIntPtr)house);
+
+			if (selected_house_id_ != 0 && house->getID() == selected_house_id_) {
+				item_to_select = house_list->RowToItem(house_list->GetItemCount() - 1);
+			}
 		}
 	}
+
+	if (item_to_select.IsOk()) {
+		house_list->Select(item_to_select);
+		house_list->EnsureVisible(item_to_select);
+	}
+
 	house_list->Thaw();
 }
 
@@ -208,7 +275,41 @@ House* HousePalette::GetSelectedHouse() const {
 	if (item.IsOk()) {
 		return (House*)house_list->GetItemData(item);
 	}
+	if (selected_house_id_ != 0 && map) {
+		return map->houses.getHouse(selected_house_id_);
+	}
 	return nullptr;
+}
+
+void HousePalette::UpdateHouseSize(uint32_t house_id) {
+	if (!map || !house_list) {
+		return;
+	}
+
+	unsigned int count = house_list->GetItemCount();
+	for (unsigned int i = 0; i < count; ++i) {
+		wxDataViewItem item = house_list->RowToItem(i);
+		if (!item.IsOk()) {
+			continue;
+		}
+		House* h = (House*)house_list->GetItemData(item);
+		if (h && (house_id == 0 || h->getID() == house_id)) {
+			house_list->SetTextValue(wxstr(std::to_string(h->size())), i, 4);
+			if (house_id != 0) {
+				break;
+			}
+		}
+	}
+
+	if (selected_house_id_ != 0 && !house_list->GetSelection().IsOk()) {
+		for (unsigned int i = 0; i < count; ++i) {
+			wxDataViewItem item = house_list->RowToItem(i);
+			if (item.IsOk() && (House*)house_list->GetItemData(item) == map->houses.getHouse(selected_house_id_)) {
+				house_list->Select(item);
+				break;
+			}
+		}
+	}
 }
 
 Brush* HousePalette::GetSelectedBrush() const {
@@ -244,12 +345,20 @@ void HousePalette::OnUpdate() {
 void HousePalette::SelectHouseBrush() {
 	house_brush_button->SetValue(true);
 	select_exit_button->SetValue(false);
+	House* house = GetSelectedHouse();
+	if (house) {
+		g_brush_manager.house_brush->setHouse(house);
+	}
 	g_gui.SelectBrush();
 }
 
 void HousePalette::SelectExitBrush() {
 	house_brush_button->SetValue(false);
 	select_exit_button->SetValue(true);
+	House* house = GetSelectedHouse();
+	if (house) {
+		g_brush_manager.house_exit_brush->setHouse(house);
+	}
 	g_gui.SelectBrush();
 }
 
@@ -264,6 +373,7 @@ void HousePalette::OnSearchChange(wxCommandEvent& event) {
 void HousePalette::OnHouseSelected(wxDataViewEvent& event) {
 	House* house = GetSelectedHouse();
 	if (house) {
+		selected_house_id_ = house->getID();
 		if (house_brush_button->GetValue()) {
 			g_brush_manager.house_brush->setHouse(house);
 		} else if (select_exit_button->GetValue()) {
@@ -276,6 +386,7 @@ void HousePalette::OnHouseSelected(wxDataViewEvent& event) {
 void HousePalette::OnHouseActivated(wxDataViewEvent& event) {
 	House* house = GetSelectedHouse();
 	if (house) {
+		selected_house_id_ = house->getID();
 		SelectHouseBrush();
 		g_gui.SelectBrush(); // Ensure brush is activated
 		if (house->getExit() != Position(0, 0, 0) && house->getExit().isValid()) {
@@ -308,17 +419,9 @@ void HousePalette::OnAddHouse(wxCommandEvent& event) {
 	}
 
 	House* house_ptr = new_house.get();
+	selected_house_id_ = house_ptr->getID();
 	map->houses.addHouse(std::move(new_house));
 	FilterHouses();
-
-	// Select the new house
-	for (int i = 0; i < (int)house_list->GetItemCount(); ++i) {
-		wxDataViewItem item = house_list->RowToItem(i);
-		if ((House*)house_list->GetItemData(item) == house_ptr) {
-			house_list->Select(item);
-			break;
-		}
-	}
 
 	g_gui.SelectBrush();
 }
@@ -326,6 +429,7 @@ void HousePalette::OnAddHouse(wxCommandEvent& event) {
 void HousePalette::OnEditHouse(wxCommandEvent& event) {
 	House* house = GetSelectedHouse();
 	if (house && map) {
+		selected_house_id_ = house->getID();
 		EditHouseDialog* d = newd EditHouseDialog(g_gui.root, map, house);
 		if (d->ShowModal() == 1) {
 			FilterHouses();
@@ -340,6 +444,9 @@ void HousePalette::OnRemoveHouse(wxCommandEvent& event) {
 	if (house && map) {
 		int ret = wxMessageBox("Are you sure you want to remove this house? This cannot be undone.", "Remove House", wxYES_NO | wxICON_WARNING | wxCENTER, this);
 		if (ret == wxYES) {
+			if (selected_house_id_ == house->getID()) {
+				selected_house_id_ = 0;
+			}
 			map->houses.removeHouse(house);
 			FilterHouses();
 			g_gui.SelectBrush();
@@ -351,6 +458,10 @@ void HousePalette::OnRemoveHouse(wxCommandEvent& event) {
 void HousePalette::OnHouseBrushButton(wxCommandEvent& event) {
 	if (house_brush_button->GetValue()) {
 		select_exit_button->SetValue(false);
+		House* house = GetSelectedHouse();
+		if (house) {
+			g_brush_manager.house_brush->setHouse(house);
+		}
 	}
 	g_gui.SelectBrush();
 }
@@ -358,6 +469,10 @@ void HousePalette::OnHouseBrushButton(wxCommandEvent& event) {
 void HousePalette::OnSelectExitButton(wxCommandEvent& event) {
 	if (select_exit_button->GetValue()) {
 		house_brush_button->SetValue(false);
+		House* house = GetSelectedHouse();
+		if (house) {
+			g_brush_manager.house_exit_brush->setHouse(house);
+		}
 	}
 	g_gui.SelectBrush();
 }

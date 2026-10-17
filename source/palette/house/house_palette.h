@@ -16,10 +16,12 @@
 #include "brushes/brush.h"
 #include <wx/tglbtn.h>
 #include <wx/timer.h>
+#include <memory>
 
 class Map;
 class House;
 class Brush;
+class wxRendererNative;
 
 class HousePalette : public PalettePanel {
 public:
@@ -28,6 +30,7 @@ public:
 
 	void SetMap(Map* map);
 	void UpdateHouses();
+	void UpdateHouseSize(uint32_t house_id = 0);
 
 	// Palette operations
 	wxString GetName() const override;
@@ -57,6 +60,10 @@ protected:
 	House* GetSelectedHouse() const;
 
 	Map* map;
+
+	std::unique_ptr<wxRendererNative> custom_renderer;
+	wxRendererNative* prev_renderer = nullptr;
+	uint32_t selected_house_id_ = 0;
 
 	wxChoice* town_choice;
 	wxTextCtrl* search_ctrl;

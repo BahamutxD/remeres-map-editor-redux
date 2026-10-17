@@ -658,6 +658,11 @@ void GUI::UpdateZonePalette(uint16_t zone_id) {
 		}
 	}
 }
+void GUI::UpdateHousePalette(uint32_t house_id) {
+	if (house_palette) {
+		house_palette->UpdateHouseSize(house_id);
+	}
+}
 void GUI::RefreshOtherPalettes(PaletteWindow* p) {
 	g_palettes.RefreshOtherPalettes(p);
 }

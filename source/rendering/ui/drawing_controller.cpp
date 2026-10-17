@@ -385,6 +385,14 @@ void DrawingController::HandleRelease(const Position& mouse_map_pos, bool shift_
 	Brush* brush = g_gui.GetCurrentBrush();
 	if (brush && brush->is<ZoneBrush>()) {
 		g_gui.UpdateZonePalette(static_cast<ZoneBrush*>(brush)->getZone());
+	} else if (brush && (brush->is<HouseBrush>() || brush->is<HouseExitBrush>())) {
+		uint32_t house_id = 0;
+		if (auto* hb = dynamic_cast<HouseBrush*>(brush)) {
+			house_id = hb->getHouseID();
+		} else if (auto* heb = dynamic_cast<HouseExitBrush*>(brush)) {
+			house_id = heb->getHouseID();
+		}
+		g_gui.UpdateHousePalette(house_id);
 	}
 
 	editor.actionQueue->resetTimer();
