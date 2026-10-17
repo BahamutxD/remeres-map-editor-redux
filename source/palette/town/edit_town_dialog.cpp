@@ -77,6 +77,10 @@ TownIdWarningDialog::TownIdWarningDialog(wxWindow* parent, uint32_t old_id, uint
 	SetSizerAndFit(topsizer);
 	Centre(wxBOTH);
 
+	update_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { EndModal(wxID_YES); });
+	keep_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { EndModal(wxID_NO); });
+	cancel_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { EndModal(wxID_CANCEL); });
+
 	SetIcons(IMAGE_MANAGER.GetIconBundle(ICON_CITY));
 }
 
@@ -104,7 +108,7 @@ TownDeleteDialog::TownDeleteDialog(wxWindow* parent, const std::string& name, ui
 
 	auto* btn_sizer = newd wxBoxSizer(wxHORIZONTAL);
 
-	auto* delete_btn = newd wxButton(this, wxID_YES, "Delete Town & Houses");
+	auto* delete_btn = newd wxButton(this, wxID_YES, "Delete Town and Houses");
 	delete_btn->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_MINUS, wxSize(16, 16)));
 	delete_btn->SetToolTip("Delete the town and permanently remove all associated houses");
 	btn_sizer->Add(delete_btn, 0, wxRIGHT, 8);
@@ -118,6 +122,9 @@ TownDeleteDialog::TownDeleteDialog(wxWindow* parent, const std::string& name, ui
 
 	SetSizerAndFit(topsizer);
 	Centre(wxBOTH);
+
+	delete_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { EndModal(wxID_YES); });
+	cancel_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { EndModal(wxID_CANCEL); });
 
 	SetIcons(IMAGE_MANAGER.GetIconBundle(ICON_CITY));
 }
@@ -166,19 +173,10 @@ EditTownDialog::EditTownDialog(wxWindow* parent, Map* map, Town* town, bool is_n
 	temple_position = newd PositionCtrl(this, "Temple Position", 0, 0, 0, map->getWidth(), map->getHeight());
 	temple_position->SetPosition(town->getTemplePosition());
 
-	auto* pos_btns_sizer = newd wxBoxSizer(wxHORIZONTAL);
-
 	pick_map_button = newd wxButton(temple_position->GetStaticBox(), wxID_ANY, "Pick from Map");
 	pick_map_button->SetBitmap(IMAGE_MANAGER.GetBitmapBundle(ICON_CROSSHAIRS));
 	pick_map_button->SetToolTip("Click to pick temple position directly on the map");
-	pos_btns_sizer->Add(pick_map_button, 1, wxRIGHT, 5);
-
-	use_view_button = newd wxButton(temple_position->GetStaticBox(), wxID_ANY, "Set from View");
-	use_view_button->SetBitmap(IMAGE_MANAGER.GetBitmapBundle(ICON_LOCATION_ARROW));
-	use_view_button->SetToolTip("Use current map view center as temple position");
-	pos_btns_sizer->Add(use_view_button, 1);
-
-	temple_position->Add(pos_btns_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 5);
+	temple_position->Add(pick_map_button, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 5);
 	topsizer->Add(temple_position, 0, wxEXPAND | wxLEFT | wxRIGHT, 10);
 
 	// OK / Cancel buttons
@@ -199,7 +197,6 @@ EditTownDialog::EditTownDialog(wxWindow* parent, Map* map, Town* town, bool is_n
 	Centre(wxBOTH);
 
 	pick_map_button->Bind(wxEVT_BUTTON, &EditTownDialog::OnClickPickFromMap, this);
-	use_view_button->Bind(wxEVT_BUTTON, &EditTownDialog::OnClickUseViewCenter, this);
 	okBtn->Bind(wxEVT_BUTTON, &EditTownDialog::OnClickOK, this);
 	cancelBtn->Bind(wxEVT_BUTTON, &EditTownDialog::OnClickCancel, this);
 
@@ -228,14 +225,6 @@ void EditTownDialog::SetTemplePosition(const Position& pos) {
 
 void EditTownDialog::OnClickPickFromMap(wxCommandEvent& WXUNUSED(event)) {
 	EndModal(DIALOG_PICK_TEMPLE);
-}
-
-void EditTownDialog::OnClickUseViewCenter(wxCommandEvent& WXUNUSED(event)) {
-	MapTab* mapTab = g_gui.GetCurrentMapTab();
-	Position center = mapTab ? mapTab->GetScreenCenterPosition() : Position();
-	if (center.isValid()) {
-		temple_position->SetPosition(center);
-	}
 }
 
 void EditTownDialog::OnClickOK(wxCommandEvent& WXUNUSED(event)) {

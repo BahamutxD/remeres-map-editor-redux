@@ -54,10 +54,10 @@ TownPalettePanel::TownPalettePanel(wxWindow* parent, wxWindowID id) :
 	// Table control (ID, Name, Temple, Houses)
 	town_table = newd NanoVGTableCtrl(this, PALETTE_TOWN_LISTBOX);
 	std::vector<TableColumn> cols = {
-		{ "id", "ID", 50, NVG_ALIGN_RIGHT, true },
+		{ "id", "ID", 45, NVG_ALIGN_RIGHT, true },
 		{ "name", "Name", 0, NVG_ALIGN_LEFT, true },
-		{ "temple", "Temple", 95, NVG_ALIGN_LEFT, true },
-		{ "houses", "Houses", 55, NVG_ALIGN_RIGHT, true }
+		{ "temple", "Temple", 135, NVG_ALIGN_LEFT, true },
+		{ "houses", "Houses", 50, NVG_ALIGN_RIGHT, true }
 	};
 	town_table->SetColumns(std::move(cols));
 
@@ -298,6 +298,7 @@ void TownPalettePanel::OnActivateTown(int /*index*/, const TableRow& row) {
 	auto* town = static_cast<Town*>(row.client_data);
 	if (town && town->getTemplePosition().isValid()) {
 		g_gui.SetScreenCenterPosition(town->getTemplePosition());
+		g_gui.RefreshView(true);
 	}
 }
 
@@ -341,6 +342,7 @@ void TownPalettePanel::OnGoToTemple(wxCommandEvent& /*event*/) {
 	Town* town = GetSelectedTown();
 	if (town && town->getTemplePosition().isValid()) {
 		g_gui.SetScreenCenterPosition(town->getTemplePosition());
+		g_gui.RefreshView(true);
 	}
 }
 

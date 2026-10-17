@@ -38,7 +38,6 @@ public:
 	~EditTownDialog() override;
 
 	void OnClickPickFromMap(wxCommandEvent& event);
-	void OnClickUseViewCenter(wxCommandEvent& event);
 	void OnClickOK(wxCommandEvent& event);
 	void OnClickCancel(wxCommandEvent& event);
 
@@ -58,7 +57,6 @@ protected:
 	wxSpinCtrl* id_field = nullptr;
 	PositionCtrl* temple_position = nullptr;
 	wxButton* pick_map_button = nullptr;
-	wxButton* use_view_button = nullptr;
 };
 
 // Custom styled wxWidgets confirmation dialogs (matching RME theme & English labels)
