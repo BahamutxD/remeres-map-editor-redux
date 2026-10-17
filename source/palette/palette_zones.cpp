@@ -14,6 +14,7 @@
 #include "editor/action_queue.h"
 #include "util/image_manager.h"
 #include "rendering/indicators/zone_colors.h"
+#include "ui/theme.h"
 
 #include <wx/textdlg.h>
 #include <wx/menu.h>
@@ -68,6 +69,7 @@ ZonePalettePanel::ZonePalettePanel(wxWindow* parent, wxWindowID id) :
 
 	zone_tree = newd wxTreeCtrl(box, PALETTE_ZONE_LISTBOX, wxDefaultPosition, wxDefaultSize,
 		wxTR_HIDE_ROOT | wxTR_HAS_BUTTONS | wxTR_LINES_AT_ROOT | wxTR_SINGLE);
+	zone_tree->SetFont(Theme::GetFont(9, false));
 	image_list = new wxImageList(14, 14, true);
 	zone_tree->AssignImageList(image_list);
 	sidesizer->Add(zone_tree, 1, wxEXPAND);
@@ -75,10 +77,13 @@ ZonePalettePanel::ZonePalettePanel(wxWindow* parent, wxWindowID id) :
 	auto* buttons = newd wxBoxSizer(wxHORIZONTAL);
 	add_button = newd wxButton(box, PALETTE_ZONE_ADD, "Add");
 	add_button->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_PLUS, wxSize(16, 16)));
+	add_button->SetFont(Theme::GetFont(9, false));
 	rename_button = newd wxButton(box, PALETTE_ZONE_RENAME, "Rename");
 	rename_button->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_PEN, wxSize(16, 16)));
+	rename_button->SetFont(Theme::GetFont(9, false));
 	remove_button = newd wxButton(box, PALETTE_ZONE_REMOVE, "Remove");
 	remove_button->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_MINUS, wxSize(16, 16)));
+	remove_button->SetFont(Theme::GetFont(9, false));
 	buttons->Add(add_button, 1, wxEXPAND);
 	buttons->Add(rename_button, 1, wxEXPAND);
 	buttons->Add(remove_button, 1, wxEXPAND);
