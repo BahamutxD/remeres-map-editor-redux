@@ -3,6 +3,7 @@
 //////////////////////////////////////////////////////////////////////
 
 #include "app/main.h"
+#include <format>
 #include "editor/operations/draw_operations.h"
 #include "editor/editor.h"
 #include "editor/action_queue.h"
@@ -299,6 +300,16 @@ void DrawOperations::draw(Editor& editor, Position offset, bool alt, bool dodraw
 	} else if (brush->is<HouseExitBrush>()) {
 		HouseExitBrush* house_exit_brush = brush->as<HouseExitBrush>();
 		if (!house_exit_brush->canDraw(&editor.map, offset)) {
+			Tile* tile = editor.map.getTile(offset);
+			if (house_exit_brush->getHouseID() == 0) {
+				g_gui.SetStatusText("Cannot place exit: no house selected.");
+			} else if (!tile || !tile->hasGround()) {
+				g_gui.SetStatusText("Cannot place house exit on void (tile must have ground).");
+			} else if (tile->isHouseTile()) {
+				g_gui.SetStatusText("Cannot place house exit inside a house tile (exit must be a walkable tile outside the house).");
+			} else if (tile->isBlocking()) {
+				g_gui.SetStatusText("Cannot place house exit on a blocking tile (must be a walkable tile outside).");
+			}
 			return;
 		}
 
@@ -312,6 +323,8 @@ void DrawOperations::draw(Editor& editor, Position offset, bool alt, bool dodraw
 		action->addChange(std::unique_ptr<Change>(Change::Create(house, offset)));
 		batch->addAndCommitAction(std::move(action));
 		editor.addBatch(std::move(batch), 2);
+		g_gui.RefreshView();
+		g_gui.SetStatusText(wxstr(std::format("House \"{}\" (ID: {}) exit set to ({}, {}, {})", house->name, house->getID(), offset.x, offset.y, offset.z)));
 	} else if (brush->is<WaypointBrush>()) {
 		WaypointBrush* waypoint_brush = brush->as<WaypointBrush>();
 		if (!waypoint_brush->canDraw(&editor.map, offset)) {
@@ -328,6 +341,8 @@ void DrawOperations::draw(Editor& editor, Position offset, bool alt, bool dodraw
 		action->addChange(std::unique_ptr<Change>(Change::Create(waypoint, offset)));
 		batch->addAndCommitAction(std::move(action));
 		editor.addBatch(std::move(batch), 2);
+		g_gui.RefreshView();
+		g_gui.SetStatusText(wxstr(std::format("Waypoint \"{}\" moved to ({}, {}, {})", waypoint->name, offset.x, offset.y, offset.z)));
 	} else if (brush->is<WallBrush>()) {
 		std::unique_ptr<BatchAction> batch = editor.actionQueue->createBatch(ACTION_DRAW);
 		std::unique_ptr<Action> action = editor.actionQueue->createAction(batch.get());

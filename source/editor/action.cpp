@@ -278,8 +278,18 @@ void Action::commit(DirtyList* dirty_list) {
 
 				if (whathouse) {
 					Position oldpos = whathouse->getExit();
-					whathouse->setExit(p.pos);
+					Position newpos = p.pos;
+					whathouse->setExit(newpos);
 					p.pos = oldpos;
+
+					if (oldpos != Position() && oldpos.isValid()) {
+						editor.map.getChangeTracker().markTileDirty(oldpos);
+						g_minimap.MarkTileDirty(editor.map, oldpos);
+					}
+					if (newpos != Position() && newpos.isValid()) {
+						editor.map.getChangeTracker().markTileDirty(newpos);
+						g_minimap.MarkTileDirty(editor.map, newpos);
+					}
 				}
 				break;
 			}
@@ -306,8 +316,18 @@ void Action::commit(DirtyList* dirty_list) {
 
 					// Update shit
 					Position oldpos = wp->pos;
-					wp->pos = p.pos;
+					Position newpos = p.pos;
+					wp->pos = newpos;
 					p.pos = oldpos;
+
+					if (oldpos != Position() && oldpos.isValid()) {
+						editor.map.getChangeTracker().markTileDirty(oldpos);
+						g_minimap.MarkTileDirty(editor.map, oldpos);
+					}
+					if (newpos != Position() && newpos.isValid()) {
+						editor.map.getChangeTracker().markTileDirty(newpos);
+						g_minimap.MarkTileDirty(editor.map, newpos);
+					}
 				}
 				break;
 			}
@@ -477,8 +497,18 @@ void Action::undo(DirtyList* dirty_list) {
 				House* whathouse = editor.map.houses.getHouse(p.houseId);
 				if (whathouse) {
 					Position oldpos = whathouse->getExit();
-					whathouse->setExit(p.pos);
+					Position newpos = p.pos;
+					whathouse->setExit(newpos);
 					p.pos = oldpos;
+
+					if (oldpos != Position() && oldpos.isValid()) {
+						editor.map.getChangeTracker().markTileDirty(oldpos);
+						g_minimap.MarkTileDirty(editor.map, oldpos);
+					}
+					if (newpos != Position() && newpos.isValid()) {
+						editor.map.getChangeTracker().markTileDirty(newpos);
+						g_minimap.MarkTileDirty(editor.map, newpos);
+					}
 				}
 				break;
 			}
@@ -505,8 +535,18 @@ void Action::undo(DirtyList* dirty_list) {
 
 					// Update shit
 					Position oldpos = wp->pos;
-					wp->pos = p.pos;
+					Position newpos = p.pos;
+					wp->pos = newpos;
 					p.pos = oldpos;
+
+					if (oldpos != Position() && oldpos.isValid()) {
+						editor.map.getChangeTracker().markTileDirty(oldpos);
+						g_minimap.MarkTileDirty(editor.map, oldpos);
+					}
+					if (newpos != Position() && newpos.isValid()) {
+						editor.map.getChangeTracker().markTileDirty(newpos);
+						g_minimap.MarkTileDirty(editor.map, newpos);
+					}
 				}
 				break;
 			}
