@@ -294,13 +294,15 @@ void Action::commit(DirtyList* dirty_list) {
 					TileLocation* newtile = editor.map.getTileL(p.pos);
 
 					// Only need to remove from old if it actually exists
-					if (p.pos != Position()) {
+					if (wp->pos != Position()) {
 						if (oldtile && oldtile->getWaypointCount() > 0) {
 							oldtile->decreaseWaypointCount();
 						}
 					}
 
-					newtile->increaseWaypointCount();
+					if (p.pos != Position() && newtile) {
+						newtile->increaseWaypointCount();
+					}
 
 					// Update shit
 					Position oldpos = wp->pos;
@@ -491,13 +493,13 @@ void Action::undo(DirtyList* dirty_list) {
 					TileLocation* newtile = editor.map.getTileL(p.pos);
 
 					// Only need to remove from old if it actually exists
-					if (p.pos != Position()) {
+					if (wp->pos != Position()) {
 						if (oldtile && oldtile->getWaypointCount() > 0) {
 							oldtile->decreaseWaypointCount();
 						}
 					}
 
-					if (newtile) {
+					if (p.pos != Position() && newtile) {
 						newtile->increaseWaypointCount();
 					}
 

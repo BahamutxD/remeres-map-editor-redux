@@ -48,7 +48,8 @@ public:
 
 public:
 	// wxWidgets event handling
-	void OnClickWaypoint(wxListEvent& event);
+	void OnSelectWaypoint(wxListEvent& event);
+	void OnActivateWaypoint(wxListEvent& event);
 	void OnBeginEditWaypointLabel(wxListEvent& event);
 	void OnEditWaypointLabel(wxListEvent& event);
 	void OnClickAddWaypoint(wxCommandEvent& event);
