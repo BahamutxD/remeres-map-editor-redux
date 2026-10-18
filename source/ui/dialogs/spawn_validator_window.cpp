@@ -1,8 +1,16 @@
 #include "ui/dialogs/spawn_validator_window.h"
 #include "editor/editor.h"
+#include "editor/action_queue.h"
+#include "editor/action.h"
 #include "ui/gui.h"
 #include "ui/theme.h"
 #include "ui/map_window.h"
+#include "ui/properties/creature_properties_window.h"
+#include "ui/properties/spawn_properties_window.h"
+#include "map/tile_operations.h"
+#include "map/tile.h"
+#include "game/creature.h"
+#include "game/spawn.h"
 #include "util/image_manager.h"
 
 #include <wx/sizer.h>
@@ -380,45 +388,42 @@ void SpawnValidatorWindow::OnEditSelected() {
 	auto it = std::find_if(current_issues.begin(), current_issues.end(), [this](const auto& iss) {
 		return iss.id == static_cast<uint32_t>(selected_issue_id);
 	});
-	if (it == current_issues.end() || it->type == EditorOperations::SpawnIssueType::UnwalkableZone) {
+	if (it == current_issues.end()) {
 		return;
 	}
 
-	wxDialog editDlg(this, wxID_ANY, "Correct Spawn Creature", wxDefaultPosition, wxDefaultSize);
-	auto* dlgSizer = new wxBoxSizer(wxVERTICAL);
-	const int pad = Theme::Grid(1);
+	if (it->type == EditorOperations::SpawnIssueType::UnwalkableZone) {
+		Tile* centerTile = editor->map.getTile(it->spawn_center);
+		if (!centerTile || !centerTile->spawn) {
+			return;
+		}
 
-	auto* nameLbl = new wxStaticText(&editDlg, wxID_ANY, "Creature Name:");
-	nameLbl->SetFont(Theme::GetFont(9, true));
-	dlgSizer->Add(nameLbl, 0, wxLEFT | wxRIGHT | wxTOP, pad);
-
-	auto* nameCtrl = new wxTextCtrl(&editDlg, wxID_ANY, it->name);
-	nameCtrl->SetMinSize(FromDIP(wxSize(280, -1)));
-	dlgSizer->Add(nameCtrl, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, pad);
-
-	auto* timeLbl = new wxStaticText(&editDlg, wxID_ANY, "Spawn Time (seconds):");
-	timeLbl->SetFont(Theme::GetFont(9, true));
-	dlgSizer->Add(timeLbl, 0, wxLEFT | wxRIGHT | wxTOP, pad);
-
-	auto* timeCtrl = new wxSpinCtrl(&editDlg, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize,
-		wxSP_ARROW_KEYS, 1, 86400, it->spawntime > 0 ? it->spawntime : 60);
-	dlgSizer->Add(timeCtrl, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, pad);
-
-	dlgSizer->Add(editDlg.CreateButtonSizer(wxOK | wxCANCEL), 0, wxEXPAND | wxALL, pad);
-	editDlg.SetSizerAndFit(dlgSizer);
-	editDlg.CenterOnParent();
-
-	if (editDlg.ShowModal() != wxID_OK) {
+		std::unique_ptr<Tile> newTile = TileOperations::deepCopy(centerTile, editor->map);
+		SpawnPropertiesWindow dlg(this, &editor->map, newTile.get(), newTile->spawn.get());
+		if (dlg.ShowModal() != 0) {
+			auto action = editor->actionQueue->createAction(ACTION_CHANGE_PROPERTIES);
+			action->addChange(std::make_unique<Change>(std::move(newTile)));
+			editor->addAction(std::move(action));
+			g_gui.RefreshView();
+		}
 		return;
 	}
 
-	const std::string newName = nameCtrl->GetValue().ToStdString();
-	const int newTime = timeCtrl->GetValue();
+	Tile* tile = editor->map.getTile(it->pos);
+	if (!tile || !tile->creature) {
+		return;
+	}
 
-	if (EditorOperations::SpawnValidator::CorrectIssue(*editor, *it, newName, newTime)) {
-		it->name = newName;
+	std::unique_ptr<Tile> newTile = TileOperations::deepCopy(tile, editor->map);
+	CreaturePropertiesWindow dlg(this, &editor->map, newTile.get(), newTile->creature.get());
+	if (dlg.ShowModal() != 0) {
+		const int newTime = newTile->creature->getSpawnTime();
+		auto action = editor->actionQueue->createAction(ACTION_CHANGE_PROPERTIES);
+		action->addChange(std::make_unique<Change>(std::move(newTile)));
+		editor->addAction(std::move(action));
+
 		it->spawntime = newTime;
-		it->description = std::format("Corrected (Name: {}, Spawntime: {}s).", newName, newTime);
+		it->description = std::format("Spawntime: {}s", newTime);
 		RefreshTable();
 		g_gui.RefreshView();
 	}

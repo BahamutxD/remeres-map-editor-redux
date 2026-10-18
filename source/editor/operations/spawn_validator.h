@@ -55,7 +55,6 @@ public:
 	static std::vector<SpawnIssue> ScanMap(const Map& map, const SpawnValidationSettings& settings);
 	static bool RemoveIssue(Editor& editor, const SpawnIssue& issue);
 	static size_t RemoveAllIssues(Editor& editor, std::span<const SpawnIssue> issues);
-	static bool CorrectIssue(Editor& editor, const SpawnIssue& issue, const std::string& new_name, int32_t new_spawntime);
 };
 
 } // namespace EditorOperations

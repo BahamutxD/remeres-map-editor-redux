@@ -1,5 +1,4 @@
 #include "editor/operations/spawn_validator.h"
-#include "editor/operations/unreachable_cleaner.h"
 #include "editor/editor.h"
 #include "editor/action_queue.h"
 #include "editor/action.h"
@@ -62,6 +61,7 @@ std::vector<SpawnIssue> SpawnValidator::ScanMap(const Map& map, const SpawnValid
 		}
 
 		const int32_t radius = std::max({ 1, spawn->getSize(), spawn->getNpcSize() });
+		const bool spawnHasMonsters = (spawn->getKinds() & Spawn::MONSTERS) != 0;
 		uint32_t walkableTiles = 0;
 		uint32_t checkedTiles = 0;
 
@@ -71,9 +71,14 @@ std::vector<SpawnIssue> SpawnValidator::ScanMap(const Map& map, const SpawnValid
 				++checkedTiles;
 
 				const Tile* tile = map.getTile(checkPos);
-				const bool isWalkable = (tile != nullptr && UnreachableCleaner::IsWalkable(tile));
-				if (isWalkable) {
-					++walkableTiles;
+				const bool tileHasGround = (tile != nullptr && tile->hasGround());
+				const bool tileBlocking = (tile == nullptr || tile->isBlocking());
+
+				// A tile is walkable if it exists, has ground, and is not blocked by walls/obstacles
+				if (tileHasGround && !tileBlocking) {
+					if (!spawnHasMonsters || !tile->isPZ()) {
+						++walkableTiles;
+					}
 				}
 
 				if (!tile || !tile->creature) {
@@ -90,7 +95,7 @@ std::vector<SpawnIssue> SpawnValidator::ScanMap(const Map& map, const SpawnValid
 				const int spawntime = creature->getSpawnTime();
 
 				// 1. Check tile validity for the placed creature
-				if (!tile->hasGround() && tile->items.empty()) {
+				if (!tile->hasGround()) {
 					if (settings.check_missing_or_empty_tiles) {
 						issues.push_back(SpawnIssue{
 							.id = nextId++,
@@ -102,10 +107,10 @@ std::vector<SpawnIssue> SpawnValidator::ScanMap(const Map& map, const SpawnValid
 							.is_alternative = false,
 							.alternative_index = 0,
 							.type = SpawnIssueType::EmptyTile,
-							.description = "Tile has no ground or items; server drops it on load."
+							.description = "Tile has no ground; server voids or drops it on load."
 						});
 					}
-				} else if (!isWalkable || tile->isBlocking()) {
+				} else if (tile->isBlocking()) {
 					if (settings.check_blocked_tiles) {
 						issues.push_back(SpawnIssue{
 							.id = nextId++,
@@ -117,7 +122,22 @@ std::vector<SpawnIssue> SpawnValidator::ScanMap(const Map& map, const SpawnValid
 							.is_alternative = false,
 							.alternative_index = 0,
 							.type = SpawnIssueType::BlockedTile,
-							.description = "Tile is unwalkable or blocked by walls/obstacles."
+							.description = "Tile is blocked by a wall or unpassable obstacle."
+						});
+					}
+				} else if (!isNpc && tile->isPZ()) {
+					if (settings.check_blocked_tiles) {
+						issues.push_back(SpawnIssue{
+							.id = nextId++,
+							.name = name,
+							.pos = checkPos,
+							.spawn_center = spawnPos,
+							.spawntime = spawntime,
+							.is_npc = isNpc,
+							.is_alternative = false,
+							.alternative_index = 0,
+							.type = SpawnIssueType::BlockedTile,
+							.description = "Monster placed in Protection Zone (monsters cannot spawn in PZ)."
 						});
 					}
 				}
@@ -364,53 +384,6 @@ size_t SpawnValidator::RemoveAllIssues(Editor& editor, std::span<const SpawnIssu
 
 	editor.addAction(std::move(action));
 	return count;
-}
-
-bool SpawnValidator::CorrectIssue(Editor& editor, const SpawnIssue& issue, const std::string& new_name, int32_t new_spawntime) {
-	if (issue.type == SpawnIssueType::UnwalkableZone) {
-		return false;
-	}
-
-	Tile* tile = editor.map.getTile(issue.pos);
-	if (!tile || !tile->creature) {
-		return false;
-	}
-
-	std::unique_ptr<Tile> newTile = tile->deepCopy();
-	if (issue.is_alternative) {
-		auto& alts = newTile->creature->getAlternatives();
-		if (issue.alternative_index >= alts.size()) {
-			return false;
-		}
-		if (!new_name.empty()) {
-			alts[issue.alternative_index].name = new_name;
-		}
-		if (new_spawntime > 0) {
-			alts[issue.alternative_index].spawntime = new_spawntime;
-		}
-	} else {
-		if (!new_name.empty()) {
-			CreatureType* type = g_creatures[new_name];
-			if (!type) {
-				type = g_creatures.addMissingCreatureType(new_name, issue.is_npc);
-			}
-			auto newCreature = std::make_unique<Creature>(type);
-			newCreature->setDirection(tile->creature->getDirection());
-			newCreature->setSpawnTime(new_spawntime > 0 ? new_spawntime : tile->creature->getSpawnTime());
-			newCreature->setWeight(tile->creature->getWeight());
-			for (const auto& alt : tile->creature->getAlternatives()) {
-				newCreature->addAlternative(alt);
-			}
-			newTile->creature = std::move(newCreature);
-		} else if (new_spawntime > 0) {
-			newTile->creature->setSpawnTime(new_spawntime);
-		}
-	}
-
-	auto action = editor.actionQueue->createAction(ACTION_CHANGE_PROPERTIES);
-	action->addChange(std::make_unique<Change>(std::move(newTile)));
-	editor.addAction(std::move(action));
-	return true;
 }
 
 } // namespace EditorOperations
