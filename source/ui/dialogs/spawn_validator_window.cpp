@@ -22,7 +22,6 @@ namespace {
 	constexpr int ID_REMOVE_ALL = 10005;
 	constexpr int ID_SEARCH_FILTER = 10006;
 	constexpr int ID_KIND_FILTER = 10007;
-	constexpr int ID_RULE_CHECKBOX = 10008;
 }
 
 SpawnValidatorWindow::SpawnValidatorWindow(wxWindow* parent, Editor* editor) :
@@ -38,10 +37,6 @@ SpawnValidatorWindow::SpawnValidatorWindow(wxWindow* parent, Editor* editor) :
 
 	Bind(wxEVT_CLOSE_WINDOW, &SpawnValidatorWindow::OnClose, this);
 	Bind(wxEVT_CHAR_HOOK, &SpawnValidatorWindow::OnCharHook, this);
-
-	// Automatically perform initial scan when window opens
-	wxCommandEvent dummy;
-	OnScanMap(dummy);
 }
 
 SpawnValidatorWindow::~SpawnValidatorWindow() {
@@ -83,27 +78,22 @@ void SpawnValidatorWindow::OnCharHook(wxKeyEvent& event) {
 }
 
 void SpawnValidatorWindow::InitLayout() {
-	auto* rootSizer = new wxBoxSizer(wxHORIZONTAL);
-	const int pad = Theme::Grid(1);
+	auto* rootSizer = newd wxBoxSizer(wxHORIZONTAL);
 
 	// =========================================================================
-	// LEFT COLUMN: Options, Filters & Actions
+	// LEFT COLUMN: Rules, Filters & Actions
 	// =========================================================================
-	auto* leftPanel = new wxPanel(this, wxID_ANY);
-	leftPanel->SetBackgroundColour(Theme::Get(Theme::Role::Surface));
-	auto* leftSizer = new wxBoxSizer(wxVERTICAL);
+	auto* leftPanel = newd wxPanel(this, wxID_ANY);
+	auto* leftSizer = newd wxBoxSizer(wxVERTICAL);
 
-	// Rules header
-	auto* rulesHeader = new wxStaticText(leftPanel, wxID_ANY, "VALIDATION RULES");
-	rulesHeader->SetFont(Theme::GetFont(10, true));
-	rulesHeader->SetForegroundColour(Theme::Get(Theme::Role::Text));
-	leftSizer->Add(rulesHeader, 0, wxBOTTOM, pad);
+	// 1. Validation Rules Group (native wxStaticBoxSizer matching RemoveUnreachableDialog)
+	auto* rules_box = newd wxStaticBoxSizer(wxVERTICAL, leftPanel, "Validation Rules");
 
-	chk_invalid_time = new wxCheckBox(leftPanel, ID_RULE_CHECKBOX, "Invalid spawn time (< 1s, > 24h)");
-	chk_unknown_creature = new wxCheckBox(leftPanel, ID_RULE_CHECKBOX, "Unknown creature / kind mismatch");
-	chk_blocked_tile = new wxCheckBox(leftPanel, ID_RULE_CHECKBOX, "Creature on wall / blocked tile");
-	chk_empty_tile = new wxCheckBox(leftPanel, ID_RULE_CHECKBOX, "Missing / empty tile (server drop)");
-	chk_unwalkable_zone = new wxCheckBox(leftPanel, ID_RULE_CHECKBOX, "Spawn zone with 0 walkable tiles");
+	chk_invalid_time = newd wxCheckBox(rules_box->GetStaticBox(), wxID_ANY, "Invalid spawn time (< 1s, > 24h)");
+	chk_unknown_creature = newd wxCheckBox(rules_box->GetStaticBox(), wxID_ANY, "Unknown creature / kind mismatch");
+	chk_blocked_tile = newd wxCheckBox(rules_box->GetStaticBox(), wxID_ANY, "Creature on wall / blocked tile");
+	chk_empty_tile = newd wxCheckBox(rules_box->GetStaticBox(), wxID_ANY, "Missing / empty tile (server drop)");
+	chk_unwalkable_zone = newd wxCheckBox(rules_box->GetStaticBox(), wxID_ANY, "Spawn zone with 0 walkable tiles");
 
 	chk_invalid_time->SetValue(true);
 	chk_unknown_creature->SetValue(true);
@@ -111,102 +101,85 @@ void SpawnValidatorWindow::InitLayout() {
 	chk_empty_tile->SetValue(true);
 	chk_unwalkable_zone->SetValue(true);
 
-	const auto applyFont = [](wxCheckBox* cb) {
-		cb->SetFont(Theme::GetFont(9, false));
-	};
-	applyFont(chk_invalid_time);
-	applyFont(chk_unknown_creature);
-	applyFont(chk_blocked_tile);
-	applyFont(chk_empty_tile);
-	applyFont(chk_unwalkable_zone);
+	rules_box->Add(chk_invalid_time, 0, wxALL, 5);
+	rules_box->Add(chk_unknown_creature, 0, wxLEFT | wxRIGHT | wxBOTTOM, 5);
+	rules_box->Add(chk_blocked_tile, 0, wxLEFT | wxRIGHT | wxBOTTOM, 5);
+	rules_box->Add(chk_empty_tile, 0, wxLEFT | wxRIGHT | wxBOTTOM, 5);
+	rules_box->Add(chk_unwalkable_zone, 0, wxLEFT | wxRIGHT | wxBOTTOM, 5);
 
-	const auto onCheck = [this](wxCommandEvent& ev) { OnScanMap(ev); };
-	chk_invalid_time->Bind(wxEVT_CHECKBOX, onCheck);
-	chk_unknown_creature->Bind(wxEVT_CHECKBOX, onCheck);
-	chk_blocked_tile->Bind(wxEVT_CHECKBOX, onCheck);
-	chk_empty_tile->Bind(wxEVT_CHECKBOX, onCheck);
-	chk_unwalkable_zone->Bind(wxEVT_CHECKBOX, onCheck);
+	leftSizer->Add(rules_box, 0, wxEXPAND | wxBOTTOM, 10);
 
-	leftSizer->Add(chk_invalid_time, 0, wxBOTTOM, 4);
-	leftSizer->Add(chk_unknown_creature, 0, wxBOTTOM, 4);
-	leftSizer->Add(chk_blocked_tile, 0, wxBOTTOM, 4);
-	leftSizer->Add(chk_empty_tile, 0, wxBOTTOM, 4);
-	leftSizer->Add(chk_unwalkable_zone, 0, wxBOTTOM, pad);
-
-	leftSizer->Add(new wxStaticLine(leftPanel), 0, wxEXPAND | wxBOTTOM, pad);
-
-	// Filter & Search header
-	auto* filterHeader = new wxStaticText(leftPanel, wxID_ANY, "FILTER & SEARCH");
-	filterHeader->SetFont(Theme::GetFont(10, true));
-	filterHeader->SetForegroundColour(Theme::Get(Theme::Role::Text));
-	leftSizer->Add(filterHeader, 0, wxBOTTOM, pad / 2);
+	// 2. Filter & Search Group (native wxStaticBoxSizer)
+	auto* filter_box = newd wxStaticBoxSizer(wxVERTICAL, leftPanel, "Filter & Search");
 
 	wxArrayString kinds;
 	kinds.Add("All");
 	kinds.Add("Monsters");
 	kinds.Add("NPCs");
-	radio_kind_filter = new wxRadioBox(leftPanel, ID_KIND_FILTER, "Kind Filter",
+	radio_kind_filter = newd wxRadioBox(filter_box->GetStaticBox(), ID_KIND_FILTER, "Kind Filter",
 		wxDefaultPosition, wxDefaultSize, kinds, 3, wxRA_SPECIFY_COLS);
-	radio_kind_filter->SetFont(Theme::GetFont(9, false));
 	radio_kind_filter->Bind(wxEVT_RADIOBOX, &SpawnValidatorWindow::OnKindFilterChanged, this);
-	leftSizer->Add(radio_kind_filter, 0, wxEXPAND | wxBOTTOM, pad / 2);
+	filter_box->Add(radio_kind_filter, 0, wxEXPAND | wxALL, 5);
 
-	search_ctrl = new PaletteSearchCtrl(leftPanel, ID_SEARCH_FILTER, "", wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
-	search_ctrl->SetDescriptiveText("Filter by name or coords...");
-	search_ctrl->SetFont(Theme::GetFont(9, false));
+	search_ctrl = newd PaletteSearchCtrl(filter_box->GetStaticBox(), ID_SEARCH_FILTER, "", wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
+	search_ctrl->SetDescriptiveText("Filter results by name or coords...");
 	search_ctrl->Bind(wxEVT_TEXT, &SpawnValidatorWindow::OnSearchFilterChanged, this);
-	leftSizer->Add(search_ctrl, 0, wxEXPAND | wxBOTTOM, pad);
+	filter_box->Add(search_ctrl, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 5);
 
-	leftSizer->Add(new wxStaticLine(leftPanel), 0, wxEXPAND | wxBOTTOM, pad);
+	leftSizer->Add(filter_box, 0, wxEXPAND | wxBOTTOM, 10);
 
-	// Action buttons
-	scan_button = new wxButton(leftPanel, ID_SCAN_MAP, "Scan Map / Refresh");
+	// 3. Scan Map Button
+	scan_button = newd wxButton(leftPanel, ID_SCAN_MAP, "Scan Map");
 	scan_button->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_LOCATION_CROSSHAIRS, wxSize(16, 16)));
-	scan_button->SetFont(Theme::GetFont(9, true));
+	scan_button->SetDefault();
 	scan_button->Bind(wxEVT_BUTTON, &SpawnValidatorWindow::OnScanMap, this);
-	leftSizer->Add(scan_button, 0, wxEXPAND | wxBOTTOM, pad / 2);
+	leftSizer->Add(scan_button, 0, wxEXPAND | wxBOTTOM, 10);
 
-	jump_button = new wxButton(leftPanel, ID_JUMP_POS, "Jump to Position");
+	// 4. Actions Group (native wxStaticBoxSizer)
+	auto* actions_box = newd wxStaticBoxSizer(wxVERTICAL, leftPanel, "Actions");
+	auto* action_grid = newd wxGridSizer(2, 2, 6, 6);
+
+	jump_button = newd wxButton(actions_box->GetStaticBox(), ID_JUMP_POS, "Jump to Pos");
 	jump_button->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_LOCATION_ARROW, wxSize(16, 16)));
-	jump_button->SetFont(Theme::GetFont(9, false));
 	jump_button->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { OnJumpToSelected(); });
-	leftSizer->Add(jump_button, 0, wxEXPAND | wxBOTTOM, pad / 2);
+	action_grid->Add(jump_button, 1, wxEXPAND);
 
-	edit_button = new wxButton(leftPanel, ID_EDIT_ISSUE, "Edit / Correct...");
+	edit_button = newd wxButton(actions_box->GetStaticBox(), ID_EDIT_ISSUE, "Edit...");
 	edit_button->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_PEN, wxSize(16, 16)));
-	edit_button->SetFont(Theme::GetFont(9, false));
 	edit_button->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { OnEditSelected(); });
-	leftSizer->Add(edit_button, 0, wxEXPAND | wxBOTTOM, pad / 2);
+	action_grid->Add(edit_button, 1, wxEXPAND);
 
-	remove_button = new wxButton(leftPanel, ID_REMOVE_ISSUE, "Remove Selected");
+	remove_button = newd wxButton(actions_box->GetStaticBox(), ID_REMOVE_ISSUE, "Remove");
 	remove_button->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_TRASH, wxSize(16, 16)));
-	remove_button->SetFont(Theme::GetFont(9, false));
 	remove_button->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { OnRemoveSelected(); });
-	leftSizer->Add(remove_button, 0, wxEXPAND | wxBOTTOM, pad / 2);
+	action_grid->Add(remove_button, 1, wxEXPAND);
 
-	remove_all_button = new wxButton(leftPanel, ID_REMOVE_ALL, "Remove All Listed");
+	remove_all_button = newd wxButton(actions_box->GetStaticBox(), ID_REMOVE_ALL, "Remove All");
 	remove_all_button->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_TRASH, wxSize(16, 16)));
-	remove_all_button->SetFont(Theme::GetFont(9, false));
 	remove_all_button->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { OnRemoveAll(); });
-	leftSizer->Add(remove_all_button, 0, wxEXPAND | wxBOTTOM, pad);
+	action_grid->Add(remove_all_button, 1, wxEXPAND);
+
+	actions_box->Add(action_grid, 0, wxEXPAND | wxALL, 5);
+	leftSizer->Add(actions_box, 0, wxEXPAND | wxBOTTOM, 10);
 
 	leftSizer->AddStretchSpacer(1);
 
-	status_label = new wxStaticText(leftPanel, wxID_ANY, "Ready. Click 'Scan Map' to validate.");
-	status_label->SetFont(Theme::GetFont(8, false));
+	status_label = newd wxStaticText(leftPanel, wxID_ANY, "Ready. Configure rules and click 'Scan Map'.");
 	status_label->SetForegroundColour(Theme::Get(Theme::Role::TextSubtle));
-	leftSizer->Add(status_label, 0, wxEXPAND | wxBOTTOM, pad);
+	leftSizer->Add(status_label, 0, wxEXPAND | wxBOTTOM, 5);
 
 	leftPanel->SetSizer(leftSizer);
-	rootSizer->Add(leftPanel, 0, wxEXPAND | wxALL, pad);
-
-	// Separator line between panels
-	rootSizer->Add(new wxStaticLine(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_VERTICAL), 0, wxEXPAND | wxTOP | wxBOTTOM, pad);
+	rootSizer->Add(leftPanel, 0, wxEXPAND | wxALL, 10);
 
 	// =========================================================================
-	// RIGHT COLUMN: NanoVGTableCtrl Results List
+	// RIGHT COLUMN: Results List
 	// =========================================================================
-	issues_table = new NanoVGTableCtrl(this, wxID_ANY);
+	auto* rightPanel = newd wxPanel(this, wxID_ANY);
+	auto* rightSizer = newd wxBoxSizer(wxVERTICAL);
+
+	auto* results_box = newd wxStaticBoxSizer(wxVERTICAL, rightPanel, "Results");
+
+	issues_table = newd NanoVGTableCtrl(results_box->GetStaticBox(), wxID_ANY);
 	issues_table->SetRowHeight(34);
 
 	std::vector<TableColumn> cols = {
@@ -266,7 +239,11 @@ void SpawnValidatorWindow::InitLayout() {
 		RefreshTable();
 	});
 
-	rootSizer->Add(issues_table, 1, wxEXPAND | wxALL, pad);
+	results_box->Add(issues_table, 1, wxEXPAND | wxALL, 5);
+	rightSizer->Add(results_box, 1, wxEXPAND);
+	rightPanel->SetSizer(rightSizer);
+
+	rootSizer->Add(rightPanel, 1, wxEXPAND | wxTOP | wxBOTTOM | wxRIGHT, 10);
 
 	SetSizer(rootSizer);
 	Layout();
@@ -352,7 +329,11 @@ void SpawnValidatorWindow::RefreshTable() {
 	issues_table->SetRows(std::move(rows));
 
 	if (status_label) {
-		status_label->SetLabel(wxString::Format("Found %zu issues (%zu shown).", current_issues.size(), filtered.size()));
+		if (current_issues.empty()) {
+			status_label->SetLabel("Ready. Configure rules and click 'Scan Map'.");
+		} else {
+			status_label->SetLabel(wxString::Format("Found %zu issues (%zu shown).", current_issues.size(), filtered.size()));
+		}
 	}
 
 	UpdateButtonStates();
@@ -435,8 +416,10 @@ void SpawnValidatorWindow::OnEditSelected() {
 	const int newTime = timeCtrl->GetValue();
 
 	if (EditorOperations::SpawnValidator::CorrectIssue(*editor, *it, newName, newTime)) {
-		wxCommandEvent ev;
-		OnScanMap(ev);
+		it->name = newName;
+		it->spawntime = newTime;
+		it->description = std::format("Corrected (Name: {}, Spawntime: {}s).", newName, newTime);
+		RefreshTable();
 		g_gui.RefreshView();
 	}
 }
@@ -454,8 +437,9 @@ void SpawnValidatorWindow::OnRemoveSelected() {
 	}
 
 	if (EditorOperations::SpawnValidator::RemoveIssue(*editor, *it)) {
-		wxCommandEvent ev;
-		OnScanMap(ev);
+		current_issues.erase(it);
+		selected_issue_id = -1;
+		RefreshTable();
 		g_gui.RefreshView();
 	}
 }
@@ -488,8 +472,11 @@ void SpawnValidatorWindow::OnRemoveAll() {
 
 	const size_t removedCount = EditorOperations::SpawnValidator::RemoveAllIssues(*editor, toRemove);
 	if (removedCount > 0) {
-		wxCommandEvent ev;
-		OnScanMap(ev);
+		for (const auto& rem : toRemove) {
+			std::erase_if(current_issues, [&](const auto& iss) { return iss.id == rem.id; });
+		}
+		selected_issue_id = -1;
+		RefreshTable();
 		g_gui.RefreshView();
 		g_gui.SetStatusText(wxString::Format("Removed %zu broken spawn entries.", removedCount));
 	}
