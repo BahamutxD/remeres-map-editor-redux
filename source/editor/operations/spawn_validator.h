@@ -10,7 +10,6 @@
 
 class Editor;
 class Map;
-class Tile;
 
 namespace EditorOperations {
 

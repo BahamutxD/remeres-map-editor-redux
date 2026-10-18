@@ -7,7 +7,6 @@
 #include "game/creature.h"
 #include "game/creatures.h"
 #include "game/spawn.h"
-#include "game/item.h"
 
 #include <algorithm>
 #include <format>

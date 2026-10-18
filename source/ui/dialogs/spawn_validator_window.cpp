@@ -14,9 +14,6 @@
 #include "util/image_manager.h"
 
 #include <wx/sizer.h>
-#include <wx/statline.h>
-#include <wx/spinctrl.h>
-#include <wx/textctrl.h>
 #include <wx/msgdlg.h>
 #include <wx/menu.h>
 #include <format>
