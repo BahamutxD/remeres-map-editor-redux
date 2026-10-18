@@ -82,7 +82,7 @@ MapWindow::MapWindow(wxWindow* parent, Editor& editor) :
 }
 
 MapWindow::~MapWindow() {
-	////
+	DetachReplaceItemsDialog();
 }
 
 void MapWindow::ShowReplaceItemsDialog(bool selectionOnly) {
@@ -91,7 +91,6 @@ void MapWindow::ShowReplaceItemsDialog(bool selectionOnly) {
 	}
 
 	replaceItemsDialog.reset(new ReplaceToolWindow(this, &editor));
-	replaceItemsDialog->Bind(wxEVT_CLOSE_WINDOW, &MapWindow::OnReplaceItemsDialogClose, this);
 	replaceItemsDialog->Show();
 }
 
@@ -103,24 +102,29 @@ void MapWindow::ShowAdvancedReplaceForSelection(const std::vector<uint16_t>& ids
 	}
 
 	replaceItemsDialog.reset(new ReplaceToolWindow(this, &editor));
-	replaceItemsDialog->Bind(wxEVT_CLOSE_WINDOW, &MapWindow::OnReplaceItemsDialogClose, this);
 	replaceItemsDialog->InitializeWithIDs(ids);
 	replaceItemsDialog->Show();
 }
 
 void MapWindow::CloseReplaceItemsDialog() {
 	if (replaceItemsDialog) {
+		replaceItemsDialog->DetachEditor();
 		replaceItemsDialog->Close();
 	}
 }
 
-void MapWindow::OnReplaceItemsDialogClose(wxCloseEvent& event) {
+void MapWindow::DetachReplaceItemsDialog() {
 	if (replaceItemsDialog) {
-		replaceItemsDialog->Unbind(wxEVT_CLOSE_WINDOW, &MapWindow::OnReplaceItemsDialogClose, this);
-		// unique_ptr will call Destroy() via custom deleter
-		replaceItemsDialog.reset();
+		replaceItemsDialog->DetachEditor();
 	}
-	event.Skip();
+}
+
+void MapWindow::ForgetReplaceItemsDialog() {
+	if (replaceItemsDialog) {
+		// The dialog closes itself and may refuse to, so the pointer is only
+		// dropped - without destroying a window that is still open.
+		replaceItemsDialog.release();
+	}
 }
 
 void MapWindow::SetSize(int x, int y, bool center) {
@@ -220,6 +224,8 @@ void MapWindow::SetScreenCenterPosition(const Position& position) {
 
 	Scroll(x, y, true);
 	canvas->ChangeFloor(position.z);
+	canvas->SyncCursorHoverState();
+	canvas->RequestLocalRefresh(true);
 }
 
 void MapWindow::GoToPreviousCenterPosition() {

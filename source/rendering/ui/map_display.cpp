@@ -450,12 +450,16 @@ void MapCanvas::TakeScreenshot(wxFileName path, wxString format) {
 }
 
 void MapCanvas::ScreenToMap(int screen_x, int screen_y, int* map_x, int* map_y) {
+	ScreenToMap(screen_x, screen_y, floor, map_x, map_y);
+}
+
+void MapCanvas::ScreenToMap(int screen_x, int screen_y, int custom_floor, int* map_x, int* map_y) {
 	int start_x = 0, start_y = 0;
 	if (auto mw = GetMapWindow()) {
 		mw->GetViewStart(&start_x, &start_y);
 	}
 
-	CoordinateMapper::ScreenToMap(screen_x, screen_y, start_x, start_y, zoom, floor, GetContentScaleFactor(), map_x, map_y);
+	CoordinateMapper::ScreenToMap(screen_x, screen_y, start_x, start_y, zoom, custom_floor, GetContentScaleFactor(), map_x, map_y);
 }
 #if 0
 
@@ -511,6 +515,15 @@ void MapCanvas::UpdateZoomStatus() {
 	ZoomController::UpdateStatus(this);
 }
 
+void MapCanvas::UpdateCursor() {
+	Brush* brush = g_gui.GetCurrentBrush();
+	if (brush && brush->getCursor() == BrushCursor::Crosshair) {
+		SetCursor(wxCursor(wxCURSOR_CROSS));
+	} else {
+		SetCursor(wxNullCursor);
+	}
+}
+
 void MapCanvas::SyncCursorHoverState() {
 	int mouse_map_x, mouse_map_y;
 	MouseToMap(&mouse_map_x, &mouse_map_y);
@@ -520,6 +533,7 @@ void MapCanvas::SyncCursorHoverState() {
 	last_cursor_map_y = mouse_map_y;
 	last_cursor_map_z = floor;
 
+	UpdateCursor();
 	g_gui.UpdateAutoborderPreview(Position(mouse_map_x, mouse_map_y, floor));
 	UpdatePositionStatus(cursor_x, cursor_y);
 	UpdateZoomStatus();
