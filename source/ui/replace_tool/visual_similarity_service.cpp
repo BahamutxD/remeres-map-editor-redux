@@ -201,6 +201,11 @@ VisualSimilarityService::VisualItemData VisualSimilarityService::CalculateData(u
 	data.width = w;
 	data.height = h;
 	data.isOpaque = IsFullyOpaqueRGBA({composite.get(), static_cast<size_t>(w * h * 4)});
+	data.hasLight = gs->hasLight();
+	data.isAnimated = gs->isAnimated();
+	data.drawHeight = static_cast<uint16_t>(std::max(0, gs->getDrawHeight()));
+	data.tileWidth = static_cast<uint8_t>(std::max(1, w / 32));
+	data.tileHeight = static_cast<uint8_t>(std::max(1, h / 32));
 
 	// Store both for robustness
 	data.aHash = CalculateAHashRGBA({composite.get(), static_cast<size_t>(w * h * 4)}, w, h);
@@ -235,10 +240,218 @@ void VisualSimilarityService::OnTimer(wxTimerEvent&) {
 	}
 }
 
-std::vector<uint16_t> VisualSimilarityService::FindSimilar(uint16_t itemId, size_t count) {
+namespace {
+
+constexpr uint64_t kSemanticFlags =
+	flagMask(ItemFlag::IsWall) |
+	flagMask(ItemFlag::IsBorder) |
+	flagMask(ItemFlag::IsTable) |
+	flagMask(ItemFlag::IsCarpet) |
+	flagMask(ItemFlag::IsBrushDoor) |
+	flagMask(ItemFlag::Pickupable) |
+	flagMask(ItemFlag::Moveable) |
+	flagMask(ItemFlag::Unpassable) |
+	flagMask(ItemFlag::BlockMissiles) |
+	flagMask(ItemFlag::BlockPathfinder) |
+	flagMask(ItemFlag::HasElevation) |
+	flagMask(ItemFlag::Stackable) |
+	flagMask(ItemFlag::IsHangable) |
+	flagMask(ItemFlag::Corpse) |
+	flagMask(ItemFlag::FloorChange) |
+	flagMask(ItemFlag::FullTile);
+
+} // namespace
+
+static bool MatchesSuggestionFilter(
+	uint16_t sourceId,
+	uint16_t targetId,
+	SuggestionFilterMode mode,
+	const VisualSimilarityService::VisualItemData& srcData,
+	const VisualSimilarityService::VisualItemData& tgtData) {
+	if (mode == SuggestionFilterMode::None || sourceId == targetId) {
+		return true;
+	}
+	const auto srcView = g_item_definitions.get(sourceId);
+	const auto tgtView = g_item_definitions.get(targetId);
+	if (!srcView || !tgtView) {
+		return false;
+	}
+
+	// 1. Physical boundaries: ground tiles, walls, doors, tables, carpets, borders
+	if (srcView.isGroundTile() != tgtView.isGroundTile()) {
+		return false;
+	}
+	if (srcView.hasFlag(ItemFlag::IsWall) != tgtView.hasFlag(ItemFlag::IsWall)) {
+		return false;
+	}
+
+	const bool srcDoor = srcView.isDoor() || srcView.hasFlag(ItemFlag::IsBrushDoor);
+	const bool tgtDoor = tgtView.isDoor() || tgtView.hasFlag(ItemFlag::IsBrushDoor);
+	if (srcDoor != tgtDoor) {
+		return false;
+	}
+
+	if (srcView.hasFlag(ItemFlag::IsTable) != tgtView.hasFlag(ItemFlag::IsTable)) {
+		return false;
+	}
+	if (srcView.hasFlag(ItemFlag::IsCarpet) != tgtView.hasFlag(ItemFlag::IsCarpet)) {
+		return false;
+	}
+	if (srcView.hasFlag(ItemFlag::IsBorder) != tgtView.hasFlag(ItemFlag::IsBorder)) {
+		return false;
+	}
+
+	// 2. Client Properties: Multi-tile Dimensions (tibia.dat)
+	const bool srcMultiTile = srcData.tileWidth > 1 || srcData.tileHeight > 1;
+	const bool tgtMultiTile = tgtData.tileWidth > 1 || tgtData.tileHeight > 1;
+	if (mode == SuggestionFilterMode::Exact) {
+		if (srcData.tileWidth != tgtData.tileWidth || srcData.tileHeight != tgtData.tileHeight) {
+			return false;
+		}
+	} else { // Similar
+		if (srcMultiTile != tgtMultiTile) {
+			return false;
+		}
+	}
+
+	// 3. Client Properties: Light Emission (tibia.dat)
+	if (mode == SuggestionFilterMode::Exact) {
+		if (srcData.hasLight != tgtData.hasLight) {
+			return false;
+		}
+	}
+
+	// 4. Client Properties: Animation State (tibia.dat)
+	if (mode == SuggestionFilterMode::Exact) {
+		if (srcData.isAnimated != tgtData.isAnimated) {
+			return false;
+		}
+	}
+
+	// 5. Client & Server: Surface Elevation / Draw Height
+	const bool srcElevation = srcView.hasFlag(ItemFlag::HasElevation) || srcData.drawHeight > 0;
+	const bool tgtElevation = tgtView.hasFlag(ItemFlag::HasElevation) || tgtData.drawHeight > 0;
+	if (mode == SuggestionFilterMode::Exact) {
+		if (srcElevation != tgtElevation) {
+			return false;
+		}
+	}
+
+	// 6. Server Attributes: Containers & Storage (items.xml / OTB)
+	const bool srcContainer = srcView.isContainer() || srcView.group() == ITEM_GROUP_CONTAINER || srcView.type() == ITEM_TYPE_CONTAINER;
+	const bool tgtContainer = tgtView.isContainer() || tgtView.group() == ITEM_GROUP_CONTAINER || tgtView.type() == ITEM_TYPE_CONTAINER;
+	if (srcContainer != tgtContainer) {
+		return false;
+	}
+	if (srcContainer && mode == SuggestionFilterMode::Exact) {
+		const auto srcSlot = static_cast<uint16_t>(srcView.attribute(ItemAttributeKey::SlotPosition));
+		const auto tgtSlot = static_cast<uint16_t>(tgtView.attribute(ItemAttributeKey::SlotPosition));
+		const bool srcBackpack = (srcSlot & SLOTP_BACKPACK) != 0;
+		const bool tgtBackpack = (tgtSlot & SLOTP_BACKPACK) != 0;
+		if (srcBackpack != tgtBackpack) {
+			return false;
+		}
+	}
+
+	// 7. Server Attributes: Weapons & Combat Gear (items.xml / OTB)
+	const auto srcWeapon = static_cast<uint8_t>(srcView.attribute(ItemAttributeKey::WeaponType));
+	const auto tgtWeapon = static_cast<uint8_t>(tgtView.attribute(ItemAttributeKey::WeaponType));
+	const bool srcIsWeapon = srcWeapon != WEAPON_NONE || srcView.group() == ITEM_GROUP_WEAPON;
+	const bool tgtIsWeapon = tgtWeapon != WEAPON_NONE || tgtView.group() == ITEM_GROUP_WEAPON;
+
+	if (mode == SuggestionFilterMode::Exact) {
+		if (srcIsWeapon != tgtIsWeapon) {
+			return false;
+		}
+		if (srcWeapon != WEAPON_NONE && tgtWeapon != WEAPON_NONE && srcWeapon != tgtWeapon) {
+			return false;
+		}
+		// Handedness check
+		const auto srcSlot = static_cast<uint16_t>(srcView.attribute(ItemAttributeKey::SlotPosition));
+		const auto tgtSlot = static_cast<uint16_t>(tgtView.attribute(ItemAttributeKey::SlotPosition));
+		if ((srcSlot & SLOTP_TWO_HAND) != (tgtSlot & SLOTP_TWO_HAND)) {
+			return false;
+		}
+	} else { // Similar
+		if (srcIsWeapon && !tgtIsWeapon) {
+			return false;
+		}
+		if (srcWeapon != WEAPON_NONE && tgtWeapon != WEAPON_NONE) {
+			// Do not cross-mix distance weapons (bows/crossbows/ammo) with melee weapons
+			const bool srcDistance = srcWeapon == WEAPON_DISTANCE || srcWeapon == WEAPON_AMMO;
+			const bool tgtDistance = tgtWeapon == WEAPON_DISTANCE || tgtWeapon == WEAPON_AMMO;
+			if (srcDistance != tgtDistance) {
+				return false;
+			}
+		}
+	}
+
+	// 8. Server Attributes: Equipment Slots (Helmets, Armor, Legs, Boots, Rings, Amulets)
+	const auto srcSlot = static_cast<uint16_t>(srcView.attribute(ItemAttributeKey::SlotPosition));
+	const auto tgtSlot = static_cast<uint16_t>(tgtView.attribute(ItemAttributeKey::SlotPosition));
+	if (srcSlot != 0 && tgtSlot != 0) {
+		if (mode == SuggestionFilterMode::Exact) {
+			constexpr uint16_t kEquipSlotMask = SLOTP_HEAD | SLOTP_ARMOR | SLOTP_LEGS | SLOTP_FEET | SLOTP_RING | SLOTP_NECKLACE;
+			if (((srcSlot & kEquipSlotMask) != 0 || (tgtSlot & kEquipSlotMask) != 0) &&
+				((srcSlot & kEquipSlotMask) != (tgtSlot & kEquipSlotMask))) {
+				return false;
+			}
+		} else { // Similar
+			constexpr uint16_t kArmorSlots = SLOTP_HEAD | SLOTP_ARMOR | SLOTP_LEGS | SLOTP_FEET;
+			constexpr uint16_t kJewelrySlots = SLOTP_RING | SLOTP_NECKLACE;
+			if ((srcSlot & kArmorSlots) != 0 && (tgtSlot & kArmorSlots) == 0) {
+				return false;
+			}
+			if ((srcSlot & kJewelrySlots) != 0 && (tgtSlot & kJewelrySlots) == 0) {
+				return false;
+			}
+		}
+	}
+
+	// 9. Server Attributes: Runes & Magic Fields
+	const bool srcRune = srcView.group() == ITEM_GROUP_RUNE;
+	const bool tgtRune = tgtView.group() == ITEM_GROUP_RUNE;
+	if (srcRune != tgtRune) {
+		if (mode == SuggestionFilterMode::Exact || srcRune) {
+			return false;
+		}
+	}
+	const bool srcField = srcView.group() == ITEM_GROUP_MAGICFIELD || srcView.type() == ITEM_TYPE_MAGICFIELD;
+	const bool tgtField = tgtView.group() == ITEM_GROUP_MAGICFIELD || tgtView.type() == ITEM_TYPE_MAGICFIELD;
+	if (srcField != tgtField) {
+		return false;
+	}
+
+	// 10. Semantic Flags (kSemanticFlags)
+	const uint64_t srcSemantic = srcView.flagMask() & kSemanticFlags;
+	const uint64_t tgtSemantic = tgtView.flagMask() & kSemanticFlags;
+
+	if (mode == SuggestionFilterMode::Exact) {
+		if (srcSemantic != tgtSemantic) {
+			return false;
+		}
+		if (srcView.group() != ITEM_GROUP_NONE && tgtView.group() != ITEM_GROUP_NONE) {
+			if (srcView.group() != tgtView.group()) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	// SuggestionFilterMode::Similar:
+	// Target must have at least all semantic flags that source has
+	if ((tgtSemantic & srcSemantic) != srcSemantic) {
+		return false;
+	}
+
+	return true;
+}
+
+std::vector<uint16_t> VisualSimilarityService::FindSimilar(uint16_t itemId, size_t count, SuggestionFilterMode filterMode) {
+	const uint32_t cacheKey = (static_cast<uint32_t>(itemId) << 2) | static_cast<uint32_t>(filterMode);
 	{
 		std::lock_guard<std::mutex> lock(dataMutex);
-		if (const auto cached = resultCache.find(itemId); cached != resultCache.end()) {
+		if (const auto cached = resultCache.find(cacheKey); cached != resultCache.end()) {
 			const std::vector<uint16_t>& ranked = cached->second;
 			return count < ranked.size() ? std::vector<uint16_t>(ranked.begin(), ranked.begin() + count) : ranked;
 		}
@@ -270,9 +483,11 @@ std::vector<uint16_t> VisualSimilarityService::FindSimilar(uint16_t itemId, size
 		uint16_t id;
 		double score;
 		bool operator<(const ScoredItem& other) const {
-			// mappingtool: sort by similarity_score DESC, then ID ASC
-			if (std::abs(score - other.score) > 0.00001) {
-				return score > other.score;
+			// Sort primary by similarity_score DESC, secondary by ID ASC
+			const int64_t s1 = static_cast<int64_t>(score * 100000.0 + 0.5);
+			const int64_t s2 = static_cast<int64_t>(other.score * 100000.0 + 0.5);
+			if (s1 != s2) {
+				return s1 > s2;
 			}
 			return id < other.id;
 		}
@@ -287,6 +502,9 @@ std::vector<uint16_t> VisualSimilarityService::FindSimilar(uint16_t itemId, size
 				continue;
 			}
 			if (!target.IsComplete()) {
+				continue;
+			}
+			if (!MatchesSuggestionFilter(itemId, target.id, filterMode, sourceData, target)) {
 				continue;
 			}
 
@@ -364,7 +582,7 @@ std::vector<uint16_t> VisualSimilarityService::FindSimilar(uint16_t itemId, size
 	// The index is immutable once complete, so a ranking can be reused.
 	std::lock_guard<std::mutex> lock(dataMutex);
 	if (isIndexed && results.size() <= kMaxCachedResults) {
-		resultCache[itemId] = results;
+		resultCache[cacheKey] = results;
 	}
 	return results;
 }

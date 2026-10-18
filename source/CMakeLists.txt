@@ -387,6 +387,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/replacement_engine.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/rule_list_control.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/rule_manager.h
+    ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/suggestion_filter_mode.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/visual_similarity_service.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/result_window.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/welcome_dialog.h

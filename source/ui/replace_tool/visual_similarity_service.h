@@ -10,6 +10,8 @@
 #include <cstdint>
 #include <atomic>
 
+#include "ui/replace_tool/suggestion_filter_mode.h"
+
 class VisualSimilarityService : public wxEvtHandler {
 public:
 	static VisualSimilarityService& Get();
@@ -26,6 +28,13 @@ public:
 		std::vector<uint64_t> packedMask;
 		int truePixels = 0; // Count of 1s
 
+		// Client properties (tibia.dat / GameSprite)
+		bool hasLight = false;
+		bool isAnimated = false;
+		uint16_t drawHeight = 0;
+		uint8_t tileWidth = 1;
+		uint8_t tileHeight = 1;
+
 		size_t MaskWords() const {
 			return (static_cast<size_t>(width) * static_cast<size_t>(height) + 63) / 64;
 		}
@@ -36,8 +45,8 @@ public:
 		}
 	};
 
-	// Find top N similar items
-	std::vector<uint16_t> FindSimilar(uint16_t itemId, size_t count = 100);
+	// Find top N similar items with specified filter mode
+	std::vector<uint16_t> FindSimilar(uint16_t itemId, size_t count = 300, SuggestionFilterMode filterMode = SuggestionFilterMode::None);
 	// Start background indexing
 	void StartIndexing();
 
@@ -55,8 +64,8 @@ private:
 
 	// Ranking a source is deterministic once the index is complete, and the
 	// editor asks for the same source over and over while a rule is edited.
-	static constexpr size_t kMaxCachedResults = 100;
-	std::unordered_map<uint16_t, std::vector<uint16_t>> resultCache;
+	static constexpr size_t kMaxCachedResults = 300;
+	std::unordered_map<uint32_t, std::vector<uint16_t>> resultCache;
 
 	wxTimer m_timer;
 	uint16_t m_nextIdToIndex;
