@@ -99,6 +99,9 @@ public:
 	const std::vector<SpawnAlternative>& getAlternatives() const {
 		return alternatives;
 	}
+	std::vector<SpawnAlternative>& getAlternatives() {
+		return alternatives;
+	}
 	void addAlternative(SpawnAlternative alternative) {
 		alternatives.push_back(std::move(alternative));
 	}

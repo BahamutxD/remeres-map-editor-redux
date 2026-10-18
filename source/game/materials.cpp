@@ -257,7 +257,7 @@ bool Materials::resolvePaletteReferences(const std::vector<FileName>& paletteFil
 	return true;
 }
 
-static RAWBrush* ensureRawBrush(ServerItemId item_id) {
+RAWBrush* Materials::ensureRawBrush(ServerItemId item_id) {
 	ItemEditorData& editor_data = g_item_definitions.mutableEditorData(item_id);
 	if (editor_data.raw_brush == nullptr) {
 		auto raw_brush = std::make_unique<RAWBrush>(item_id);
@@ -267,6 +267,16 @@ static RAWBrush* ensureRawBrush(ServerItemId item_id) {
 	}
 	return editor_data.raw_brush;
 }
+
+void Materials::ensureAllRawBrushes() {
+	for (ServerItemId id : g_item_definitions.allIds()) {
+		if (id < 100) {
+			continue;
+		}
+		ensureRawBrush(id);
+	}
+}
+
 
 static CreatureBrush* ensureCreatureBrush(CreatureType* type) {
 	if (!type) {
@@ -322,7 +332,7 @@ static bool readTilesetItemRange(pugi::xml_node node, uint32_t& fromId, uint32_t
 	return false;
 }
 
-static void loadTilesetItemEntry(pugi::xml_node node, DynamicTilesetDefinition& tileset, std::vector<std::string>& warnings) {
+static void loadTilesetItemEntry(pugi::xml_node node, DynamicTilesetDefinition& tileset, std::vector<std::string>& warnings, Materials& materials) {
 	uint32_t fromId = 0;
 	uint32_t toId = 0;
 	if (!readTilesetItemRange(node, fromId, toId)) {
@@ -330,7 +340,11 @@ static void loadTilesetItemEntry(pugi::xml_node node, DynamicTilesetDefinition& 
 	}
 
 	constexpr uint32_t maxItemId = std::numeric_limits<uint16_t>::max();
-	if (fromId > toId || fromId > maxItemId || toId > maxItemId) {
+	if (fromId > toId) {
+		warnings.push_back(std::format("tileset_item_references: tileset=\"{}\" inverted_range={}..{}, normalizing", tileset.name, fromId, toId));
+		std::swap(fromId, toId);
+	}
+	if (toId > maxItemId) {
 		warnings.push_back(std::format("tileset_item_references: tileset=\"{}\" invalid_range={}..{}", tileset.name, fromId, toId));
 		return;
 	}
@@ -341,7 +355,7 @@ static void loadTilesetItemEntry(pugi::xml_node node, DynamicTilesetDefinition& 
 			warnings.push_back(std::format("tileset_item_references: tileset=\"{}\" missing_id={}", tileset.name, id));
 			continue;
 		}
-		RAWBrush* brush = ensureRawBrush(static_cast<ServerItemId>(id));
+		RAWBrush* brush = materials.ensureRawBrush(static_cast<ServerItemId>(id));
 		brush->flagAsVisible();
 		if (!tileset.containsBrush(brush)) {
 			tileset.brushes.push_back(brush);
@@ -479,7 +493,7 @@ bool Materials::loadDynamicTilesetFile(const FileName& filename, DynamicPaletteD
 		if (childName == "brush") {
 			loadTilesetBrushEntry(childNode, *targetTileset, warnings);
 		} else if (childName == "item") {
-			loadTilesetItemEntry(childNode, *targetTileset, warnings);
+			loadTilesetItemEntry(childNode, *targetTileset, warnings, *this);
 		} else if (childName == "creature") {
 			loadTilesetCreatureEntry(childNode, *targetTileset, warnings);
 		}

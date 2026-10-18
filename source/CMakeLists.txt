@@ -71,6 +71,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/editor/operations/selection_operations.h
     ${CMAKE_CURRENT_LIST_DIR}/editor/operations/map_version_changer.h
     ${CMAKE_CURRENT_LIST_DIR}/editor/operations/unreachable_cleaner.h
+    ${CMAKE_CURRENT_LIST_DIR}/editor/operations/spawn_validator.h
     ${CMAKE_CURRENT_LIST_DIR}/editor/persistence/editor_persistence.h
     ${CMAKE_CURRENT_LIST_DIR}/editor/persistence/map_backup_service.h
     ${CMAKE_CURRENT_LIST_DIR}/editor/persistence/map_load_options.h
@@ -167,6 +168,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/map/tile_operations.h
     ${CMAKE_CURRENT_LIST_DIR}/net/net_connection.h
     ${CMAKE_CURRENT_LIST_DIR}/net/process_com.h
+    ${CMAKE_CURRENT_LIST_DIR}/palette/all_items/all_items_palette.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_brushlist.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_common.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/hardcoded_palette_registry.h
@@ -296,6 +298,7 @@ set(rme_H
 
     ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/goto_position_dialog.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/remove_unreachable_dialog.h
+    ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/spawn_validator_window.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/properties/object_properties_base.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/properties/property_validator.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/properties/property_applier.h
@@ -515,6 +518,7 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/editor/operations/selection_operations.cpp
     ${CMAKE_CURRENT_LIST_DIR}/editor/operations/map_version_changer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/editor/operations/unreachable_cleaner.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/editor/operations/spawn_validator.cpp
     ${CMAKE_CURRENT_LIST_DIR}/editor/persistence/editor_persistence.cpp
     ${CMAKE_CURRENT_LIST_DIR}/editor/persistence/map_backup_service.cpp
     ${CMAKE_CURRENT_LIST_DIR}/editor/persistence/minimap_exporter.cpp
@@ -596,6 +600,7 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/map/spatial_change_tracker.cpp
     ${CMAKE_CURRENT_LIST_DIR}/net/net_connection.cpp
     ${CMAKE_CURRENT_LIST_DIR}/net/process_com.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/palette/all_items/all_items_palette.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_brushlist.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/palette_common.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/hardcoded_palette_registry.cpp
@@ -708,6 +713,7 @@ set(rme_SRC
 
     ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/goto_position_dialog.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/remove_unreachable_dialog.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/spawn_validator_window.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/properties/object_properties_base.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/properties/property_validator.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/properties/property_applier.cpp
