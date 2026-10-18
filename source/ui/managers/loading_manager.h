@@ -7,6 +7,8 @@
 
 #include "app/main.h"
 #include <wx/progdlg.h>
+#include <wx/stattext.h>
+#include <wx/utils.h>
 
 class LoadingManager {
 public:
@@ -19,6 +21,14 @@ public:
 	 * @param title dialog title, defaults to "Loading" (saving uses "Saving").
 	 */
 	void CreateLoadBar(wxString message, bool canCancel = false, const wxString& title = "Loading");
+
+	/**
+	 * Creates an informational, app-modal dialog for operations without
+	 * measurable progress (closing a map, shutting the editor down).
+	 * Same chrome, centring and app-modal behaviour as the progress bar, but
+	 * with no gauge and no cancel button.
+	 */
+	void CreateInfoBar(wxString message, const wxString& title = "Closing");
 
 	/**
 	 * Sets how much of the load has completed, the scale can be set with
@@ -51,11 +61,11 @@ public:
 	void SetLoadScale(int32_t from, int32_t to);
 
 	/**
-	 * Destroys (hides) the current loading bar.
+	 * Destroys (hides) the current loading bar or info dialog.
 	 */
 	void DestroyLoadBar();
 	bool IsLoading() const {
-		return progressBar != nullptr;
+		return progressBar != nullptr || infoDialog != nullptr;
 	}
 
 	/**
@@ -69,6 +79,10 @@ public:
 private:
 	wxString progressText;
 	wxGenericProgressDialog* progressBar;
+	// Informational sibling of the progress bar (no gauge, no cancel button).
+	wxDialog* infoDialog;
+	wxStaticText* infoText;
+	wxWindowDisabler* infoDisabler;
 	bool cancelled;
 	// Whether the current bar offers an Abort button; without it there is
 	// nothing to poll and repeated values can skip the repaint.

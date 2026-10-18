@@ -23,6 +23,9 @@
 #include "live/live_client.h"
 #include "io/iomap_otbm.h"
 
+#include <chrono>
+#include <filesystem>
+#include <format>
 #include <set>
 #include <sstream>
 
@@ -61,7 +64,7 @@ void EditorManager::CloseCurrentEditor() {
 	{
 		// Destroying the tab frees the whole map and its GL resources, which
 		// can take a moment on large maps; tell the user what is happening.
-		ScopedBusyInfo closing("Closing map...");
+		ScopedInfoBar closing("Closing map...");
 		g_gui.tabbook->DeleteTab(g_gui.tabbook->GetSelection());
 	}
 
@@ -196,10 +199,22 @@ bool EditorManager::SaveCurrentMap(FileName fileName, bool showdialog) {
 				g_gui.root->Update();
 			}
 
+			const auto save_started = std::chrono::steady_clock::now();
 			const bool success = EditorPersistence::saveMap(*editor, fileName, showdialog);
+			const double save_seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - save_started).count();
 
 			if (success && !editor->map.hasChanged()) {
-				g_status.SetStatusText("Map saved successfully.");
+				// Report what actually landed on disk, not just that it worked.
+				std::error_code size_ec;
+				const auto file_size = std::filesystem::file_size(std::filesystem::path(editor->map.getFilename()), size_ec);
+				if (size_ec) {
+					g_status.SetStatusText("Map saved successfully.");
+					spdlog::info("Map saved: {} in {:.1f} s", editor->map.getName(), save_seconds);
+				} else {
+					const double megabytes = static_cast<double>(file_size) / (1024.0 * 1024.0);
+					g_status.SetStatusText(std::format("Map saved: {} ({:.1f} MB) in {:.1f} s.", editor->map.getName(), megabytes, save_seconds));
+					spdlog::info("Map saved: {} ({:.1f} MB) in {:.1f} s", editor->map.getName(), megabytes, save_seconds);
+				}
 			}
 
 			if (success) {
@@ -332,6 +347,7 @@ void EditorManager::SaveMapAsGzip() {
 
 bool EditorManager::LoadMap(const FileName& fileName, const MapLoadOptions& load_options) {
 	spdlog::info("EditorManager::LoadMap - Loading map: {}", nstr(fileName.GetFullPath()));
+	const auto load_started = std::chrono::steady_clock::now();
 	g_status.SetStatusText("Loading map...");
 	if (g_gui.root) {
 		g_gui.root->Update();
@@ -418,7 +434,22 @@ bool EditorManager::LoadMap(const FileName& fileName, const MapLoadOptions& load
 	g_minimap.InvalidateAll(*mapTab->GetMap());
 	g_gui.UpdateMinimap(true);
 
-	g_status.SetStatusText("Map loaded successfully.");
+	const uint64_t loaded_tiles = mapTab->GetMap()->getTileCount();
+	const double load_seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - load_started).count();
+	if (loaded_tiles > 0) {
+		g_status.SetStatusText(std::format("Map loaded: {} ({} tiles) in {:.1f} s.", nstr(fileName.GetFullName()), loaded_tiles, load_seconds));
+		spdlog::info("Map loaded: {} ({} tiles) in {:.1f} s", nstr(fileName.GetFullName()), loaded_tiles, load_seconds);
+	} else {
+		std::error_code size_ec;
+		const auto bytes = std::filesystem::file_size(std::filesystem::path(fileName.GetFullPath().utf8_string()), size_ec);
+		if (size_ec) {
+			g_status.SetStatusText("Map loaded successfully.");
+		} else {
+			const double megabytes = static_cast<double>(bytes) / (1024.0 * 1024.0);
+			g_status.SetStatusText(std::format("Map loaded: {} ({:.1f} MB) in {:.1f} s.", nstr(fileName.GetFullName()), megabytes, load_seconds));
+			spdlog::info("Map loaded: {} ({:.1f} MB) in {:.1f} s", nstr(fileName.GetFullName()), megabytes, load_seconds);
+		}
+	}
 	return true;
 }
 

@@ -25,10 +25,6 @@
 #include "ui/managers/welcome_manager.h"
 #include "ui/managers/gl_context_manager.h"
 
-#include <wx/frame.h>
-#include <wx/panel.h>
-#include <wx/sizer.h>
-#include <wx/stattext.h>
 #include <wx/utils.h>
 
 class BaseMap;
@@ -394,8 +390,6 @@ public:
 	bool hotkeys_enabled;
 
 protected:
-	wxWindowDisabler* winDisabler;
-
 	int disabled_counter;
 
 	std::mutex pending_live_clients_mutex;
@@ -456,52 +450,27 @@ public:
 };
 
 /**
- * Shows an informational window for work without measurable progress, such as
- * closing a map or shutting the editor down. Unlike the progress bar it reports
- * no percentage, and it does not pump events, which also makes it safe to use
- * while windows and maps are being destroyed.
- *
- * wxBusyInfo would centre itself on the screen, which puts it on another
- * monitor when the editor is not on the primary display, so the frame is owned
- * here and centred on the editor window instead.
+ * RAII wrapper for the informational, app-modal operation dialog used by
+ * operations without measurable progress, such as closing a map or shutting the
+ * editor down. It is the same kind of dialog as the progress bar (owned by the
+ * editor window, centred on it, app-modal so the editor cannot be used nor
+ * dragged around), only without a gauge.
  */
-class ScopedBusyInfo {
+class ScopedInfoBar {
 public:
-	explicit ScopedBusyInfo(const wxString& message) {
-		wxWindow* parent = wxTheApp ? wxTheApp->GetTopWindow() : nullptr;
-		frame = newd wxFrame(parent, wxID_ANY, wxString(), wxDefaultPosition, wxDefaultSize,
-			wxFRAME_TOOL_WINDOW | wxSTAY_ON_TOP | wxBORDER_SIMPLE);
-		frame->SetCursor(*wxHOURGLASS_CURSOR);
-
-		wxPanel* panel = newd wxPanel(frame);
-		wxBoxSizer* sizer = newd wxBoxSizer(wxVERTICAL);
-		sizer->Add(newd wxStaticText(panel, wxID_ANY, message, wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE),
-			wxSizerFlags(1).Expand().DoubleBorder());
-		panel->SetSizer(sizer);
-
-		wxSize size = panel->GetBestSize();
-		size.IncTo(wxSize(400, 80));
-		frame->SetClientSize(size);
-		frame->Layout();
-		frame->CentreOnParent();
-		frame->Show(true);
-		frame->Refresh();
-		frame->Update();
+	explicit ScopedInfoBar(const wxString& message, const wxString& title = "Closing") {
+		g_loading.CreateInfoBar(message, title);
+	}
+	~ScopedInfoBar() {
+		g_loading.DestroyLoadBar();
 	}
 
-	~ScopedBusyInfo() {
-		if (frame) {
-			frame->Show(false);
-			frame->Destroy();
-			frame = nullptr;
-		}
+	void SetText(const wxString& message) {
+		g_loading.SetLoadText(message);
 	}
 
-	ScopedBusyInfo(const ScopedBusyInfo&) = delete;
-	ScopedBusyInfo& operator=(const ScopedBusyInfo&) = delete;
-
-private:
-	wxFrame* frame = nullptr;
+	ScopedInfoBar(const ScopedInfoBar&) = delete;
+	ScopedInfoBar& operator=(const ScopedInfoBar&) = delete;
 };
 
 #define UnnamedRenderingLock() RenderingLock __unnamed_rendering_lock_##__LINE__

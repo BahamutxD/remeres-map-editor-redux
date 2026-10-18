@@ -340,22 +340,27 @@ void MainFrame::OnExit(wxCloseEvent& event) {
 	g_layout.SavePerspective();
 
 	// Nothing here can be cancelled or measured, but the editor must not look
-	// dead while it frees the maps, the GL resources and the version data. The
-	// info window is destroyed inside this scope, before the frame itself.
+	// dead (nor be dragged around) while it frees the maps, the GL resources and
+	// the version data. The dialog is destroyed inside this scope, before the
+	// frame itself, and each step updates its message.
 	{
-		ScopedBusyInfo closing("Closing editor...");
+		ScopedInfoBar closing("Closing editor...");
 
 		g_palettes.DestroyPalettes();
+
+		closing.SetText("Closing windows...");
 		g_minimap.Destroy();
 		g_search.DestroySearchWindow();
 		LuaDialog::DestroyDockPanelsForShutdown();
 
+		closing.SetText("Closing docked panels...");
 		if (g_gui.aui_manager) {
 			g_gui.aui_manager->UnInit();
 			delete g_gui.aui_manager;
 			g_gui.aui_manager = nullptr;
 		}
 
+		closing.SetText("Saving settings...");
 		static_cast<Application&>(wxGetApp()).Unload();
 	}
 

@@ -14,6 +14,9 @@ LoadingManager g_loading;
 
 LoadingManager::LoadingManager() :
 	progressBar(nullptr),
+	infoDialog(nullptr),
+	infoText(nullptr),
+	infoDisabler(nullptr),
 	cancelled(false),
 	cancellable(false),
 	progressFrom(0),
@@ -25,7 +28,38 @@ LoadingManager::~LoadingManager() {
 	DestroyLoadBar();
 }
 
+void LoadingManager::CreateInfoBar(wxString message, const wxString& title) {
+	DestroyLoadBar();
+
+	progressText = message;
+	progressFrom = 0;
+	progressTo = 100;
+	currentProgress = -1;
+	cancelled = false;
+	cancellable = false;
+
+	// Same family as the progress bar: owned by the editor window, centred on
+	// it, and app-modal so the editor cannot be used (or dragged around) while
+	// the operation runs. No gauge and no cancel button, since there is nothing
+	// to measure and nothing to abort.
+	infoDialog = newd wxDialog(g_gui.root, wxID_ANY, title, wxDefaultPosition, wxDefaultSize, wxCAPTION);
+	infoDialog->SetCursor(*wxHOURGLASS_CURSOR);
+
+	wxBoxSizer* sizer = newd wxBoxSizer(wxVERTICAL);
+	infoText = newd wxStaticText(infoDialog, wxID_ANY, message, wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE);
+	infoText->SetMinSize(infoDialog->FromDIP(wxSize(320, -1)));
+	sizer->Add(infoText, wxSizerFlags(1).Expand().DoubleBorder());
+	infoDialog->SetSizerAndFit(sizer);
+	infoDialog->CentreOnParent();
+
+	infoDisabler = new wxWindowDisabler(infoDialog);
+	infoDialog->Show(true);
+	infoDialog->Update();
+}
+
 void LoadingManager::CreateLoadBar(wxString message, bool canCancel, const wxString& title) {
+	DestroyLoadBar();
+
 	progressText = message;
 
 	progressFrom = 0;
@@ -55,7 +89,9 @@ void LoadingManager::SetLoadScale(int32_t from, int32_t to) {
 
 bool LoadingManager::SetLoadDone(int32_t done, const wxString& newMessage) {
 	if (done == 100) {
-		DestroyLoadBar();
+		if (progressBar) {
+			DestroyLoadBar();
+		}
 		return true;
 	} else if (done == currentProgress && newMessage.empty() && !cancellable) {
 		// Same value and same text with no Abort button to poll: nothing to
@@ -101,11 +137,23 @@ bool LoadingManager::SetLoadDone(int32_t done, const wxString& newMessage) {
 }
 
 void LoadingManager::SetLoadText(const wxString& message) {
-	if (!progressBar || message == progressText) {
+	if (message == progressText) {
 		return;
 	}
 
 	progressText = message;
+
+	if (infoDialog) {
+		// Informational mode has no gauge: just repaint the new text.
+		infoText->SetLabel(message);
+		infoDialog->Layout();
+		infoDialog->Update();
+		return;
+	}
+
+	if (!progressBar) {
+		return;
+	}
 
 	const int32_t visible = std::max<int32_t>(0, currentProgress);
 	bool skip = false;
@@ -131,10 +179,6 @@ void LoadingManager::DestroyLoadBar() {
 	if (progressBar) {
 		progressBar->Show(false);
 		currentProgress = -1;
-		// Cancellation belongs to the bar being closed; later operations that
-		// run without a bar must not inherit it.
-		cancelled = false;
-		cancellable = false;
 
 		progressBar->Destroy();
 		progressBar = nullptr;
@@ -145,4 +189,22 @@ void LoadingManager::DestroyLoadBar() {
 			g_gui.root->RequestUserAttention();
 		}
 	}
+
+	if (infoDialog) {
+		infoDialog->Show(false);
+		infoDialog->Destroy();
+		infoDialog = nullptr;
+		infoText = nullptr;
+		currentProgress = -1;
+	}
+
+	if (infoDisabler) {
+		delete infoDisabler;
+		infoDisabler = nullptr;
+	}
+
+	// Cancellation belongs to the dialog being closed; later operations that
+	// run with no dialog must not inherit it.
+	cancelled = false;
+	cancellable = false;
 }
