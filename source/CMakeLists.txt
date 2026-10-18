@@ -380,6 +380,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/util/image_manager.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/item_grid_panel.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/library_panel.h
+    ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/map_item_collector.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/rule_card_renderer.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/rule_builder_panel.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/card_panel.h
@@ -786,6 +787,7 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/ui/positionctrl.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/item_grid_panel.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/library_panel.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/map_item_collector.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/rule_card_renderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/card_panel.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/rule_builder_panel.cpp

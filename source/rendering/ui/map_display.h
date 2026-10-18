@@ -87,6 +87,7 @@ public:
 	void SetHoverPreviewActive(bool active);
 
 	virtual void ScreenToMap(int screen_x, int screen_y, int* map_x, int* map_y);
+	virtual void ScreenToMap(int screen_x, int screen_y, int custom_floor, int* map_x, int* map_y);
 	void MouseToMap(int* map_x, int* map_y) {
 		ScreenToMap(cursor_x, cursor_y, map_x, map_y);
 	}
