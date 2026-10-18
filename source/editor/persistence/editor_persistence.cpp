@@ -39,7 +39,15 @@ void EditorPersistence::loadMap(Editor& editor, const FileName& fn, const MapLoa
 		throw std::runtime_error(std::format("Client version mismatch. Expected protocol {} (OTB major {}) but got protocol {} (OTB major {})", ver.client, ver.items_major, g_version.GetCurrentVersion().getProtocolID(), loaded_major));
 	}
 
-	ScopedLoadingBar loadingBar("Loading OTBM map...");
+	// Report the file being opened and its size up front; the loader then
+	// reports its own stages (decompression, tile blocks, node types).
+	std::error_code size_ec;
+	const auto file_bytes = std::filesystem::file_size(std::filesystem::path(fn.GetFullPath().utf8_string()), size_ec);
+	wxString load_message = wxstr(std::format("Loading {}", nstr(fn.GetFullName())));
+	if (!size_ec) {
+		load_message = wxstr(std::format("Loading {} ({:.1f} MB)", nstr(fn.GetFullName()), static_cast<double>(file_bytes) / (1024.0 * 1024.0)));
+	}
+	ScopedLoadingBar loadingBar(load_message);
 	editor.map.open(std::string(fn.GetFullPath().utf8_str()));
 }
 
