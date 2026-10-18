@@ -46,6 +46,9 @@ void SetMenuIcon(wxMenuItem* item, std::string_view icon) {
 }
 
 [[nodiscard]] std::string_view PaletteIcon(std::string_view name) {
+	if (name == "All items") {
+		return ICON_BOXES_STACKED;
+	}
 	if (name == "House") {
 		return ICON_HOUSE;
 	}
@@ -60,6 +63,7 @@ void SetMenuIcon(wxMenuItem* item, std::string_view icon) {
 	}
 	return ICON_PALETTE;
 }
+
 
 } // namespace
 

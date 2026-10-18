@@ -1,6 +1,7 @@
 #include "palette/hardcoded_palette_registry.h"
 
 #include "app/main.h"
+#include "palette/all_items/all_items_palette.h"
 #include "palette/house/house_palette.h"
 #include "palette/palette_waypoints.h"
 #include "palette/palette_zones.h"
@@ -48,10 +49,18 @@ void updateTownMap(PalettePanel* panel, Map* map) {
 	}
 }
 
+PalettePanel* createAllItemsPanel(wxWindow* parent) {
+	return newd AllItemsPalette(parent);
+}
+
+void updateAllItemsMap(PalettePanel* /*panel*/, Map* /*map*/) {
+}
+
 } // namespace
 
 const std::vector<HardcodedPaletteProvider>& GetHardcodedPaletteProviders() {
 	static const std::vector<HardcodedPaletteProvider> providers {
+		{ "All items", createAllItemsPanel, updateAllItemsMap },
 		{ "House", createHousePanel, updateHouseMap },
 		{ "Waypoint", createWaypointPanel, updateWaypointMap },
 		{ "Zone", createZonePanel, updateZoneMap },
