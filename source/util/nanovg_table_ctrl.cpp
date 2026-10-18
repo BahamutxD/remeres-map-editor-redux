@@ -23,8 +23,14 @@ int NanoVGTableCtrl::HeaderHeight() const {
 	return FromDIP(24);
 }
 
+void NanoVGTableCtrl::SetRowHeight(int dip) {
+	row_height_dip_ = std::max(16, dip);
+	UpdateMetrics();
+	Refresh();
+}
+
 int NanoVGTableCtrl::RowHeight() const {
-	return FromDIP(22);
+	return FromDIP(row_height_dip_);
 }
 
 wxSize NanoVGTableCtrl::DoGetBestClientSize() const {
@@ -587,11 +593,6 @@ void NanoVGTableCtrl::OnNanoVGPaint(NVGcontext* vg, int width, int height) {
 			} else if (c < row_data.cells.size()) {
 				const std::string& text = row_data.cells[c];
 				nvgFontFace(vg, "sans");
-				nvgFontSize(vg, 12.0f);
-				nvgFillColor(vg, text_col);
-
-				int align = columns_[c].align | NVG_ALIGN_MIDDLE;
-				nvgTextAlign(vg, align);
 
 				float text_x = cell_x + 6.0f;
 				if (columns_[c].align & NVG_ALIGN_CENTER) {
@@ -628,7 +629,31 @@ void NanoVGTableCtrl::OnNanoVGPaint(NVGcontext* vg, int width, int height) {
 					}
 				}
 
-				nvgText(vg, text_x, cell_center_y, text.c_str(), nullptr);
+				const size_t newline_pos = text.find('\n');
+				if (newline_pos != std::string::npos) {
+					const std::string line1 = text.substr(0, newline_pos);
+					const std::string line2 = text.substr(newline_pos + 1);
+
+					// First line: Primary text (e.g. Town Name)
+					nvgFontSize(vg, 12.0f);
+					nvgFillColor(vg, text_col);
+					nvgTextAlign(vg, columns_[c].align | NVG_ALIGN_BOTTOM);
+					nvgText(vg, text_x, cell_center_y - 1.0f, line1.c_str(), nullptr);
+
+					// Second line: Secondary text (e.g. Coords: smaller font, grayish color)
+					nvgFontSize(vg, 10.0f);
+					const NVGcolor sub_col = is_selected
+						? nvgRGBAf(text_col.r, text_col.g, text_col.b, 0.75f)
+						: NvgUtils::ToNvColor(Theme::Get(Theme::Role::TextSubtle));
+					nvgFillColor(vg, sub_col);
+					nvgTextAlign(vg, columns_[c].align | NVG_ALIGN_TOP);
+					nvgText(vg, text_x, cell_center_y + 2.0f, line2.c_str(), nullptr);
+				} else {
+					nvgFontSize(vg, 12.0f);
+					nvgFillColor(vg, text_col);
+					nvgTextAlign(vg, columns_[c].align | NVG_ALIGN_MIDDLE);
+					nvgText(vg, text_x, cell_center_y, text.c_str(), nullptr);
+				}
 			}
 
 			nvgRestore(vg); // Restore cell scissor

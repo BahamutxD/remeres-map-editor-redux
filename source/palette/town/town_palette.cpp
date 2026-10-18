@@ -51,12 +51,12 @@ TownPalettePanel::TownPalettePanel(wxWindow* parent, wxWindowID id) :
 	search_ctrl->SetFont(Theme::GetFont(9, false));
 	sidesizer->Add(search_ctrl, 0, wxEXPAND | wxALL, 5);
 
-	// Table control (ID, Name, Temple, Houses)
+	// Table control (ID, Town, Houses)
 	town_table = newd NanoVGTableCtrl(this, PALETTE_TOWN_LISTBOX);
+	town_table->SetRowHeight(36);
 	std::vector<TableColumn> cols = {
-		{ "id", "ID", 45, NVG_ALIGN_RIGHT, true },
-		{ "name", "Name", 0, NVG_ALIGN_LEFT, true },
-		{ "temple", "Temple", 135, NVG_ALIGN_LEFT, true },
+		{ "id", "ID", 35, NVG_ALIGN_RIGHT, true },
+		{ "name", "Town", 0, NVG_ALIGN_LEFT, true },
 		{ "houses", "Houses", 50, NVG_ALIGN_RIGHT, true }
 	};
 	town_table->SetColumns(std::move(cols));
@@ -76,30 +76,31 @@ TownPalettePanel::TownPalettePanel(wxWindow* parent, wxWindowID id) :
 
 	sidesizer->Add(town_table, 1, wxEXPAND | wxLEFT | wxRIGHT, 5);
 
-	// Buttons
-	auto* tmpsizer = newd wxBoxSizer(wxHORIZONTAL);
-	add_town_button = newd wxButton(this, PALETTE_TOWN_ADD, "Add", wxDefaultPosition, wxSize(45, -1));
+	// Buttons (2x2 grid)
+	auto* button_grid = newd wxGridSizer(2, 2, 4, 4);
+
+	add_town_button = newd wxButton(this, PALETTE_TOWN_ADD, "Add", wxDefaultPosition, wxDefaultSize);
 	add_town_button->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_PLUS, wxSize(16, 16)));
 	add_town_button->SetFont(Theme::GetFont(9, false));
-	tmpsizer->Add(add_town_button, 1, wxEXPAND | wxRIGHT, 2);
+	button_grid->Add(add_town_button, 1, wxEXPAND);
 
-	remove_town_button = newd wxButton(this, PALETTE_TOWN_REMOVE, "Remove", wxDefaultPosition, wxSize(55, -1));
-	remove_town_button->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_MINUS, wxSize(16, 16)));
-	remove_town_button->SetFont(Theme::GetFont(9, false));
-	tmpsizer->Add(remove_town_button, 1, wxEXPAND | wxRIGHT, 2);
-
-	edit_town_button = newd wxButton(this, PALETTE_TOWN_EDIT, "Edit", wxDefaultPosition, wxSize(45, -1));
+	edit_town_button = newd wxButton(this, PALETTE_TOWN_EDIT, "Edit", wxDefaultPosition, wxDefaultSize);
 	edit_town_button->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_PEN, wxSize(16, 16)));
 	edit_town_button->SetFont(Theme::GetFont(9, false));
-	tmpsizer->Add(edit_town_button, 1, wxEXPAND | wxRIGHT, 2);
+	button_grid->Add(edit_town_button, 1, wxEXPAND);
 
-	change_temple_button = newd wxButton(this, PALETTE_TOWN_CHANGE_TEMPLE, "Set Temple", wxDefaultPosition, wxSize(70, -1));
+	remove_town_button = newd wxButton(this, PALETTE_TOWN_REMOVE, "Remove", wxDefaultPosition, wxDefaultSize);
+	remove_town_button->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_MINUS, wxSize(16, 16)));
+	remove_town_button->SetFont(Theme::GetFont(9, false));
+	button_grid->Add(remove_town_button, 1, wxEXPAND);
+
+	change_temple_button = newd wxButton(this, PALETTE_TOWN_CHANGE_TEMPLE, "Set Temple", wxDefaultPosition, wxDefaultSize);
 	change_temple_button->SetBitmap(IMAGE_MANAGER.GetBitmap(ICON_CROSSHAIRS, wxSize(16, 16)));
 	change_temple_button->SetFont(Theme::GetFont(9, false));
 	change_temple_button->SetToolTip("Click to place temple position on the map");
-	tmpsizer->Add(change_temple_button, 1, wxEXPAND);
+	button_grid->Add(change_temple_button, 1, wxEXPAND);
 
-	sidesizer->Add(tmpsizer, 0, wxEXPAND | wxALL, 5);
+	sidesizer->Add(button_grid, 0, wxEXPAND | wxALL, 5);
 	SetSizer(sidesizer);
 
 	Bind(wxEVT_TEXT, &TownPalettePanel::OnSearchChange, this, PALETTE_TOWN_SEARCH);
@@ -207,9 +208,12 @@ void TownPalettePanel::OnUpdate() {
 		}
 
 		const Position& pos = town->getTemplePosition();
-		const std::string pos_str = (pos != Position() && pos.isValid())
+		const bool has_pos = (pos != Position() && pos.isValid());
+		const std::string pos_str = has_pos
 			? std::format("{}, {}, {}", pos.x, pos.y, pos.z)
 			: "—";
+
+		const std::string town_display = std::format("{}\n{}", town->getName(), pos_str);
 
 		const size_t h_count = house_counts[id];
 
@@ -223,8 +227,7 @@ void TownPalettePanel::OnUpdate() {
 			row.id = static_cast<int>(id);
 			row.key = std::to_string(id);
 			row.cells.push_back(std::to_string(id));
-			row.cells.push_back(town->getName());
-			row.cells.push_back(pos_str);
+			row.cells.push_back(town_display);
 			row.cells.push_back(std::to_string(h_count));
 			row.client_data = town.get();
 			rows.push_back(std::move(row));
@@ -242,28 +245,25 @@ void TownPalettePanel::OnUpdate() {
 	} else if (sort_col == 1) {
 		// Sort by Name
 		std::stable_sort(rows.begin(), rows.end(), [asc](const TableRow& a, const TableRow& b) {
-			int cmp = wxStricmp(wxstr(a.cells[1]), wxstr(b.cells[1]));
-			return asc ? (cmp < 0) : (cmp > 0);
-		});
-	} else if (sort_col == 2) {
-		// Sort by Temple Position
-		std::stable_sort(rows.begin(), rows.end(), [asc](const TableRow& a, const TableRow& b) {
 			auto* tA = static_cast<const Town*>(a.client_data);
 			auto* tB = static_cast<const Town*>(b.client_data);
-			if (!tA || !tB) return false;
-			const Position& posA = tA->getTemplePosition();
-			const Position& posB = tB->getTemplePosition();
-			if (posA != posB) {
-				return asc ? (posA < posB) : (posB < posA);
+			if (tA && tB) {
+				int cmp = wxStricmp(wxstr(tA->getName()), wxstr(tB->getName()));
+				if (cmp != 0) {
+					return asc ? (cmp < 0) : (cmp > 0);
+				}
 			}
-			return asc ? (tA->getID() < tB->getID()) : (tB->getID() < tA->getID());
+			return asc ? (a.id < b.id) : (b.id < a.id);
 		});
-	} else if (sort_col == 3) {
+	} else if (sort_col == 2) {
 		// Sort by House count
 		std::stable_sort(rows.begin(), rows.end(), [asc](const TableRow& a, const TableRow& b) {
 			size_t cA = 0, cB = 0;
-			try { cA = std::stoull(a.cells[3]); cB = std::stoull(b.cells[3]); } catch (...) {}
-			return asc ? (cA < cB) : (cB < cA);
+			try { cA = std::stoull(a.cells[2]); cB = std::stoull(b.cells[2]); } catch (...) {}
+			if (cA != cB) {
+				return asc ? (cA < cB) : (cB < cA);
+			}
+			return asc ? (a.id < b.id) : (b.id < a.id);
 		});
 	}
 

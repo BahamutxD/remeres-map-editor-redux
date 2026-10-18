@@ -61,6 +61,8 @@ public:
 	void ClearRows();
 	void UpdateRow(size_t index, TableRow row);
 	void UpdateRowCells(size_t index, std::vector<std::string> cells);
+	void SetRowHeight(int dip);
+	[[nodiscard]] int GetRowHeight() const { return row_height_dip_; }
 
 	[[nodiscard]] size_t GetRowCount() const { return rows_.size(); }
 	[[nodiscard]] const TableRow* GetRow(size_t index) const;
@@ -117,6 +119,7 @@ protected:
 
 	std::vector<TableColumn> columns_;
 	std::vector<TableRow> rows_;
+	int row_height_dip_ = 22;
 
 	int selected_index_ = -1;
 	uint64_t selected_id_ = 0;
