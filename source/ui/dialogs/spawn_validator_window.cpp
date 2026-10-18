@@ -228,18 +228,19 @@ void SpawnValidatorWindow::InitLayout() {
 	});
 
 	issues_table->SetOnSort([this](int col, bool asc) {
-		std::sort(current_issues.begin(), current_issues.end(), [col, asc](const auto& a, const auto& b) {
-			bool result = false;
-			switch (col) {
-				case 0: result = a.id < b.id; break;
-				case 1: result = a.name < b.name; break;
-				case 2: result = a.is_npc < b.is_npc; break;
-				case 3: result = a.pos < b.pos; break;
-				case 4: result = a.GetTypeString() < b.GetTypeString(); break;
-				case 5: result = a.description < b.description; break;
-				default: result = a.id < b.id; break;
+		auto less = [](const auto& a, const auto& b, int c) {
+			switch (c) {
+				case 0: return a.id < b.id;
+				case 1: return a.name != b.name ? a.name < b.name : a.id < b.id;
+				case 2: return a.is_npc != b.is_npc ? a.is_npc < b.is_npc : a.id < b.id;
+				case 3: return a.pos != b.pos ? a.pos < b.pos : a.id < b.id;
+				case 4: return a.GetTypeString() != b.GetTypeString() ? a.GetTypeString() < b.GetTypeString() : a.id < b.id;
+				case 5: return a.description != b.description ? a.description < b.description : a.id < b.id;
+				default: return a.id < b.id;
 			}
-			return asc ? result : !result;
+		};
+		std::sort(current_issues.begin(), current_issues.end(), [&](const auto& a, const auto& b) {
+			return asc ? less(a, b, col) : less(b, a, col);
 		});
 		RefreshTable();
 	});
@@ -268,7 +269,18 @@ void SpawnValidatorWindow::OnScanMap(wxCommandEvent&) {
 	settings.check_missing_or_empty_tiles = chk_empty_tile->GetValue();
 	settings.check_unwalkable_zone = chk_unwalkable_zone->GetValue();
 
+	last_settings = settings;
+	has_scanned = true;
 	current_issues = EditorOperations::SpawnValidator::ScanMap(editor->map, settings);
+	selected_issue_id = -1;
+	RefreshTable();
+}
+
+void SpawnValidatorWindow::RescanMap() {
+	if (!editor || !last_settings) {
+		return;
+	}
+	current_issues = EditorOperations::SpawnValidator::ScanMap(editor->map, *last_settings);
 	selected_issue_id = -1;
 	RefreshTable();
 }
@@ -334,8 +346,10 @@ void SpawnValidatorWindow::RefreshTable() {
 	issues_table->SetRows(std::move(rows));
 
 	if (status_label) {
-		if (current_issues.empty()) {
+		if (!has_scanned) {
 			status_label->SetLabel("Ready. Configure rules and click 'Scan Map'.");
+		} else if (current_issues.empty()) {
+			status_label->SetLabel("Scan complete: No issues found.");
 		} else {
 			status_label->SetLabel(wxString::Format("Found %zu issues (%zu shown).", current_issues.size(), filtered.size()));
 		}
@@ -402,6 +416,7 @@ void SpawnValidatorWindow::OnEditSelected() {
 			action->addChange(std::make_unique<Change>(std::move(newTile)));
 			editor->addAction(std::move(action));
 			g_gui.RefreshView();
+			RescanMap();
 		}
 		return;
 	}
@@ -412,17 +427,36 @@ void SpawnValidatorWindow::OnEditSelected() {
 	}
 
 	std::unique_ptr<Tile> newTile = TileOperations::deepCopy(tile, editor->map);
-	CreaturePropertiesWindow dlg(this, &editor->map, newTile.get(), newTile->creature.get());
-	if (dlg.ShowModal() != 0) {
-		const int newTime = newTile->creature->getSpawnTime();
-		auto action = editor->actionQueue->createAction(ACTION_CHANGE_PROPERTIES);
-		action->addChange(std::make_unique<Change>(std::move(newTile)));
-		editor->addAction(std::move(action));
+	if (it->is_alternative) {
+		auto& alts = newTile->creature->getAlternatives();
+		if (it->alternative_index >= alts.size()) {
+			return;
+		}
+		auto& alt = alts[it->alternative_index];
+		Creature tempCreature(alt.name);
+		tempCreature.setSpawnTime(alt.spawntime);
+		tempCreature.setDirection(alt.direction);
 
-		it->spawntime = newTime;
-		it->description = std::format("Spawntime: {}s", newTime);
-		RefreshTable();
-		g_gui.RefreshView();
+		CreaturePropertiesWindow dlg(this, &editor->map, newTile.get(), &tempCreature);
+		if (dlg.ShowModal() != 0) {
+			alt.spawntime = tempCreature.getSpawnTime();
+			alt.direction = tempCreature.getDirection();
+
+			auto action = editor->actionQueue->createAction(ACTION_CHANGE_PROPERTIES);
+			action->addChange(std::make_unique<Change>(std::move(newTile)));
+			editor->addAction(std::move(action));
+			g_gui.RefreshView();
+			RescanMap();
+		}
+	} else {
+		CreaturePropertiesWindow dlg(this, &editor->map, newTile.get(), newTile->creature.get());
+		if (dlg.ShowModal() != 0) {
+			auto action = editor->actionQueue->createAction(ACTION_CHANGE_PROPERTIES);
+			action->addChange(std::make_unique<Change>(std::move(newTile)));
+			editor->addAction(std::move(action));
+			g_gui.RefreshView();
+			RescanMap();
+		}
 	}
 }
 
@@ -439,10 +473,9 @@ void SpawnValidatorWindow::OnRemoveSelected() {
 	}
 
 	if (EditorOperations::SpawnValidator::RemoveIssue(*editor, *it)) {
-		current_issues.erase(it);
 		selected_issue_id = -1;
-		RefreshTable();
 		g_gui.RefreshView();
+		RescanMap();
 	}
 }
 
@@ -474,12 +507,9 @@ void SpawnValidatorWindow::OnRemoveAll() {
 
 	const size_t removedCount = EditorOperations::SpawnValidator::RemoveAllIssues(*editor, toRemove);
 	if (removedCount > 0) {
-		for (const auto& rem : toRemove) {
-			std::erase_if(current_issues, [&](const auto& iss) { return iss.id == rem.id; });
-		}
 		selected_issue_id = -1;
-		RefreshTable();
 		g_gui.RefreshView();
+		RescanMap();
 		g_gui.SetStatusText(wxString::Format("Removed %zu broken spawn entries.", removedCount));
 	}
 }

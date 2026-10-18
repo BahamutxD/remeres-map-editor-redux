@@ -12,6 +12,7 @@
 #include <wx/button.h>
 #include <wx/stattext.h>
 #include <vector>
+#include <optional>
 
 class Editor;
 
@@ -38,11 +39,14 @@ private:
 
 	void RefreshTable();
 	void UpdateButtonStates();
+	void RescanMap();
 	[[nodiscard]] std::vector<const EditorOperations::SpawnIssue*> GetFilteredIssues() const;
 
 	Editor* editor = nullptr;
 	std::vector<EditorOperations::SpawnIssue> current_issues;
 	int selected_issue_id = -1;
+	bool has_scanned = false;
+	std::optional<EditorOperations::SpawnValidationSettings> last_settings;
 
 	// UI Controls - Left Panel
 	wxCheckBox* chk_invalid_time = nullptr;
