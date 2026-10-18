@@ -157,6 +157,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/map/map_statistics.h
     ${CMAKE_CURRENT_LIST_DIR}/map/map_converter.h
     ${CMAKE_CURRENT_LIST_DIR}/map/map_spawn_manager.h
+    ${CMAKE_CURRENT_LIST_DIR}/map/map_initial_position_resolver.h
     ${CMAKE_CURRENT_LIST_DIR}/map/zone_index.h
 
     ${CMAKE_CURRENT_LIST_DIR}/map/position.h
@@ -587,6 +588,7 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/map/map_statistics.cpp
     ${CMAKE_CURRENT_LIST_DIR}/map/map_converter.cpp
     ${CMAKE_CURRENT_LIST_DIR}/map/map_spawn_manager.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/map/map_initial_position_resolver.cpp
     ${CMAKE_CURRENT_LIST_DIR}/map/zone_index.cpp
 
     ${CMAKE_CURRENT_LIST_DIR}/map/tile.cpp
