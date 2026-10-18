@@ -1,29 +1,30 @@
 #include "util/virtual_item_grid.h"
-#include "util/nvg_utils.h"
 #include "util/common.h"
 #include "item_definitions/core/item_definition_store.h"
 #include "rendering/indicators/indicator_drawing_utils.h"
-#include "ui/theme.h"
 #include <algorithm>
-#include <format>
 #include <cmath>
 #include <ranges>
 
 namespace {
-	// Two lines of 12 px text plus breathing room, matching the palette grid
-	// label area, and the padding above the icon inside a card.
-	constexpr int kLabelArea = 32;
-	constexpr int kIconTopPadding = 8;
-	constexpr int kIconBottomPadding = 4;
 	constexpr int kMinIconSize = 16;
 	constexpr int kMaxIconSize = 128;
+	constexpr int kDefaultIconSize = 32;
+
+	// Hover animation, shared with the palette grid.
+	constexpr int kAnimTimerInterval = 16;
+	constexpr float kAnimThreshold = 0.01f;
+	constexpr float kAnimFactor = 0.2f;
 } // namespace
 
 VirtualItemGrid::VirtualItemGrid(wxWindow* parent, wxWindowID id) :
 	NanoVGCanvas(parent, id, wxVSCROLL | wxWANTS_CHARS),
-	m_padding(6),
-	m_iconSize(32),
-	m_showLabels(true),
+	// The size setting is not shared with the palette: each pane keeps its own.
+	m_iconSize(kDefaultIconSize),
+	m_showLabels(false),
+	m_sortKey(TilesetSortKey::ID),
+	m_sortDir(TilesetSortDirection::Ascending),
+	m_hasSort(true),
 	m_columns(1),
 	m_selectedIndex(-1),
 	m_hoverIndex(-1),
@@ -32,13 +33,17 @@ VirtualItemGrid::VirtualItemGrid(wxWindow* parent, wxWindowID id) :
 	Bind(wxEVT_LEFT_DOWN, &VirtualItemGrid::OnMouseDown, this);
 	Bind(wxEVT_MOTION, &VirtualItemGrid::OnMotion, this);
 	Bind(wxEVT_LEAVE_WINDOW, &VirtualItemGrid::OnLeave, this);
+	Bind(wxEVT_TIMER, &VirtualItemGrid::OnTimer, this, m_animTimer.GetId());
 }
 
 VirtualItemGrid::~VirtualItemGrid() {
+	m_animTimer.Stop();
 }
 
-int VirtualItemGrid::CardSize() const {
-	return kIconTopPadding + m_iconSize + (m_showLabels ? kLabelArea : 0) + kIconBottomPadding;
+wxSize VirtualItemGrid::CellSize() const {
+	// Cells are exactly as wide as the icon box and only grow downwards for the
+	// label band - the label width never widens a card.
+	return wxSize(rme::ui::grid::CellWidth(m_iconSize), rme::ui::grid::CellHeight(m_iconSize, m_showLabels));
 }
 
 void VirtualItemGrid::SetShowLabels(bool show) {
@@ -46,6 +51,7 @@ void VirtualItemGrid::SetShowLabels(bool show) {
 		return;
 	}
 	m_showLabels = show;
+	m_labelCache.Clear();
 	RefreshGrid();
 }
 
@@ -55,6 +61,7 @@ void VirtualItemGrid::SetIconSize(int sizePx) {
 		return;
 	}
 	m_iconSize = clamped;
+	m_labelCache.Clear();
 	RefreshGrid();
 }
 
@@ -116,11 +123,12 @@ void VirtualItemGrid::UpdateLayout() {
 		width = 200;
 	}
 
-	const int card = CardSize();
-	m_columns = std::max(1, (width - m_padding) / (card + m_padding));
+	const wxSize cell = CellSize();
+	const int padding = rme::ui::grid::kPadding;
+	m_columns = std::max(1, (width - padding) / (cell.x + padding));
 	size_t count = GetItemCount();
 	int rows = (count + m_columns - 1) / m_columns;
-	int contentHeight = rows * (card + m_padding) + m_padding;
+	int contentHeight = rows * (cell.y + padding) + padding;
 
 	UpdateScrollbar(contentHeight);
 }
@@ -130,11 +138,12 @@ wxSize VirtualItemGrid::DoGetBestClientSize() const {
 }
 
 int VirtualItemGrid::HitTest(int x, int y) const {
-	const int card = CardSize();
+	const wxSize cell = CellSize();
+	const int padding = rme::ui::grid::kPadding;
 	int scrollPos = GetScrollPosition();
 	int realY = y + scrollPos;
-	int col = (x - m_padding) / (card + m_padding);
-	int row = (realY - m_padding) / (card + m_padding);
+	int col = (x - padding) / (cell.x + padding);
+	int row = (realY - padding) / (cell.y + padding);
 
 	if (col < 0 || col >= m_columns || row < 0) {
 		return -1;
@@ -152,14 +161,15 @@ int VirtualItemGrid::HitTest(int x, int y) const {
 }
 
 wxRect VirtualItemGrid::GetItemRect(int index) const {
-	const int card = CardSize();
+	const wxSize cell = CellSize();
+	const int padding = rme::ui::grid::kPadding;
 	int row = index / m_columns;
 	int col = index % m_columns;
 	return wxRect(
-		m_padding + col * (card + m_padding),
-		m_padding + row * (card + m_padding),
-		card,
-		card
+		padding + col * (cell.x + padding),
+		padding + row * (cell.y + padding),
+		cell.x,
+		cell.y
 	);
 }
 
@@ -184,14 +194,15 @@ void VirtualItemGrid::EnsureVisible(int index) {
 		return;
 	}
 
+	const int padding = rme::ui::grid::kPadding;
 	wxRect rect = GetItemRect(index);
 	int scrollPos = GetScrollPosition();
 	int clientH = GetClientSize().y;
 
 	if (rect.y < scrollPos) {
-		SetScrollPosition(rect.y - m_padding);
+		SetScrollPosition(rect.y - padding);
 	} else if (rect.y + rect.height > scrollPos + clientH) {
-		SetScrollPosition(rect.y + rect.height - clientH + m_padding);
+		SetScrollPosition(rect.y + rect.height - clientH + padding);
 	}
 }
 
@@ -215,13 +226,18 @@ void VirtualItemGrid::OnMotion(wxMouseEvent& event) {
 		m_hoverIndex = index;
 
 		if (m_hoverIndex != -1) {
+			m_hoverAnim = 0.0f; // restart the grow for the new cell
 			SetCursor(wxCursor(wxCURSOR_HAND));
-			SetToolTip(GetItemName(m_hoverIndex));
+			SetToolTip(GetItemTooltip(m_hoverIndex));
 		} else {
 			SetCursor(wxNullCursor);
 			UnsetToolTip();
 		}
 		Refresh();
+	}
+
+	if (m_hoverIndex != -1 && !m_animTimer.IsRunning()) {
+		m_animTimer.Start(kAnimTimerInterval);
 	}
 	event.Skip();
 }
@@ -229,12 +245,24 @@ void VirtualItemGrid::OnMotion(wxMouseEvent& event) {
 void VirtualItemGrid::OnLeave(wxMouseEvent& event) {
 	if (m_hoverIndex != -1) {
 		m_hoverIndex = -1;
+		UnsetToolTip();
 		Refresh();
 	}
 	event.Skip();
 }
 
 void VirtualItemGrid::OnTimer(wxTimerEvent&) {
+	const float target = m_hoverIndex != -1 ? 1.0f : 0.0f;
+	if (std::abs(m_hoverAnim - target) > kAnimThreshold) {
+		m_hoverAnim += (target - m_hoverAnim) * kAnimFactor;
+		Refresh();
+		return;
+	}
+
+	m_hoverAnim = target;
+	if (m_hoverIndex == -1) {
+		m_animTimer.Stop();
+	}
 }
 
 void VirtualItemGrid::ClearCache() {
@@ -254,9 +282,13 @@ wxString VirtualItemGrid::GetItemName(size_t index) const {
 	return "";
 }
 
+wxString VirtualItemGrid::GetItemTooltip(size_t index) const {
+	return GetItemName(index);
+}
+
 void VirtualItemGrid::OnNanoVGPaint(NVGcontext* vg, int width, int height) {
-	const int card = CardSize();
-	int rowHeight = card + m_padding;
+	const wxSize cell = CellSize();
+	int rowHeight = cell.y + rme::ui::grid::kPadding;
 	int scrollPos = GetScrollPosition();
 
 	size_t count = GetItemCount();
@@ -276,112 +308,27 @@ void VirtualItemGrid::OnNanoVGPaint(NVGcontext* vg, int width, int height) {
 			continue;
 		}
 
-		wxRect r = GetItemRect(i);
-		float x = static_cast<float>(r.x);
-		float y = static_cast<float>(r.y);
-		float w = static_cast<float>(r.width);
-		float h = static_cast<float>(r.height);
+		const wxRect cell = GetItemRect(i);
+		const bool isSelected = IsItemSelected(i);
+		const bool isHovered = (i == m_hoverIndex);
 
-		bool isSelected = (i == m_selectedIndex);
-		bool isHovered = (i == m_hoverIndex);
+		// Cell chrome, hover grow and state colours come from the shared
+		// renderer so this grid and the palette grid stay identical.
+		rme::ui::grid::DrawCardChrome(vg, cell, isSelected, isHovered, m_hoverAnim);
 
-		// Shadow / Glow
-		if (isSelected) {
-			NVGpaint shadowPaint = nvgBoxGradient(vg, x, y, w, h, 4.0f, 10.0f, nvgRGBA(100, 150, 255, 128), nvgRGBA(0, 0, 0, 0));
-			nvgBeginPath(vg);
-			nvgRect(vg, x - 10, y - 10, w + 20, h + 20);
-			nvgRoundedRect(vg, x, y, w, h, 4.0f);
-			nvgPathWinding(vg, NVG_HOLE);
-			nvgFillPaint(vg, shadowPaint);
-			nvgFill(vg);
-		} else if (isHovered) {
-			NVGpaint shadowPaint = nvgBoxGradient(vg, x, y + 2, w, h, 4.0f, 6.0f, nvgRGBA(0, 0, 0, 64), nvgRGBA(0, 0, 0, 0));
-			nvgBeginPath(vg);
-			nvgRect(vg, x - 5, y - 5, w + 10, h + 10);
-			nvgRoundedRect(vg, x, y, w, h, 4.0f);
-			nvgPathWinding(vg, NVG_HOLE);
-			nvgFillPaint(vg, shadowPaint);
-			nvgFill(vg);
-		}
-
-		// Card Background
-		nvgBeginPath(vg);
-		nvgRoundedRect(vg, x, y, w, h, 4.0f);
-		if (isSelected) {
-			wxColour selCol = Theme::Get(Theme::Role::Accent);
-			nvgFillColor(vg, nvgRGBA(selCol.Red(), selCol.Green(), selCol.Blue(), 200));
-		} else if (isHovered) {
-			wxColour hoverCol = Theme::Get(Theme::Role::CardBaseHover);
-			nvgFillColor(vg, nvgRGBA(hoverCol.Red(), hoverCol.Green(), hoverCol.Blue(), 255));
-		} else {
-			wxColour baseCol = Theme::Get(Theme::Role::CardBase);
-			nvgFillColor(vg, nvgRGBA(baseCol.Red(), baseCol.Green(), baseCol.Blue(), 255));
-		}
-		nvgFill(vg);
-
-		// Selection Border
-		if (isSelected) {
-			nvgBeginPath(vg);
-			nvgRoundedRect(vg, x + 0.5f, y + 0.5f, w - 1, h - 1, 4.0f);
-			wxColour accentCol = Theme::Get(Theme::Role::Accent);
-			nvgStrokeColor(vg, nvgRGBA(accentCol.Red(), accentCol.Green(), accentCol.Blue(), 255));
-			nvgStrokeWidth(vg, 2.0f);
-			nvgStroke(vg);
-		}
-
-		// Draw Item Icon (fixed icon area, size follows the view options)
-		uint16_t id = GetItem(i);
+		const uint16_t id = GetItem(i);
 		const auto definition = g_item_definitions.get(id);
-		const uint16_t cid = definition ? definition.clientId() : 0;
-		const auto tech = rme::rendering::TechnicalItemRegistry::Classify(id, cid);
-		const float iconSize = static_cast<float>(m_iconSize);
-		if (tech != rme::rendering::TileIndicatorType::None) {
-			const float bx = x + (w - iconSize) / 2.0f;
-			const float by = y + static_cast<float>(kIconTopPadding);
-			rme::rendering::DrawNanoVGIndicatorBadge(vg, tech, bx, by, iconSize);
-		} else {
-			int tex = GetOrCreateItemTexture(vg, id);
-			if (tex > 0) {
-				int tw, th;
-				nvgImageSize(vg, tex, &tw, &th);
+		const uint16_t clientId = definition ? definition.clientId() : 0;
+		const auto badge = rme::rendering::TechnicalItemRegistry::Classify(id, clientId);
 
-				float scale = iconSize / std::max(tw, th);
-				if (scale > 1.0f && std::max(tw, th) >= 32) {
-					scale = 1.0f;
-				}
-
-				float dw = tw * scale;
-				float dh = th * scale;
-				float dx = x + (w - dw) / 2.0f;
-				float dy = y + static_cast<float>(kIconTopPadding);
-
-				NVGpaint imgPaint = nvgImagePattern(vg, dx, dy, dw, dh, 0.0f, tex, 1.0f);
-				nvgBeginPath(vg);
-				nvgRect(vg, dx, dy, dw, dh);
-				nvgFillPaint(vg, imgPaint);
-				nvgFill(vg);
-			}
+		int texture = 0;
+		if (badge == rme::rendering::TileIndicatorType::None) {
+			texture = GetOrCreateItemTexture(vg, id);
 		}
+		rme::ui::grid::DrawCellIcon(vg, rme::ui::grid::IconRect(cell, m_iconSize), texture, badge);
 
-		// Draw the item name under the icon when labels are enabled
-		wxString name = GetItemName(i);
-		if (m_showLabels && !name.IsEmpty()) {
-			nvgFontSize(vg, 12.0f); // Larger font
-			nvgFontFace(vg, "sans");
-			nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
-			if (isSelected) {
-				wxColour textOnAccent = Theme::Get(Theme::Role::TextOnAccent);
-				nvgFillColor(vg, nvgRGBA(textOnAccent.Red(), textOnAccent.Green(), textOnAccent.Blue(), 255));
-			} else {
-				wxColour textCol = Theme::Get(Theme::Role::TextSubtle);
-				nvgFillColor(vg, nvgRGBA(textCol.Red(), textCol.Green(), textCol.Blue(), 230));
-			}
-
-			float textY = y + static_cast<float>(kIconTopPadding + m_iconSize + kIconBottomPadding);
-			float maxWidth = w - 4.0f;
-
-			// NvgTextBox approach for wrapping
-			nvgTextBox(vg, x + 2, textY, maxWidth, name.mb_str(), nullptr);
+		if (m_showLabels) {
+			rme::ui::grid::DrawCellLabel(vg, cell, GetItemName(i), isSelected, m_labelCache);
 		}
 	}
 }

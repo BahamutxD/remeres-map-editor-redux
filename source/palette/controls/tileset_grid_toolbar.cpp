@@ -23,9 +23,10 @@ namespace {
 	};
 } // namespace
 
-TilesetGridToolbar::TilesetGridToolbar(wxWindow* parent, Actions actions, bool with_filter_all) :
+TilesetGridToolbar::TilesetGridToolbar(wxWindow* parent, Actions actions, unsigned parts) :
 	wxPanel(parent, wxID_ANY),
-	m_actions(std::move(actions)) {
+	m_actions(std::move(actions)),
+	m_parts(parts) {
 	const wxSize iconSize = FromDIP(wxSize(16, 16));
 	const long toolbarStyle = (wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_PLAIN_BACKGROUND) & ~wxAUI_TB_GRIPPER;
 	const wxColour iconColor = Theme::Get(Theme::Role::Text);
@@ -34,44 +35,51 @@ TilesetGridToolbar::TilesetGridToolbar(wxWindow* parent, Actions actions, bool w
 	m_toolbar->SetToolBitmapSize(iconSize);
 	m_toolbar->SetMargins(1, 1, 1, 1);
 	m_toolbar->SetToolBorderPadding(2);
-	m_toolbar->AddTool(TOOL_SORT_AZ, wxEmptyString, IMAGE_MANAGER.GetBitmap(ICON_SORT_ALPHA_DOWN, iconSize, iconColor), "Sort ascending (A-Z)");
-	m_toolbar->AddTool(TOOL_SORT_ZA, wxEmptyString, IMAGE_MANAGER.GetBitmap(ICON_SORT_ALPHA_UP, iconSize, iconColor), "Sort descending (Z-A)");
-	m_toolbar->AddTool(TOOL_TOGGLE_LABELS, wxEmptyString, IMAGE_MANAGER.GetBitmap(ICON_TAG, iconSize, iconColor), "Toggle labels", wxITEM_CHECK);
-	m_toolbar->AddTool(TOOL_CHANGE_SIZE, wxEmptyString, IMAGE_MANAGER.GetBitmap(ICON_MAXIMIZE, iconSize, iconColor), "Tile size");
-	if (with_filter_all) {
+	if (parts & Part_Sort) {
+		m_toolbar->AddTool(TOOL_SORT_AZ, wxEmptyString, IMAGE_MANAGER.GetBitmap(ICON_SORT_ALPHA_DOWN, iconSize, iconColor), "Sort ascending (A-Z)");
+		m_toolbar->AddTool(TOOL_SORT_ZA, wxEmptyString, IMAGE_MANAGER.GetBitmap(ICON_SORT_ALPHA_UP, iconSize, iconColor), "Sort descending (Z-A)");
+	}
+	if (parts & Part_Labels) {
+		m_toolbar->AddTool(TOOL_TOGGLE_LABELS, wxEmptyString, IMAGE_MANAGER.GetBitmap(ICON_TAG, iconSize, iconColor), "Toggle labels", wxITEM_CHECK);
+	}
+	if (parts & Part_Size) {
+		m_toolbar->AddTool(TOOL_CHANGE_SIZE, wxEmptyString, IMAGE_MANAGER.GetBitmap(ICON_MAXIMIZE, iconSize, iconColor), "Tile size");
+	}
+	if (parts & Part_FilterAll) {
 		m_toolbar->AddTool(TOOL_FILTER_ALL, wxEmptyString, IMAGE_MANAGER.GetBitmap(ICON_FILTER, iconSize, iconColor), "Filter all tilesets and palettes", wxITEM_CHECK);
 	}
-	m_toolbar->ToggleTool(TOOL_TOGGLE_LABELS, m_showLabels);
+	m_toolbar->ToggleTool(TOOL_TOGGLE_LABELS, m_showLabels && (parts & Part_Labels));
 	m_toolbar->Realize();
 	m_toolbar->Bind(wxEVT_TOOL, &TilesetGridToolbar::OnToolClick, this);
-
-	m_searchCtrl = newd PaletteSearchCtrl(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
-	m_searchCtrl->SetDescriptiveText("Search...");
-	m_searchCtrl->ShowCancelButton(true);
-	m_searchCtrl->SetMinSize(FromDIP(wxSize(60, -1)));
-	m_searchCtrl->Bind(wxEVT_TEXT, &TilesetGridToolbar::OnSearchChanged, this);
-	m_searchCtrl->Bind(wxEVT_SEARCHCTRL_CANCEL_BTN, &TilesetGridToolbar::OnSearchCancel, this);
-	m_searchCtrl->Bind(wxEVT_SEARCHCTRL_SEARCH_BTN, &TilesetGridToolbar::OnSearchChanged, this);
-	m_searchCtrl->Bind(wxEVT_TEXT_ENTER, &TilesetGridToolbar::OnSearchChanged, this);
-	m_searchCtrl->Bind(wxEVT_CHAR_HOOK, [this](wxKeyEvent& event) {
-		if (event.GetKeyCode() == WXK_ESCAPE && m_searchCtrl && !m_searchCtrl->GetValue().empty()) {
-			OnSearchCancelIfNeeded();
-			return;
-		}
-		event.Skip();
-	});
-	m_searchCtrl->Bind(wxEVT_KILL_FOCUS, [this](wxFocusEvent& event) {
-		if (m_actions.filter_focus_lost) {
-			m_actions.filter_focus_lost();
-		}
-		event.Skip();
-	});
 
 	m_toolbarRow = newd wxBoxSizer(wxHORIZONTAL);
 	m_toolbarRow->Add(m_toolbar, 0, wxALIGN_CENTER_VERTICAL);
 
 	m_searchRow = newd wxBoxSizer(wxHORIZONTAL);
-	m_searchRow->Add(m_searchCtrl, 1, wxALIGN_CENTER_VERTICAL);
+	if (parts & Part_Search) {
+		m_searchCtrl = newd PaletteSearchCtrl(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, wxTE_PROCESS_ENTER);
+		m_searchCtrl->SetDescriptiveText("Search...");
+		m_searchCtrl->ShowCancelButton(true);
+		m_searchCtrl->SetMinSize(FromDIP(wxSize(60, -1)));
+		m_searchCtrl->Bind(wxEVT_TEXT, &TilesetGridToolbar::OnSearchChanged, this);
+		m_searchCtrl->Bind(wxEVT_SEARCHCTRL_CANCEL_BTN, &TilesetGridToolbar::OnSearchCancel, this);
+		m_searchCtrl->Bind(wxEVT_SEARCHCTRL_SEARCH_BTN, &TilesetGridToolbar::OnSearchChanged, this);
+		m_searchCtrl->Bind(wxEVT_TEXT_ENTER, &TilesetGridToolbar::OnSearchChanged, this);
+		m_searchCtrl->Bind(wxEVT_CHAR_HOOK, [this](wxKeyEvent& event) {
+			if (event.GetKeyCode() == WXK_ESCAPE && m_searchCtrl && !m_searchCtrl->GetValue().empty()) {
+				OnSearchCancelIfNeeded();
+				return;
+			}
+			event.Skip();
+		});
+		m_searchCtrl->Bind(wxEVT_KILL_FOCUS, [this](wxFocusEvent& event) {
+			if (m_actions.filter_focus_lost) {
+				m_actions.filter_focus_lost();
+			}
+			event.Skip();
+		});
+		m_searchRow->Add(m_searchCtrl, 1, wxALIGN_CENTER_VERTICAL);
+	}
 
 	SetStacked(false);
 	ApplyTheme();
@@ -96,10 +104,14 @@ void TilesetGridToolbar::SetStacked(bool stacked) {
 
 	if (stacked) {
 		m_rootSizer->Add(m_toolbarRow, 0, wxEXPAND);
-		m_rootSizer->Add(m_searchRow, 0, wxEXPAND | wxTOP, FromDIP(2));
+		if (m_searchCtrl) {
+			m_rootSizer->Add(m_searchRow, 0, wxEXPAND | wxTOP, FromDIP(2));
+		}
 	} else {
 		m_rootSizer->Add(m_toolbarRow, 0, wxALIGN_CENTER_VERTICAL);
-		m_rootSizer->Add(m_searchRow, 1, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(4));
+		if (m_searchCtrl) {
+			m_rootSizer->Add(m_searchRow, 1, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(4));
+		}
 	}
 
 	Layout();
@@ -114,7 +126,9 @@ void TilesetGridToolbar::SetState(bool show_labels, int icon_size, bool has_sort
 	m_filterAll = filter_all;
 
 	if (m_toolbar) {
-		m_toolbar->ToggleTool(TOOL_TOGGLE_LABELS, m_showLabels);
+		if (m_toolbar->GetToolIndex(TOOL_TOGGLE_LABELS) != wxNOT_FOUND) {
+			m_toolbar->ToggleTool(TOOL_TOGGLE_LABELS, m_showLabels);
+		}
 		if (m_toolbar->GetToolIndex(TOOL_FILTER_ALL) != wxNOT_FOUND) {
 			m_toolbar->ToggleTool(TOOL_FILTER_ALL, m_filterAll);
 		}
@@ -143,12 +157,24 @@ void TilesetGridToolbar::ApplyTheme() {
 	const wxColour surface = Theme::Get(Theme::Role::Surface);
 	const wxColour text = Theme::Get(Theme::Role::Text);
 
+	const auto hasTool = [this](int toolId) {
+		return m_toolbar && m_toolbar->GetToolIndex(toolId) != wxNOT_FOUND;
+	};
+
 	if (m_toolbar) {
-		m_toolbar->SetToolBitmap(TOOL_SORT_AZ, IMAGE_MANAGER.GetBitmap(ICON_SORT_ALPHA_DOWN, iconSize, iconColor));
-		m_toolbar->SetToolBitmap(TOOL_SORT_ZA, IMAGE_MANAGER.GetBitmap(ICON_SORT_ALPHA_UP, iconSize, iconColor));
-		m_toolbar->SetToolBitmap(TOOL_TOGGLE_LABELS, IMAGE_MANAGER.GetBitmap(ICON_TAG, iconSize, iconColor));
-		m_toolbar->SetToolBitmap(TOOL_CHANGE_SIZE, IMAGE_MANAGER.GetBitmap(ICON_MAXIMIZE, iconSize, iconColor));
-		if (m_toolbar->GetToolIndex(TOOL_FILTER_ALL) != wxNOT_FOUND) {
+		if (hasTool(TOOL_SORT_AZ)) {
+			m_toolbar->SetToolBitmap(TOOL_SORT_AZ, IMAGE_MANAGER.GetBitmap(ICON_SORT_ALPHA_DOWN, iconSize, iconColor));
+		}
+		if (hasTool(TOOL_SORT_ZA)) {
+			m_toolbar->SetToolBitmap(TOOL_SORT_ZA, IMAGE_MANAGER.GetBitmap(ICON_SORT_ALPHA_UP, iconSize, iconColor));
+		}
+		if (hasTool(TOOL_TOGGLE_LABELS)) {
+			m_toolbar->SetToolBitmap(TOOL_TOGGLE_LABELS, IMAGE_MANAGER.GetBitmap(ICON_TAG, iconSize, iconColor));
+		}
+		if (hasTool(TOOL_CHANGE_SIZE)) {
+			m_toolbar->SetToolBitmap(TOOL_CHANGE_SIZE, IMAGE_MANAGER.GetBitmap(ICON_MAXIMIZE, iconSize, iconColor));
+		}
+		if (hasTool(TOOL_FILTER_ALL)) {
 			m_toolbar->SetToolBitmap(TOOL_FILTER_ALL, IMAGE_MANAGER.GetBitmap(ICON_FILTER, iconSize, iconColor));
 		}
 		m_toolbar->SetBackgroundColour(surface);

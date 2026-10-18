@@ -52,7 +52,21 @@ public:
 		TOOL_FILTER_ALL,
 	};
 
-	TilesetGridToolbar(wxWindow* parent, Actions actions, bool with_filter_all = false);
+	/**
+	 * Which tools a toolbar instance shows. Every grid gets the same icons and
+	 * behaviour; a pane that has no sorting, or no search box, simply asks for
+	 * the parts it uses.
+	 */
+	enum Parts : unsigned {
+		Part_Sort = 1u << 0,
+		Part_Labels = 1u << 1,
+		Part_Size = 1u << 2,
+		Part_FilterAll = 1u << 3,
+		Part_Search = 1u << 4,
+		Part_Standard = Part_Sort | Part_Labels | Part_Size | Part_Search,
+	};
+
+	TilesetGridToolbar(wxWindow* parent, Actions actions, unsigned parts = Part_Standard);
 
 	/** Reflects the current state without invoking the callbacks. */
 	void SetState(bool show_labels, int icon_size, bool has_sort, TilesetSortKey sort_key, TilesetSortDirection sort_dir, bool filter_all);
@@ -90,6 +104,7 @@ private:
 	void ApplySearchTheme();
 
 	Actions m_actions;
+	unsigned m_parts = Part_Standard;
 	wxAuiToolBar* m_toolbar = nullptr;
 	wxSearchCtrl* m_searchCtrl = nullptr;
 	wxBoxSizer* m_toolbarRow = nullptr;

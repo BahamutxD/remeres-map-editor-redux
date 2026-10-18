@@ -206,7 +206,7 @@ BrushPalettePanel::BrushPalettePanel(wxWindow* parent, const DynamicPaletteDefin
 			ApplyFilter();
 		};
 
-		gridToolbar = newd TilesetGridToolbar(tmp_choicebook, std::move(actions), true);
+		gridToolbar = newd TilesetGridToolbar(tmp_choicebook, std::move(actions), TilesetGridToolbar::Part_Standard | TilesetGridToolbar::Part_FilterAll);
 		gridToolbar->SetStacked(true);
 		gridToolbar->SetState(m_showLabels, m_tileSize, m_hasSort, m_sortKey, m_sortDir, m_filterAll);
 		gridToolbar->SetFilterQuery(m_filterQuery);

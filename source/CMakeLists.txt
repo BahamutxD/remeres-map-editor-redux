@@ -409,6 +409,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/util/nanovg_table_ctrl.h
     ${CMAKE_CURRENT_LIST_DIR}/util/phase_profiler.h
     ${CMAKE_CURRENT_LIST_DIR}/util/virtual_item_grid.h
+    ${CMAKE_CURRENT_LIST_DIR}/util/grid_cell_renderer.h
 )
 
 
@@ -808,6 +809,7 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/util/nanovg_listbox.cpp
     ${CMAKE_CURRENT_LIST_DIR}/util/nanovg_table_ctrl.cpp
     ${CMAKE_CURRENT_LIST_DIR}/util/virtual_item_grid.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/util/grid_cell_renderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/tool_options_window.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/tool_options_surface.cpp
     ${CMAKE_CURRENT_LIST_DIR}/util/file_system.cpp
