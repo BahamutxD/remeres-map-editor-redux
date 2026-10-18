@@ -271,6 +271,20 @@ void TownPalettePanel::OnUpdate() {
 
 	if (selected_town_id_ != 0) {
 		town_table->SelectById(selected_town_id_);
+		if (town_table->GetSelection() == -1) {
+			selected_town_id_ = 0;
+			edit_town_button->Enable(false);
+			remove_town_button->Enable(false);
+			change_temple_button->Enable(false);
+		} else {
+			edit_town_button->Enable(true);
+			remove_town_button->Enable(true);
+			change_temple_button->Enable(true);
+		}
+	} else {
+		edit_town_button->Enable(false);
+		remove_town_button->Enable(false);
+		change_temple_button->Enable(false);
 	}
 }
 

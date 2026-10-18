@@ -82,7 +82,7 @@ MapWindow::MapWindow(wxWindow* parent, Editor& editor) :
 }
 
 MapWindow::~MapWindow() {
-	////
+	DetachReplaceItemsDialog();
 }
 
 void MapWindow::ShowReplaceItemsDialog(bool selectionOnly) {
@@ -108,7 +108,14 @@ void MapWindow::ShowAdvancedReplaceForSelection(const std::vector<uint16_t>& ids
 
 void MapWindow::CloseReplaceItemsDialog() {
 	if (replaceItemsDialog) {
+		replaceItemsDialog->DetachEditor();
 		replaceItemsDialog->Close();
+	}
+}
+
+void MapWindow::DetachReplaceItemsDialog() {
+	if (replaceItemsDialog) {
+		replaceItemsDialog->DetachEditor();
 	}
 }
 

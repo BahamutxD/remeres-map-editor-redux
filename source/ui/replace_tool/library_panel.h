@@ -25,6 +25,8 @@ public:
 	LibraryPanel(wxWindow* parent, Listener* listener, Editor* editor = nullptr);
 	virtual ~LibraryPanel();
 
+	void DetachEditor();
+
 	// ItemGridPanel::Listener
 	void OnItemSelected(ItemGridPanel* source, uint16_t itemId) override;
 

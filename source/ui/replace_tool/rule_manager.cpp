@@ -69,7 +69,7 @@ void from_json(const nlohmann::json& j, RuleSet& s) {
 
 	// Rule sets record the unit their chances are stored in, so files written
 	// with a finer scale are converted instead of being read as huge percents.
-	if (const int storedScale = j.value("chance_scale", kChanceScale); storedScale != kChanceScale) {
+	if (const int storedScale = j.value("chance_scale", kChanceScale); storedScale > 0 && storedScale != kChanceScale) {
 		for (RuleGroup& group : s.rules) {
 			for (ReplacementTarget& target : group.targets) {
 				target.probability = std::clamp(target.probability * kChanceScale / storedScale, 0, kChanceMax);

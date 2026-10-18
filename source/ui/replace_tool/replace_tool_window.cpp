@@ -81,7 +81,15 @@ ReplaceToolWindow::ReplaceToolWindow(wxWindow* parent, Editor* editor) : wxDialo
 	}
 }
 
+void ReplaceToolWindow::DetachEditor() {
+	if (libraryPanel) {
+		libraryPanel->DetachEditor();
+	}
+	editor = nullptr;
+}
+
 ReplaceToolWindow::~ReplaceToolWindow() {
+	DetachEditor();
 	// Unbind to be safe, though destructor usually handles cleanup
 	Unbind(wxEVT_CLOSE_WINDOW, &ReplaceToolWindow::OnClose, this);
 }
@@ -123,7 +131,7 @@ void ReplaceToolWindow::OnClose(wxCloseEvent& event) {
 		owner->ForgetReplaceItemsDialog();
 	}
 
-	event.Skip(); // Allow window to close
+	Destroy();
 }
 
 void ReplaceToolWindow::InitializeWithIDs(const std::vector<uint16_t>& ids) {

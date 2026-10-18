@@ -60,6 +60,7 @@ MapTab::~MapTab() {
 	if (g_brush_manager.temple_brush) {
 		g_brush_manager.temple_brush->invokeCancelCallback();
 	}
+	CloseReplaceItemsDialog();
 	spdlog::info("MapTab destroying [Tab={}] (Owner count: {})", (void*)this, iref->owner_count);
 	iref->owner_count--;
 	if (iref->owner_count <= 0) {

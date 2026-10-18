@@ -192,11 +192,14 @@ std::vector<ReplacementTarget> BrushAutoMatcher::MatchItemToBrush(uint16_t sourc
 			}
 			std::vector<ReplacementTarget> targets;
 			int assignedProb = 0;
+			int prevChance = 0;
 			for (size_t i = 0; i < targetGround->getBorderItems().size(); ++i) {
 				const auto& item = targetGround->getBorderItems()[i];
+				const int delta = item.chance - prevChance;
+				prevChance = item.chance;
 				int prob = (i == targetGround->getBorderItems().size() - 1)
 					? (100 - assignedProb)
-					: (targetGround->getTotalChance() > 0 ? (item.chance * 100) / targetGround->getTotalChance() : 100 / static_cast<int>(targetGround->getBorderItems().size()));
+					: (targetGround->getTotalChance() > 0 ? (delta * 100) / targetGround->getTotalChance() : 100 / static_cast<int>(targetGround->getBorderItems().size()));
 				if (prob > 0) {
 					targets.push_back(ReplacementTarget { .id = item.id, .probability = prob });
 					assignedProb += prob;

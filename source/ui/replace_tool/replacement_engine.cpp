@@ -282,6 +282,10 @@ std::vector<uint32_t> ReplacementEngine::CountMatchesByRule(Editor* editor, cons
 
 	for (auto it = ruleIndices.begin(); it != ruleIndices.end(); ) {
 		const ReplacementRule& rule = rules[it->second];
+		if (rule.remove) {
+			++it;
+			continue;
+		}
 		if (rule.targets.empty()) {
 			it = ruleIndices.erase(it);
 			continue;

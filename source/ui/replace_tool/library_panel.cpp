@@ -63,10 +63,15 @@ LibraryPanel::LibraryPanel(wxWindow* parent, Listener* listener, Editor* editor)
 	}
 }
 
-LibraryPanel::~LibraryPanel() {
+void LibraryPanel::DetachEditor() {
 	if (m_editor) {
 		m_editor->selection.removeListener(reinterpret_cast<uintptr_t>(this));
+		m_editor = nullptr;
 	}
+}
+
+LibraryPanel::~LibraryPanel() {
+	DetachEditor();
 }
 
 void LibraryPanel::InitLayout() {
@@ -306,7 +311,9 @@ void LibraryPanel::OnNotebookPageChanged(wxNotebookEvent& event) {
 }
 
 void LibraryPanel::OnMapSelectionChanged(size_t /*count*/) {
-	RefreshSelectionItems();
+	if (m_notebook && m_notebook->GetSelection() == 3) {
+		RefreshSelectionItems();
+	}
 }
 
 void LibraryPanel::RefreshViewportItems() {
@@ -315,7 +322,8 @@ void LibraryPanel::RefreshViewportItems() {
 	}
 
 	MapTab* activeTab = g_gui.GetCurrentMapTab();
-	m_viewportGrid->SetItems(activeTab ? rme::replace_tool::MapItemCollector::CollectViewportItemIds(m_editor, activeTab->GetCanvas()) : std::vector<uint16_t>{});
+	const bool isSameEditor = (activeTab && activeTab->GetEditor() == m_editor);
+	m_viewportGrid->SetItems(isSameEditor ? rme::replace_tool::MapItemCollector::CollectViewportItemIds(m_editor, activeTab->GetCanvas()) : std::vector<uint16_t>{});
 	m_viewportInitialized = true;
 	if (m_viewportToolbar) {
 		m_viewportGrid->SetFilter(wxstr(m_viewportToolbar->GetFilterQuery()));

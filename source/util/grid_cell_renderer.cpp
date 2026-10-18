@@ -234,10 +234,11 @@ namespace rme::ui::grid {
 			return;
 		}
 
-		const CellLabel& label = cache.Get(vg, text, static_cast<float>(cell.width - 4));
-
 		nvgFontSize(vg, static_cast<float>(kLabelFontSize));
 		nvgFontFace(vg, "sans");
+
+		const CellLabel& label = cache.Get(vg, text, static_cast<float>(cell.width - 4));
+
 		nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
 		nvgFillColor(vg, selected ? NvgUtils::ToNvColor(Theme::Get(Theme::Role::TextOnAccent)) : NvgUtils::ToNvColor(Theme::Get(Theme::Role::Text)));
 

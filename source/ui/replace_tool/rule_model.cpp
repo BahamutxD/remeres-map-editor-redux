@@ -301,7 +301,7 @@ bool RuleModel::MoveCell(int fromRow, bool fromSource, int fromIndex, int toRow,
 			return false;
 		}
 		const uint16_t id = m_rules[fromRow].sources[fromIndex];
-		if (CountSource(toRow, id) > 0) {
+		if (fromRow != toRow && CountSource(toRow, id) > 0) {
 			return false;
 		}
 
@@ -409,6 +409,7 @@ bool RuleModel::ApplyDrop(int targetRow, bool isSource, int slotIndex, bool isNe
 		const bool replaceSlot = slotIndex >= 0 && slotIndex < static_cast<int>(rule.targets.size());
 		size_t index = rule.targets.size();
 		size_t added = 0;
+		size_t appended = 0;
 
 		for (const uint16_t id : itemIds) {
 			if (replaceSlot && added == 0) {
@@ -417,12 +418,15 @@ bool RuleModel::ApplyDrop(int targetRow, bool isSource, int slotIndex, bool isNe
 			} else {
 				rule.targets.push_back({ id, 0 });
 				index = rule.targets.size() - 1;
+				++appended;
 			}
 			++added;
 		}
 
 		if (added > 0) {
-			PlaceNewTargets(targetRow, added);
+			if (appended > 0) {
+				PlaceNewTargets(targetRow, appended);
+			}
 			outSelectedRow = targetRow;
 			outSelectedTarget = static_cast<int>(index);
 		}
