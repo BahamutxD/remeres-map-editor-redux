@@ -7,6 +7,7 @@
 #include "map/tile.h"
 #include "map/tile_operations.h"
 #include "game/item.h"
+#include "game/complexitem.h"
 #include "ui/gui.h"
 #include <algorithm>
 #include <map>
@@ -14,37 +15,29 @@
 
 ReplacementEngine::ReplacementEngine() : rng(std::random_device {}()) { }
 
-bool ReplacementEngine::ResolveReplacement(uint16_t& resultId, const ReplacementRule& rule) {
+const ReplacementTarget* ReplacementEngine::ResolveReplacement(const ReplacementRule& rule) {
 	if (rule.targets.empty()) {
-		return false;
+		return nullptr;
 	}
 
-	// Calculate total probability weight
-	int totalProb = 0;
-	for (const auto& target : rule.targets) {
-		totalProb += target.probability;
-	}
+	// One roll against a full chance: the targets cover a cumulative range, so
+	// 4 x 25% covers all of it and 4 x 10% covers 40% of it. Whatever the roll
+	// lands past the total is the share of matches that stay untouched.
+	std::uniform_int_distribution<int> dist(1, kChanceMax);
+	const int roll = dist(rng);
 
-	if (totalProb <= 0) {
-		return false;
-	}
-
-	// Use a single roll from 1 to max(100, totalProb)
-	// This ensures that if the UI says 100% total, exactly one target is picked.
-	// If total is < 100, the remainder is "no replacement".
-	std::uniform_int_distribution<int> dist(1, std::max(100, totalProb));
-	int roll = dist(rng);
-
-	int currentSum = 0;
-	for (const auto& target : rule.targets) {
-		currentSum += target.probability;
-		if (roll <= currentSum) {
-			resultId = target.id;
-			return true;
+	int cumulative = 0;
+	for (const ReplacementTarget& target : rule.targets) {
+		if (target.probability <= 0) {
+			continue;
+		}
+		cumulative += std::min(target.probability, kChanceMax);
+		if (roll <= cumulative) {
+			return &target;
 		}
 	}
 
-	return false;
+	return nullptr;
 }
 
 namespace {
@@ -148,6 +141,45 @@ std::vector<Tile*> collectScopeTiles(Editor* editor, ReplaceScope scope, const s
 
 } // namespace
 
+namespace {
+
+	/**
+	 * Removes the given items from a tile and from any container it holds.
+	 * Collected pointers are compared, so a stale entry is simply ignored.
+	 */
+	void EraseItems(Tile* tile, const std::vector<Item*>& items) {
+		const auto isMarked = [&items](const std::unique_ptr<Item>& item) {
+			return std::ranges::find(items, item.get()) != items.end();
+		};
+
+		if (tile->ground && isMarked(tile->ground)) {
+			tile->ground.reset();
+		}
+		std::erase_if(tile->items, isMarked);
+
+		// Containers nested in the survivors, walked iteratively like the visitor.
+		std::vector<Container*> pending;
+		for (const auto& item : tile->items) {
+			if (Container* container = item->asContainer()) {
+				pending.push_back(container);
+			}
+		}
+
+		size_t index = 0;
+		while (index < pending.size()) {
+			Container* container = pending[index++];
+			auto& contents = container->getVector();
+			std::erase_if(contents, isMarked);
+			for (const auto& item : contents) {
+				if (Container* nested = item->asContainer()) {
+					pending.push_back(nested);
+				}
+			}
+		}
+	}
+
+} // namespace
+
 void ReplacementEngine::ExecuteReplacement(Editor* editor, const std::vector<ReplacementRule>& rules, ReplaceScope scope, const std::vector<Position>* posVec) {
 	if (rules.empty()) {
 		return;
@@ -166,22 +198,53 @@ void ReplacementEngine::ExecuteReplacement(Editor* editor, const std::vector<Rep
 	auto tileProcessor = [&](Tile* tile) {
 		std::unique_ptr<Tile> new_tile = TileOperations::deepCopy(tile, editor->map);
 
+		// Items to append and to remove are collected while walking: adding to or
+		// erasing from a container during the walk would invalidate it.
+		std::vector<uint16_t> toAdd;
+		std::vector<Item*> toRemove;
 		size_t replaced = 0;
+
 		forEachReplaceableItem(new_tile.get(), [&](Item* item) -> bool {
 			const auto it = ruleMap.find(item->getID());
 			if (it == ruleMap.end()) {
 				return false;
 			}
 
-			uint16_t newId;
-			if (!ResolveReplacement(newId, *it->second)) {
+			const ReplacementRule& rule = *it->second;
+			if (rule.remove) {
+				toRemove.push_back(item);
+				++replaced;
+				return true;
+			}
+
+			// The rule decides how the item changes; the roll only picks which
+			// tile, and a miss leaves the item alone.
+			const ReplacementTarget* target = ResolveReplacement(rule);
+			if (!target) {
 				return false;
 			}
 
-			item->setID(newId == TRASH_ITEM_ID ? 0 : newId);
+			if (rule.action == RuleAction::Add) {
+				if (target->id != 0) {
+					toAdd.push_back(target->id);
+				} else {
+					return false;
+				}
+			} else {
+				item->setID(target->id);
+			}
 			++replaced;
 			return true;
 		});
+
+		for (const uint16_t id : toAdd) {
+			if (id != 0) {
+				new_tile->addItem(Item::Create(id));
+			}
+		}
+		if (!toRemove.empty()) {
+			EraseItems(new_tile.get(), toRemove);
+		}
 
 		if (replaced > 0) {
 			TileOperations::update(new_tile.get());

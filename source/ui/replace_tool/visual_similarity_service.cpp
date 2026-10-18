@@ -95,18 +95,18 @@ static uint64_t CalculateAHashRGBA(std::span<const uint8_t> rgba, int w, int h) 
 	return hash;
 }
 
-static std::vector<bool> ExtractBinaryMaskRGBA(std::span<const uint8_t> rgba, int& outTruePixels) {
-	size_t count = rgba.size() / 4;
-	std::vector<bool> mask(count);
-	outTruePixels = 0;
+static std::vector<uint64_t> ExtractPackedMaskRGBA(std::span<const uint8_t> rgba, int& outTruePixels) {
+	const size_t count = rgba.size() / 4;
+	std::vector<uint64_t> mask((count + 63) / 64, 0);
+	size_t truePixels = 0;
 	for (size_t i = 0; i < count; ++i) {
 		// Strictly > 10 per mappingtool docs
-		bool val = (rgba[i * 4 + 3] > 10);
-		mask[i] = val;
-		if (val) {
-			outTruePixels++;
+		if (rgba[i * 4 + 3] > 10) {
+			mask[i >> 6] |= 1ULL << (i & 63);
+			++truePixels;
 		}
 	}
+	outTruePixels = static_cast<int>(truePixels);
 	return mask;
 }
 
@@ -114,16 +114,47 @@ static int HammingDistance(uint64_t h1, uint64_t h2) {
 	return std::popcount(h1 ^ h2);
 }
 
-static std::vector<bool> ResizeMask(const std::vector<bool>& src, int srcW, int srcH, int dstW, int dstH) {
-	std::vector<bool> dst(dstW * dstH);
+static bool MaskBit(const std::vector<uint64_t>& mask, int x, int y, int width) {
+	const size_t index = static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x);
+	return (mask[index >> 6] >> (index & 63)) & 1ULL;
+}
+
+/** Population count of the intersection of two equally sized masks. */
+static int IntersectionCount(const std::vector<uint64_t>& a, const std::vector<uint64_t>& b) {
+	const size_t words = std::min(a.size(), b.size());
+	int count = 0;
+	for (size_t i = 0; i < words; ++i) {
+		count += std::popcount(a[i] & b[i]);
+	}
+	return count;
+}
+
+static int PopCount(const std::vector<uint64_t>& mask) {
+	int count = 0;
+	for (const uint64_t word : mask) {
+		count += std::popcount(word);
+	}
+	return count;
+}
+
+/** Nearest neighbour scaling on packed masks; empty when the input is unusable. */
+static std::vector<uint64_t> ResizePackedMask(const std::vector<uint64_t>& src, int srcW, int srcH, int dstW, int dstH) {
+	if (srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0) {
+		return {};
+	}
+	if (src.size() * 64 < static_cast<size_t>(srcW) * static_cast<size_t>(srcH)) {
+		return {};
+	}
+
+	std::vector<uint64_t> dst((static_cast<size_t>(dstW) * static_cast<size_t>(dstH) + 63) / 64, 0);
 	for (int y = 0; y < dstH; ++y) {
+		const int sy = std::clamp((y * srcH) / dstH, 0, srcH - 1);
 		for (int x = 0; x < dstW; ++x) {
-			// mappingtool: nearest neighbor scaling
-			int sx = (x * srcW) / dstW;
-			int sy = (y * srcH) / dstH;
-			sx = std::min(sx, srcW - 1);
-			sy = std::min(sy, srcH - 1);
-			dst[y * dstW + x] = src[sy * srcW + sx];
+			const int sx = std::clamp((x * srcW) / dstW, 0, srcW - 1);
+			if (MaskBit(src, sx, sy, srcW)) {
+				const size_t index = static_cast<size_t>(y) * static_cast<size_t>(dstW) + static_cast<size_t>(x);
+				dst[index >> 6] |= 1ULL << (index & 63);
+			}
 		}
 	}
 	return dst;
@@ -173,7 +204,7 @@ VisualSimilarityService::VisualItemData VisualSimilarityService::CalculateData(u
 
 	// Store both for robustness
 	data.aHash = CalculateAHashRGBA({composite.get(), static_cast<size_t>(w * h * 4)}, w, h);
-	data.binaryMask = ExtractBinaryMaskRGBA({composite.get(), static_cast<size_t>(w * h * 4)}, data.truePixels);
+	data.packedMask = ExtractPackedMaskRGBA({composite.get(), static_cast<size_t>(w * h * 4)}, data.truePixels);
 
 	return data;
 }
@@ -188,7 +219,7 @@ void VisualSimilarityService::OnTimer(wxTimerEvent&) {
 		const auto it = g_item_definitions.get(id);
 		if (it && it.clientId() != 0) {
 			VisualItemData data = CalculateData(id);
-			if (data.width > 0) {
+			if (data.IsComplete()) {
 				std::lock_guard<std::mutex> lock(dataMutex);
 				itemDataCache[id] = std::move(data);
 			}
@@ -200,10 +231,19 @@ void VisualSimilarityService::OnTimer(wxTimerEvent&) {
 		m_timer.Stop();
 		std::lock_guard<std::mutex> lock(dataMutex);
 		isIndexed = true;
+		resultCache.clear();
 	}
 }
 
 std::vector<uint16_t> VisualSimilarityService::FindSimilar(uint16_t itemId, size_t count) {
+	{
+		std::lock_guard<std::mutex> lock(dataMutex);
+		if (const auto cached = resultCache.find(itemId); cached != resultCache.end()) {
+			const std::vector<uint16_t>& ranked = cached->second;
+			return count < ranked.size() ? std::vector<uint16_t>(ranked.begin(), ranked.begin() + count) : ranked;
+		}
+	}
+
 	VisualItemData sourceData;
 	{
 		std::lock_guard<std::mutex> lock(dataMutex);
@@ -217,9 +257,11 @@ std::vector<uint16_t> VisualSimilarityService::FindSimilar(uint16_t itemId, size
 		return {};
 	}
 
-	if (sourceData.width == 0) {
+	// A miss leaves sourceData empty, and an item with no sprite is never
+	// indexed, so the completeness check has to cover the size and the mask.
+	if (!sourceData.IsComplete()) {
 		sourceData = CalculateData(itemId);
-		if (sourceData.width == 0) {
+		if (!sourceData.IsComplete()) {
 			return {};
 		}
 	}
@@ -244,6 +286,9 @@ std::vector<uint16_t> VisualSimilarityService::FindSimilar(uint16_t itemId, size
 			if (target.id == itemId) {
 				continue;
 			}
+			if (!target.IsComplete()) {
+				continue;
+			}
 
 			double score = 0.0;
 
@@ -263,40 +308,39 @@ std::vector<uint16_t> VisualSimilarityService::FindSimilar(uint16_t itemId, size
 					continue; // Mappingtool: Transparent target does not match opaque candidate
 				}
 
-				int tp = 0;
-				int sourceOnes = sourceData.truePixels;
-				int targetOnes = target.truePixels;
+				// Dice can never beat 2 * min(|A|, |B|) / (|A| + |B|), so most
+				// candidates are rejected without touching a mask at all.
+				const int sourceOnes = sourceData.truePixels;
+				const int targetOnes = target.truePixels;
+				const int totalOnes = sourceOnes + targetOnes;
+				if (totalOnes <= 0) {
+					continue;
+				}
+				if ((2.0 * std::min(sourceOnes, targetOnes)) / totalOnes < kMinimumSimilarityScore) {
+					continue;
+				}
 
+				int tp = 0;
 				if (sourceData.width == target.width && sourceData.height == target.height) {
-					for (size_t i = 0; i < sourceData.binaryMask.size(); ++i) {
-						if (sourceData.binaryMask[i] && target.binaryMask[i]) {
-							tp++;
-						}
+					tp = IntersectionCount(sourceData.packedMask, target.packedMask);
+					if (tp > 0) {
+						// Dice: (2.0 * TP) / (|A| + |B|)
+						score = (2.0 * tp) / static_cast<double>(totalOnes);
 					}
 				} else {
 					// 1:1 Resize Logic (Nearest Neighbor)
-					int w = std::max(sourceData.width, target.width);
-					int h = std::max(sourceData.height, target.height);
-					auto m1 = ResizeMask(sourceData.binaryMask, sourceData.width, sourceData.height, w, h);
-					auto m2 = ResizeMask(target.binaryMask, target.width, target.height, w, h);
-					sourceOnes = 0;
-					targetOnes = 0;
-					for (size_t i = 0; i < m1.size(); ++i) {
-						if (m1[i]) {
-							sourceOnes++;
-						}
-						if (m2[i]) {
-							targetOnes++;
-						}
-						if (m1[i] && m2[i]) {
-							tp++;
-						}
+					const int w = std::max(sourceData.width, target.width);
+					const int h = std::max(sourceData.height, target.height);
+					const auto m1 = ResizePackedMask(sourceData.packedMask, sourceData.width, sourceData.height, w, h);
+					const auto m2 = ResizePackedMask(target.packedMask, target.width, target.height, w, h);
+					if (m1.empty() || m2.empty() || m1.size() != m2.size()) {
+						continue;
 					}
-				}
-
-				if (tp > 0) {
-					// Dice: (2.0 * TP) / (|A| + |B|)
-					score = (2.0 * tp) / (double)(sourceOnes + targetOnes);
+					tp = IntersectionCount(m1, m2);
+					if (tp > 0) {
+						const int resizedOnes = PopCount(m1) + PopCount(m2);
+						score = resizedOnes > 0 ? (2.0 * tp) / static_cast<double>(resizedOnes) : 0.0;
+					}
 				}
 			}
 
@@ -315,6 +359,12 @@ std::vector<uint16_t> VisualSimilarityService::FindSimilar(uint16_t itemId, size
 	results.reserve(count);
 	for (const auto& candidate : candidates | std::views::take(count)) {
 		results.push_back(candidate.id);
+	}
+
+	// The index is immutable once complete, so a ranking can be reused.
+	std::lock_guard<std::mutex> lock(dataMutex);
+	if (isIndexed && results.size() <= kMaxCachedResults) {
+		resultCache[itemId] = results;
 	}
 	return results;
 }
