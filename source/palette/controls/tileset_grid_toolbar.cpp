@@ -3,6 +3,7 @@
 #include "palette/controls/palette_search_ctrl.h"
 
 #include "ui/theme.h"
+#include "ui/replace_tool/visual_similarity_service.h"
 #include "util/image_manager.h"
 
 #include <wx/aui/auibar.h>
@@ -303,6 +304,7 @@ void TilesetGridToolbar::SetIconSize(int sizePx) {
 		m_actions.icon_size(m_iconSize);
 	}
 }
+
 
 void TilesetGridToolbar::OnSearchChanged(wxCommandEvent& event) {
 	if (!m_searchCtrl) {

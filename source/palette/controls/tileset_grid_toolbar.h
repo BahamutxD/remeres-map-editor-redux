@@ -96,6 +96,7 @@ private:
 	void OnToolClick(wxCommandEvent& event);
 	void OnSortButtonClick(TilesetSortDirection dir, int toolId);
 	void OnSizeButtonClick(int toolId);
+	void OnFilterModeButtonClick(int toolId);
 	void OnSearchChanged(wxCommandEvent& event);
 	void OnSearchCancel(wxCommandEvent& event);
 	void OnSearchCancelIfNeeded();

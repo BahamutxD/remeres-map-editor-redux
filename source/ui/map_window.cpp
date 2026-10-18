@@ -91,7 +91,6 @@ void MapWindow::ShowReplaceItemsDialog(bool selectionOnly) {
 	}
 
 	replaceItemsDialog.reset(new ReplaceToolWindow(this, &editor));
-	replaceItemsDialog->Bind(wxEVT_CLOSE_WINDOW, &MapWindow::OnReplaceItemsDialogClose, this);
 	replaceItemsDialog->Show();
 }
 
@@ -103,7 +102,6 @@ void MapWindow::ShowAdvancedReplaceForSelection(const std::vector<uint16_t>& ids
 	}
 
 	replaceItemsDialog.reset(new ReplaceToolWindow(this, &editor));
-	replaceItemsDialog->Bind(wxEVT_CLOSE_WINDOW, &MapWindow::OnReplaceItemsDialogClose, this);
 	replaceItemsDialog->InitializeWithIDs(ids);
 	replaceItemsDialog->Show();
 }
@@ -114,13 +112,12 @@ void MapWindow::CloseReplaceItemsDialog() {
 	}
 }
 
-void MapWindow::OnReplaceItemsDialogClose(wxCloseEvent& event) {
+void MapWindow::ForgetReplaceItemsDialog() {
 	if (replaceItemsDialog) {
-		replaceItemsDialog->Unbind(wxEVT_CLOSE_WINDOW, &MapWindow::OnReplaceItemsDialogClose, this);
-		// unique_ptr will call Destroy() via custom deleter
-		replaceItemsDialog.reset();
+		// The dialog closes itself and may refuse to, so the pointer is only
+		// dropped - without destroying a window that is still open.
+		replaceItemsDialog.release();
 	}
-	event.Skip();
 }
 
 void MapWindow::SetSize(int x, int y, bool center) {

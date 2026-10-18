@@ -94,7 +94,8 @@ public:
 	void ShowReplaceItemsDialog(bool selectionOnly);
 	void ShowAdvancedReplaceForSelection(const std::vector<uint16_t>& ids);
 	void CloseReplaceItemsDialog();
-	void OnReplaceItemsDialogClose(wxCloseEvent& event);
+	/** The dialog decided to close; drop the pointer without destroying it. */
+	void ForgetReplaceItemsDialog();
 
 protected:
 	// For internal use, call to resize the scrollbars with

@@ -24,7 +24,7 @@ VirtualItemGrid::VirtualItemGrid(wxWindow* parent, wxWindowID id) :
 	m_showLabels(false),
 	m_sortKey(TilesetSortKey::ID),
 	m_sortDir(TilesetSortDirection::Ascending),
-	m_hasSort(true),
+	m_hasSort(false),
 	m_columns(1),
 	m_selectedIndex(-1),
 	m_hoverIndex(-1),
