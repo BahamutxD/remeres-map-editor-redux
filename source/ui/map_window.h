@@ -22,10 +22,15 @@
 #include "map/position.h"
 #include "rendering/ui/minimap_viewport.h"
 class ReplaceToolWindow;
+class SpawnValidatorWindow;
 #include <memory>
 
 struct ReplaceToolWindowDeleter {
 	inline void operator()(ReplaceToolWindow* w);
+};
+
+struct SpawnValidatorWindowDeleter {
+	inline void operator()(SpawnValidatorWindow* w);
 };
 
 class MapCanvas;
@@ -98,6 +103,11 @@ public:
 	/** The dialog decided to close; drop the pointer without destroying it. */
 	void ForgetReplaceItemsDialog();
 
+	void ShowSpawnValidatorDialog();
+	void CloseSpawnValidatorDialog();
+	void DetachSpawnValidatorDialog();
+	void ForgetSpawnValidatorDialog();
+
 protected:
 	// For internal use, call to resize the scrollbars with
 	// the newd dimensions of *this* window
@@ -113,6 +123,7 @@ protected:
 
 private:
 	std::unique_ptr<ReplaceToolWindow, ReplaceToolWindowDeleter> replaceItemsDialog;
+	std::unique_ptr<SpawnValidatorWindow, SpawnValidatorWindowDeleter> spawnValidatorDialog;
 	MinimapViewportState minimap_viewport_state;
 	Position previous_position;
 

@@ -23,8 +23,15 @@
 #include "editor/editor.h"
 #include "rendering/core/map_view_math.h"
 #include "ui/replace_tool/replace_tool_window.h"
+#include "ui/dialogs/spawn_validator_window.h"
 
 void ReplaceToolWindowDeleter::operator()(ReplaceToolWindow* w) {
+	if (w) {
+		w->Destroy();
+	}
+}
+
+void SpawnValidatorWindowDeleter::operator()(SpawnValidatorWindow* w) {
 	if (w) {
 		w->Destroy();
 	}
@@ -33,7 +40,8 @@ void ReplaceToolWindowDeleter::operator()(ReplaceToolWindow* w) {
 MapWindow::MapWindow(wxWindow* parent, Editor& editor) :
 	wxPanel(parent, PANE_MAIN),
 	editor(editor),
-	replaceItemsDialog(nullptr) {
+	replaceItemsDialog(nullptr),
+	spawnValidatorDialog(nullptr) {
 	int GL_settings[3];
 	GL_settings[0] = WX_GL_RGBA;
 	GL_settings[1] = WX_GL_DOUBLEBUFFER;
@@ -83,6 +91,7 @@ MapWindow::MapWindow(wxWindow* parent, Editor& editor) :
 
 MapWindow::~MapWindow() {
 	DetachReplaceItemsDialog();
+	DetachSpawnValidatorDialog();
 }
 
 void MapWindow::ShowReplaceItemsDialog(bool selectionOnly) {
@@ -127,6 +136,36 @@ void MapWindow::ForgetReplaceItemsDialog() {
 	}
 }
 
+void MapWindow::ShowSpawnValidatorDialog() {
+	if (spawnValidatorDialog) {
+		spawnValidatorDialog->Raise();
+		spawnValidatorDialog->SetFocus();
+		return;
+	}
+
+	spawnValidatorDialog.reset(new SpawnValidatorWindow(this, &editor));
+	spawnValidatorDialog->Show();
+}
+
+void MapWindow::CloseSpawnValidatorDialog() {
+	if (spawnValidatorDialog) {
+		spawnValidatorDialog->DetachEditor();
+		spawnValidatorDialog->Close();
+	}
+}
+
+void MapWindow::DetachSpawnValidatorDialog() {
+	if (spawnValidatorDialog) {
+		spawnValidatorDialog->DetachEditor();
+	}
+}
+
+void MapWindow::ForgetSpawnValidatorDialog() {
+	if (spawnValidatorDialog) {
+		spawnValidatorDialog.release();
+	}
+}
+
 void MapWindow::SetSize(int x, int y, bool center) {
 	if (x == 0 || y == 0) {
 		return;
@@ -151,6 +190,9 @@ void MapWindow::UpdateScrollbars(int nx, int ny) {
 void MapWindow::UpdateDialogs(bool show) {
 	if (replaceItemsDialog) {
 		replaceItemsDialog->Show(show);
+	}
+	if (spawnValidatorDialog) {
+		spawnValidatorDialog->Show(show);
 	}
 }
 

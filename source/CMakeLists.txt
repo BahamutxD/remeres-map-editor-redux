@@ -297,6 +297,7 @@ set(rme_H
 
     ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/goto_position_dialog.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/remove_unreachable_dialog.h
+    ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/spawn_validator_window.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/properties/object_properties_base.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/properties/property_validator.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/properties/property_applier.h
@@ -710,6 +711,7 @@ set(rme_SRC
 
     ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/goto_position_dialog.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/remove_unreachable_dialog.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/spawn_validator_window.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/properties/object_properties_base.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/properties/property_validator.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/properties/property_applier.cpp
