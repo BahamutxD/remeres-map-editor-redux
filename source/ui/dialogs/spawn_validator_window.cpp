@@ -26,10 +26,12 @@ namespace {
 }
 
 SpawnValidatorWindow::SpawnValidatorWindow(wxWindow* parent, Editor* editor) :
-	wxDialog(parent, wxID_ANY, "Spawn Validator", wxDefaultPosition, FromDIP(wxSize(980, 620)),
+	wxDialog(parent, wxID_ANY, "Spawn Validator", wxDefaultPosition, wxDefaultSize,
 		wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER | wxMAXIMIZE_BOX),
 	editor(editor) {
+	SetSize(FromDIP(wxSize(980, 620)));
 	SetMinSize(FromDIP(wxSize(750, 480)));
+	CenterOnParent();
 	SetBackgroundColour(Theme::Get(Theme::Role::Surface));
 
 	InitLayout();
@@ -401,7 +403,7 @@ void SpawnValidatorWindow::OnEditSelected() {
 		return;
 	}
 
-	wxDialog editDlg(this, wxID_ANY, "Correct Spawn Creature", wxDefaultPosition, FromDIP(wxSize(380, 240)));
+	wxDialog editDlg(this, wxID_ANY, "Correct Spawn Creature", wxDefaultPosition, wxDefaultSize);
 	auto* dlgSizer = new wxBoxSizer(wxVERTICAL);
 	const int pad = Theme::Grid(1);
 
@@ -410,6 +412,7 @@ void SpawnValidatorWindow::OnEditSelected() {
 	dlgSizer->Add(nameLbl, 0, wxLEFT | wxRIGHT | wxTOP, pad);
 
 	auto* nameCtrl = new wxTextCtrl(&editDlg, wxID_ANY, it->name);
+	nameCtrl->SetMinSize(FromDIP(wxSize(280, -1)));
 	dlgSizer->Add(nameCtrl, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, pad);
 
 	auto* timeLbl = new wxStaticText(&editDlg, wxID_ANY, "Spawn Time (seconds):");
@@ -421,7 +424,8 @@ void SpawnValidatorWindow::OnEditSelected() {
 	dlgSizer->Add(timeCtrl, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, pad);
 
 	dlgSizer->Add(editDlg.CreateButtonSizer(wxOK | wxCANCEL), 0, wxEXPAND | wxALL, pad);
-	editDlg.SetSizer(dlgSizer);
+	editDlg.SetSizerAndFit(dlgSizer);
+	editDlg.CenterOnParent();
 
 	if (editDlg.ShowModal() != wxID_OK) {
 		return;
