@@ -56,6 +56,7 @@ void MapMenuHandler::BindEvents() {
 	canvas->Bind(wxEVT_MENU, &MapMenuHandler::OnSelectHouseBrush, this, MAP_POPUP_MENU_SELECT_HOUSE_BRUSH);
 	canvas->Bind(wxEVT_MENU, &MapMenuHandler::OnProperties, this, MAP_POPUP_MENU_PROPERTIES);
 	canvas->Bind(wxEVT_MENU, &MapMenuHandler::OnAdvancedReplace, this, MAP_POPUP_MENU_ADVANCED_REPLACE);
+	canvas->Bind(wxEVT_MENU, &MapMenuHandler::OnAddToCollection, this, MAP_POPUP_MENU_ADD_TO_COLLECTION);
 	canvas->Bind(wxEVT_MENU, &MapMenuHandler::OnBrowseTile, this, MAP_POPUP_MENU_BROWSE_TILE);
 	canvas->Bind(wxEVT_MENU, &MapMenuHandler::OnTileProperties, this, MAP_POPUP_MENU_TILE_PROPERTIES);
 	for (int i = MAP_POPUP_MENU_SCRIPT_FIRST; i <= MAP_POPUP_MENU_SCRIPT_LAST; ++i) {
@@ -214,5 +215,12 @@ void MapMenuHandler::OnAdvancedReplace(wxCommandEvent& WXUNUSED(event)) {
 	MapTab* tab = g_gui.GetCurrentMapTab();
 	if (tab) {
 		tab->ShowAdvancedReplaceForSelection(sortedIds);
+	}
+}
+
+void MapMenuHandler::OnAddToCollection(wxCommandEvent& WXUNUSED(event)) {
+	MapTab* tab = g_gui.GetCurrentMapTab();
+	if (tab) {
+		tab->ShowCollectionStudio(&editor);
 	}
 }
