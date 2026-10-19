@@ -9,6 +9,7 @@ what to do next (plan), and how every claim is proven (verify).
 | file | role |
 |---|---|
 | [`HANDOFF.md`](HANDOFF.md) | brief to hand to the next session: goal activation, entry task, rules |
+| [`goals/`](goals/README.md) | **one goal per phase** (P1–P4), paste-ready `/goal` lines, loop order |
 | [`GOAL.md`](GOAL.md) | outcome, metrics M1–M9, scope, definition of done, phases |
 | [`ANALYSIS.md`](ANALYSIS.md) | pipeline map, measured stages, bottleneck ranking, safety/observability gaps, risks |
 | [`SPEC.md`](../../../SPEC.md) | §G goal, §C constraints, §I interfaces, §V invariants (V1–V11), §T tasks, §B bugs |
@@ -38,6 +39,20 @@ P3/P4.
 3. `build` executes §T on a branch cut from `master`; each task carries evidence.
 4. `check` audits §V against code; `backprop` turns a bug into §B + a new §V.
 5. `VERIFY.md` is updated with the metric that the task claims.
+
+### Looping it
+
+The umbrella goal covers everything; for a loop, use the **phase goals** in
+[`goals/`](goals/README.md) — one branch, one PR, one goal per phase:
+
+| phase | goal file | loop order |
+|---|---|---|
+| P1 safety | [`goals/P1-safety.md`](goals/P1-safety.md) | 1st (T5 → T6 → T11 → T12) |
+| P2 speed | [`goals/P2-speed.md`](goals/P2-speed.md) | 2nd (independent of P1) |
+| P3 observability | [`goals/P3-observability.md`](goals/P3-observability.md) | 3rd (independent of P1/P2) |
+| P4 tests | [`goals/P4-tests.md`](goals/P4-tests.md) | after P1 (needs the temp-file path) |
+
+One active goal at a time: the phases touch the same files.
 
 Bugs already recorded: B1–B5 in `SPEC.md` §B (duplicate pane assert, off-centre
 closing window, frozen spawn stage, 34 extra empty spawn nodes, result line lost to

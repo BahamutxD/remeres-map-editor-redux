@@ -5,6 +5,13 @@ read this file, then `GOAL.md`, then `SPEC.md`, then `PLAN.md` before touching c
 
 ## 1. Activate the goal
 
+Two ways, same documents:
+
+- **Loop per phase (recommended)**: paste the `/goal …` line from
+  [`goals/P1-safety.md`](goals/P1-safety.md), then `P2`, `P3`, `P4`. One active goal at
+  a time; each phase is a branch and a PR.
+- **One umbrella goal** (everything in one run): use the command below.
+
 A goal record already exists at `.opencode/goals/dc74e3f2cd9c04c7a5ac9992648294b7.json`
 (workspace-local, not committed: it carries the session id). If the runtime does not
 show it as active, create it through the app with this command (single line):
