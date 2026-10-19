@@ -9,31 +9,9 @@
 #include <algorithm>
 #include <set>
 
-// Include pugixml
+// Include pugixml and CollectionXmlService
 #include "../source/ext/pugixml.hpp"
-
-// Test 1: Filename sanitization logic
-std::string SanitizeTilesetFilename(std::string_view name) {
-	std::string result;
-	result.reserve(name.size());
-	for (char c : name) {
-		if (c == '<' || c == '>' || c == ':' || c == '"' || c == '/' || c == '\\' || c == '|' || c == '?' || c == '*') {
-			result.push_back('_');
-		} else if (static_cast<unsigned char>(c) < 32) {
-			result.push_back('_');
-		} else {
-			result.push_back(c);
-		}
-	}
-
-	size_t start = result.find_first_not_of(" .");
-	if (start == std::string::npos) {
-		return "collection";
-	}
-	size_t end = result.find_last_not_of(" .");
-	result = result.substr(start, end - start + 1);
-	return result.empty() ? "collection" : result;
-}
+#include "../source/io/collection_xml_service.h"
 
 // Test 2: Mock brush and Staging Content
 struct MockBrush {
@@ -60,7 +38,12 @@ struct TestStagingContent {
 			}
 			return a->getID() < b->getID();
 		});
-		brushes.erase(std::unique(brushes.begin(), brushes.end()), brushes.end());
+		auto [bfirst, blast] = std::ranges::unique(brushes, [](MockBrush* a, MockBrush* b) {
+			if (a == b) return true;
+			if (!a || !b) return false;
+			return a->getName() == b->getName();
+		});
+		brushes.erase(bfirst, blast);
 	}
 
 	void DiscardItem(uint16_t itemId) {
@@ -68,7 +51,11 @@ struct TestStagingContent {
 	}
 
 	void DiscardBrush(MockBrush* brush) {
-		std::erase(brushes, brush);
+		std::erase_if(brushes, [brush](MockBrush* b) {
+			if (b == brush) return true;
+			if (b && brush && b->getName() == brush->getName()) return true;
+			return false;
+		});
 	}
 
 	void Clear() {
@@ -84,14 +71,15 @@ struct TestStagingContent {
 void TestFilenameSanitization() {
 	std::cout << "[RUN] TestFilenameSanitization...\n";
 
-	assert(SanitizeTilesetFilename("Nature") == "Nature");
-	assert(SanitizeTilesetFilename("  Desert Sands  ") == "Desert Sands");
-	assert(SanitizeTilesetFilename("Cave: Rocks/Walls?*") == "Cave_ Rocks_Walls__");
-	assert(SanitizeTilesetFilename("<invalid>|dir\"name") == "_invalid__dir_name");
-	assert(SanitizeTilesetFilename("...") == "collection");
-	assert(SanitizeTilesetFilename("   ") == "collection");
-	assert(SanitizeTilesetFilename("") == "collection");
-	assert(SanitizeTilesetFilename(".hidden.") == "hidden");
+	using rme::collection::CollectionXmlService;
+	assert(CollectionXmlService::SanitizeTilesetFilename("Nature") == "Nature");
+	assert(CollectionXmlService::SanitizeTilesetFilename("  Desert Sands  ") == "Desert Sands");
+	assert(CollectionXmlService::SanitizeTilesetFilename("Cave: Rocks/Walls?*") == "Cave_ Rocks_Walls__");
+	assert(CollectionXmlService::SanitizeTilesetFilename("<invalid>|dir\"name") == "_invalid__dir_name");
+	assert(CollectionXmlService::SanitizeTilesetFilename("...") == "collection");
+	assert(CollectionXmlService::SanitizeTilesetFilename("   ") == "collection");
+	assert(CollectionXmlService::SanitizeTilesetFilename("") == "collection");
+	assert(CollectionXmlService::SanitizeTilesetFilename(".hidden.") == "hidden");
 
 	std::cout << "[PASS] TestFilenameSanitization passed!\n";
 }
@@ -333,6 +321,101 @@ void TestMaterialDatabaseSources() {
 	std::cout << "[PASS] TestMaterialDatabaseSources passed!\n";
 }
 
+void TestPaletteCatalogSetTilesetBrushes() {
+	std::cout << "[RUN] TestPaletteCatalogSetTilesetBrushes...\n";
+
+	struct TestTilesetDef {
+		std::string name;
+		std::vector<MockBrush*> brushes;
+	};
+
+	struct TestPaletteDef {
+		std::string name;
+		std::vector<TestTilesetDef> tilesets;
+	};
+
+	struct TestCatalog {
+		std::vector<TestPaletteDef> palettes;
+
+		void setTilesetBrushes(std::string_view paletteName, std::string_view tilesetName, std::vector<MockBrush*> brushes) {
+			auto it = std::ranges::find_if(palettes, [paletteName](const auto& existing) {
+				std::string a = existing.name;
+				std::string b = std::string(paletteName);
+				std::ranges::transform(a, a.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+				std::ranges::transform(b, b.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+				return a == b;
+			});
+
+			if (it == palettes.end()) {
+				TestPaletteDef newPal;
+				newPal.name = std::string(paletteName);
+				TestTilesetDef newTileset;
+				newTileset.name = std::string(tilesetName);
+				newTileset.brushes = std::move(brushes);
+				newPal.tilesets.push_back(std::move(newTileset));
+				palettes.push_back(std::move(newPal));
+				return;
+			}
+
+			auto tilesetIt = std::ranges::find_if(it->tilesets, [tilesetName](const auto& existingTileset) {
+				std::string a = existingTileset.name;
+				std::string b = std::string(tilesetName);
+				std::ranges::transform(a, a.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+				std::ranges::transform(b, b.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+				return a == b;
+			});
+
+			if (tilesetIt != it->tilesets.end()) {
+				tilesetIt->brushes = std::move(brushes);
+			} else {
+				TestTilesetDef newTileset;
+				newTileset.name = std::string(tilesetName);
+				newTileset.brushes = std::move(brushes);
+				it->tilesets.push_back(std::move(newTileset));
+			}
+		}
+	};
+
+	MockBrush b1{1, "Grass"};
+	MockBrush b2{2, "Stone Wall"};
+	MockBrush b3{3, "Water"};
+
+	TestCatalog catalog;
+	assert(catalog.palettes.empty());
+
+	// 1. Initial creation of palette and tileset
+	catalog.setTilesetBrushes("Collection", "Dungeon", {&b1, &b2});
+	assert(catalog.palettes.size() == 1);
+	assert(catalog.palettes[0].name == "Collection");
+	assert(catalog.palettes[0].tilesets.size() == 1);
+	assert(catalog.palettes[0].tilesets[0].name == "Dungeon");
+	assert(catalog.palettes[0].tilesets[0].brushes.size() == 2);
+
+	// 2. Add second tileset to existing palette
+	catalog.setTilesetBrushes("Collection", "Nature", {&b3});
+	assert(catalog.palettes.size() == 1);
+	assert(catalog.palettes[0].tilesets.size() == 2);
+	assert(catalog.palettes[0].tilesets[0].name == "Dungeon");
+	assert(catalog.palettes[0].tilesets[1].name == "Nature");
+	assert(catalog.palettes[0].tilesets[1].brushes.size() == 1);
+
+	// 3. Overwrite "Dungeon" tileset (case-insensitive "collection" / "dungeon") with single brush b3
+	catalog.setTilesetBrushes("collection", "dungeon", {&b3});
+	assert(catalog.palettes.size() == 1);
+	assert(catalog.palettes[0].tilesets.size() == 2);
+	assert(catalog.palettes[0].tilesets[0].brushes.size() == 1);
+	assert(catalog.palettes[0].tilesets[0].brushes[0] == &b3);
+	// Nature tileset untouched
+	assert(catalog.palettes[0].tilesets[1].brushes.size() == 1);
+	assert(catalog.palettes[0].tilesets[1].brushes[0] == &b3);
+
+	// 4. Overwrite with multiple brushes
+	catalog.setTilesetBrushes("COLLECTION", "DUNGEON", {&b1, &b2, &b3});
+	assert(catalog.palettes[0].tilesets[0].brushes.size() == 3);
+
+	std::cout << "[PASS] TestPaletteCatalogSetTilesetBrushes passed!\n";
+}
+
 int main() {
 	std::cout << "========== RUNNING COLLECTION STUDIO TESTS ==========\n";
 	TestFilenameSanitization();
@@ -340,6 +423,7 @@ int main() {
 	TestXmlGenerationAndRoundtrip();
 	TestPalettesXmlIncludeSync();
 	TestMaterialDatabaseSources();
+	TestPaletteCatalogSetTilesetBrushes();
 	std::cout << "========== ALL TESTS PASSED SUCCESSFULLY! ==========\n";
 	return 0;
 }
