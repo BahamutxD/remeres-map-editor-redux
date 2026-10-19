@@ -1,7 +1,8 @@
 # GOAL — save/load pipeline quality
 
 Status: active · Spec: [`SPEC.md`](../../../SPEC.md) · Plan: [`PLAN.md`](PLAN.md) ·
-Evidence: [`VERIFY.md`](VERIFY.md) · Baseline: [`ANALYSIS.md`](ANALYSIS.md)
+Evidence: [`VERIFY.md`](VERIFY.md) · Baseline: [`ANALYSIS.md`](ANALYSIS.md) ·
+Handoff: [`HANDOFF.md`](HANDOFF.md)
 
 ## Goal
 

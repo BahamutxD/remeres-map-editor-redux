@@ -8,6 +8,7 @@ what to do next (plan), and how every claim is proven (verify).
 
 | file | role |
 |---|---|
+| [`HANDOFF.md`](HANDOFF.md) | brief to hand to the next session: goal activation, entry task, rules |
 | [`GOAL.md`](GOAL.md) | outcome, metrics M1–M9, scope, definition of done, phases |
 | [`ANALYSIS.md`](ANALYSIS.md) | pipeline map, measured stages, bottleneck ranking, safety/observability gaps, risks |
 | [`SPEC.md`](../../../SPEC.md) | §G goal, §C constraints, §I interfaces, §V invariants (V1–V11), §T tasks, §B bugs |
