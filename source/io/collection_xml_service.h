@@ -19,7 +19,27 @@ public:
 	 * Replaces < > : " / \ | ? * and control chars with '_'.
 	 * Trims leading and trailing spaces and dots.
 	 */
-	static std::string SanitizeTilesetFilename(std::string_view name);
+	static inline std::string SanitizeTilesetFilename(std::string_view name) {
+		std::string result;
+		result.reserve(name.size());
+		for (char c : name) {
+			if (c == '<' || c == '>' || c == ':' || c == '"' || c == '/' || c == '\\' || c == '|' || c == '?' || c == '*') {
+				result.push_back('_');
+			} else if (static_cast<unsigned char>(c) < 32) {
+				result.push_back('_');
+			} else {
+				result.push_back(c);
+			}
+		}
+
+		size_t start = result.find_first_not_of(" .");
+		if (start == std::string::npos) {
+			return "collection";
+		}
+		size_t end = result.find_last_not_of(" .");
+		result = result.substr(start, end - start + 1);
+		return result.empty() ? "collection" : result;
+	}
 
 	/**
 	 * Returns the collections directory under the active client version's data folder:

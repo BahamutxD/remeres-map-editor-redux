@@ -13,27 +13,6 @@
 
 namespace rme::collection {
 
-std::string CollectionXmlService::SanitizeTilesetFilename(std::string_view name) {
-	std::string result;
-	result.reserve(name.size());
-	for (char c : name) {
-		if (c == '<' || c == '>' || c == ':' || c == '"' || c == '/' || c == '\\' || c == '|' || c == '?' || c == '*') {
-			result.push_back('_');
-		} else if (static_cast<unsigned char>(c) < 32) {
-			result.push_back('_');
-		} else {
-			result.push_back(c);
-		}
-	}
-
-	size_t start = result.find_first_not_of(" .");
-	if (start == std::string::npos) {
-		return "collection";
-	}
-	size_t end = result.find_last_not_of(" .");
-	result = result.substr(start, end - start + 1);
-	return result.empty() ? "collection" : result;
-}
 
 std::filesystem::path CollectionXmlService::GetCollectionsDirectory() {
 	wxString modularPath = g_version.GetModularDataPath();
@@ -110,6 +89,20 @@ std::vector<std::string> CollectionXmlService::GetExistingCollectionTilesetNames
 						for (pugi::xml_node incNode = tilesetNode.child("include"); incNode; incNode = incNode.next_sibling("include")) {
 							std::string relPath = incNode.attribute("file").as_string();
 							if (!relPath.empty()) {
+								std::filesystem::path fullPath = palettesPath.parent_path() / relPath;
+								if (std::filesystem::exists(fullPath, ec)) {
+									pugi::xml_document incDoc;
+									if (incDoc.load_file(fullPath.wstring().c_str())) {
+										pugi::xml_node tNode = incDoc.child("tileset");
+										if (tNode && tNode.attribute("name")) {
+											std::string name = tNode.attribute("name").as_string();
+											if (!name.empty()) {
+												uniqueNames.insert(std::move(name));
+												continue;
+											}
+										}
+									}
+								}
 								std::filesystem::path fPath(relPath);
 								std::string stem = fPath.stem().string();
 								if (!stem.empty()) {
@@ -291,7 +284,7 @@ bool CollectionXmlService::EnsurePaletteInclude(
 		bool alreadyIncluded = false;
 		for (pugi::xml_node inc = tilesetNode.child("include"); inc; inc = inc.next_sibling("include")) {
 			std::string existingFile = inc.attribute("file").as_string();
-			if (existingFile == includeRelPath) {
+			if (std::filesystem::path(existingFile).generic_string() == includeRelPath) {
 				alreadyIncluded = true;
 				break;
 			}

@@ -29,7 +29,12 @@ void CollectionStagingContent::Merge(const CollectionStagingContent& other) {
 		}
 		return a->getID() < b->getID();
 	});
-	brushes.erase(std::unique(brushes.begin(), brushes.end()), brushes.end());
+	auto [bfirst, blast] = std::ranges::unique(brushes, [](Brush* a, Brush* b) {
+		if (a == b) return true;
+		if (!a || !b) return false;
+		return a->getName() == b->getName();
+	});
+	brushes.erase(bfirst, blast);
 }
 
 void CollectionStagingContent::DiscardItem(uint16_t itemId) {
@@ -37,7 +42,11 @@ void CollectionStagingContent::DiscardItem(uint16_t itemId) {
 }
 
 void CollectionStagingContent::DiscardBrush(Brush* brush) {
-	std::erase(brushes, brush);
+	std::erase_if(brushes, [brush](Brush* b) {
+		if (b == brush) return true;
+		if (b && brush && b->getName() == brush->getName()) return true;
+		return false;
+	});
 }
 
 void CollectionStagingContent::Clear() {
@@ -105,7 +114,13 @@ CollectionStagingContent CollectionExtractorService::ExtractFromSelection(Editor
 		}
 		return a->getID() < b->getID();
 	});
-	content.brushes.erase(std::unique(content.brushes.begin(), content.brushes.end()), content.brushes.end());
+
+	auto [cfirst, clast] = std::ranges::unique(content.brushes, [](Brush* a, Brush* b) {
+		if (a == b) return true;
+		if (!a || !b) return false;
+		return a->getName() == b->getName();
+	});
+	content.brushes.erase(cfirst, clast);
 
 	return content;
 }
