@@ -183,6 +183,28 @@ void PaletteWindow::InvalidateContents() {
 	}
 }
 
+void PaletteWindow::ReloadDynamicPages() {
+	if (!choicebook) {
+		return;
+	}
+	for (auto* panel : palette_pages) {
+		if (auto* brushPanel = dynamic_cast<BrushPalettePanel*>(panel)) {
+			brushPanel->ReloadPages();
+		}
+	}
+	LoadCurrentContents();
+}
+
+bool PaletteWindow::SelectTilesetInCurrentPalette(std::string_view tilesetName) {
+	if (!choicebook) {
+		return false;
+	}
+	if (auto* panel = dynamic_cast<BrushPalettePanel*>(choicebook->GetCurrentPage())) {
+		return panel->SelectTileset(tilesetName);
+	}
+	return false;
+}
+
 void PaletteWindow::SelectPage(std::string_view paletteName) {
 	if (!choicebook || paletteName.empty()) {
 		return;

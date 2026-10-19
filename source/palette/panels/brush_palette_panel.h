@@ -52,6 +52,8 @@ public:
 	// Search and filter operations
 	void ResetFilter();
 	bool JumpToTilesetAndBrush(std::string_view tilesetName, const Brush* brush);
+	bool SelectTileset(std::string_view tilesetName);
+	void ReloadPages();
 
 protected:
 	void ApplyFilter();

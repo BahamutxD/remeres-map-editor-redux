@@ -693,4 +693,74 @@ bool BrushPalettePanel::JumpToTilesetAndBrush(std::string_view tilesetName, cons
 	return selected;
 }
 
+bool BrushPalettePanel::SelectTileset(std::string_view tilesetName) {
+	if (!choicebook) {
+		return false;
+	}
+	for (size_t iz = 0; iz < choicebook->GetPageCount(); ++iz) {
+		if (choicebook->GetPageText(iz) == wxstr(tilesetName)) {
+			choicebook->SetSelection(iz);
+			LoadCurrentContents();
+			Layout();
+			Refresh();
+			return true;
+		}
+	}
+	return false;
+}
+
+void BrushPalettePanel::ReloadPages() {
+	if (!choicebook) {
+		return;
+	}
+
+	wxString currentTilesetName;
+	if (choicebook->GetSelection() != wxNOT_FOUND) {
+		currentTilesetName = choicebook->GetPageText(choicebook->GetSelection());
+	}
+
+	const auto& palettes = g_materials.paletteCatalog().dynamicPalettes();
+	auto it = std::ranges::find_if(palettes, [this](const auto& pal) {
+		return pal.name == palette_name;
+	});
+	if (it != palettes.end()) {
+		m_paletteDef = &(*it);
+	}
+
+	if (!m_paletteDef) {
+		return;
+	}
+
+	remembered_brushes.clear();
+	choicebook->DeleteAllPages();
+
+	for (const auto& tileset : m_paletteDef->tilesets) {
+		if (tileset.size() > 0 || tileset.is_import_target) {
+			BrushPanel* panel = newd BrushPanel(choicebook);
+			panel->AssignTileset(&tileset);
+			if (m_hasSort) {
+				panel->SetSort(m_sortKey, m_sortDir);
+			}
+			panel->SetShowLabels(m_showLabels);
+			panel->SetTileSize(m_tileSize);
+			choicebook->AddPage(panel, wxstr(tileset.name));
+		}
+	}
+
+	if (!currentTilesetName.empty()) {
+		for (size_t iz = 0; iz < choicebook->GetPageCount(); ++iz) {
+			if (choicebook->GetPageText(iz) == currentTilesetName) {
+				choicebook->SetSelection(iz);
+				break;
+			}
+		}
+	}
+
+	ApplyFilter();
+	LoadCurrentContents();
+	choicebook->Layout();
+	Layout();
+	Refresh();
+}
+
 

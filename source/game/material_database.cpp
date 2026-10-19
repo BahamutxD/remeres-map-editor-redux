@@ -148,6 +148,13 @@ void MaterialDatabase::setTilesetSources(std::vector<std::string> sources) {
 	tileset_sources.erase(std::ranges::unique(tileset_sources).begin(), tileset_sources.end());
 }
 
+void MaterialDatabase::addTilesetSource(std::string key) {
+	auto it = std::ranges::lower_bound(tileset_sources, key);
+	if (it == tileset_sources.end() || *it != key) {
+		tileset_sources.insert(it, std::move(key));
+	}
+}
+
 Brushes& MaterialDatabase::brushes() const {
 	ASSERT(brush_registry != nullptr);
 	return *brush_registry;

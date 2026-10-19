@@ -45,6 +45,14 @@ public:
 		return database.paletteCatalog();
 	}
 
+	[[nodiscard]] MaterialDatabase& getDatabase() {
+		return database;
+	}
+
+	[[nodiscard]] const MaterialDatabase& getDatabase() const {
+		return database;
+	}
+
 	[[nodiscard]] PaletteBrushRegistrationResult registerImportedCreature(CreatureType& creature);
 
 	bool loadMaterials(const FileName& identifier, wxString& error, std::vector<std::string>& warnings);

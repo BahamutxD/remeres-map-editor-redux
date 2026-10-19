@@ -59,6 +59,7 @@ public:
 	void clear();
 	void bindSourceTruth(Brushes& brushRegistry, ItemDefinitionStore& itemRegistry, CreatureDatabase& creatureRegistry);
 	void setTilesetSources(std::vector<std::string> sources);
+	void addTilesetSource(std::string key);
 
 	[[nodiscard]] Brushes& brushes() const;
 	[[nodiscard]] ItemDefinitionStore& items() const;
