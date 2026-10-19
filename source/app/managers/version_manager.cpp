@@ -159,6 +159,9 @@ bool VersionManager::LoadDataFiles(wxString& error, std::vector<std::string>& wa
 }
 
 wxString VersionManager::GetModularDataPath() const {
+	if (!getLoadedVersion()) {
+		return wxEmptyString;
+	}
 	return FileSystem::GetDataDirectory() + wxstr(getLoadedVersion()->getDataDirectory()) + FileName::GetPathSeparator();
 }
 

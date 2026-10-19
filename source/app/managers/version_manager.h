@@ -42,9 +42,10 @@ public:
 		return last_load_has_otb;
 	}
 
+	[[nodiscard]] wxString GetModularDataPath() const;
+
 private:
 	bool LoadDataFiles(wxString& error, std::vector<std::string>& warnings);
-	[[nodiscard]] wxString GetModularDataPath() const;
 	void FailDataLoad();
 	bool LoadMaterialManifest(const FileName& materials_manifest, MaterialManifestFiles& manifest_files, wxString& error);
 	bool LoadCanonicalAssets(const wxString& modular_data_path, const MaterialManifestFiles& manifest_files, wxString& error, std::vector<std::string>& warnings);
