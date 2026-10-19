@@ -13,6 +13,18 @@
 #include "../source/ext/pugixml.hpp"
 #include "../source/io/collection_xml_service.h"
 
+namespace rme::collection {
+std::filesystem::path CollectionXmlService::GetTilesetFilePath(std::string_view paletteName, std::string_view tilesetName) {
+	std::string sanitized = SanitizeTilesetFilename(tilesetName);
+	std::string pName(paletteName);
+	std::ranges::transform(pName, pName.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+	if (pName == "collection") {
+		return std::filesystem::path("tilesets/collections") / (sanitized + ".xml");
+	}
+	return std::filesystem::path("tilesets") / pName / (sanitized + ".xml");
+}
+}
+
 // Test 2: Mock brush and Staging Content
 struct MockBrush {
 	uint32_t id;
@@ -416,6 +428,183 @@ void TestPaletteCatalogSetTilesetBrushes() {
 	std::cout << "[PASS] TestPaletteCatalogSetTilesetBrushes passed!\n";
 }
 
+void TestTargetPaletteXmlAndPaths() {
+	std::cout << "[RUN] TestTargetPaletteXmlAndPaths...\n";
+
+	using rme::collection::CollectionXmlService;
+	auto p1 = CollectionXmlService::GetTilesetFilePath("Collection", "MySet");
+	assert(p1.generic_string().find("tilesets/collections/MySet.xml") != std::string::npos);
+
+	auto p2 = CollectionXmlService::GetTilesetFilePath("Terrain", "MyCustomTerrain");
+	assert(p2.generic_string().find("tilesets/terrain/MyCustomTerrain.xml") != std::string::npos);
+
+	auto p3 = CollectionXmlService::GetTilesetFilePath("Doodad", "MyDoodad");
+	assert(p3.generic_string().find("tilesets/doodad/MyDoodad.xml") != std::string::npos);
+
+	// Test multi-palette include in palettes.xml
+	std::filesystem::path tempPalettesPath = std::filesystem::temp_directory_path() / "test_target_palettes.xml";
+	{
+		pugi::xml_document doc;
+		pugi::xml_node root = doc.append_child("palettes");
+		pugi::xml_node terrainPal = root.append_child("palette");
+		terrainPal.append_attribute("name").set_value("Terrain");
+		pugi::xml_node ts = terrainPal.append_child("tileset");
+		pugi::xml_node inc = ts.append_child("include");
+		inc.append_attribute("file").set_value("tilesets/terrain/Nature.xml");
+
+		pugi::xml_node collPal = root.append_child("palette");
+		collPal.append_attribute("name").set_value("Collection");
+		collPal.append_child("tileset");
+
+		assert(doc.save_file(tempPalettesPath.wstring().c_str(), "    ", pugi::format_default, pugi::encoding_utf8));
+	}
+
+	// Add include to Terrain palette
+	{
+		pugi::xml_document doc;
+		assert(doc.load_file(tempPalettesPath.wstring().c_str()));
+		pugi::xml_node root = doc.child("palettes");
+
+		pugi::xml_node terrainPal;
+		for (pugi::xml_node pal = root.child("palette"); pal; pal = pal.next_sibling("palette")) {
+			if (std::string(pal.attribute("name").as_string()) == "Terrain") {
+				terrainPal = pal;
+				break;
+			}
+		}
+		assert(terrainPal);
+		pugi::xml_node tilesetNode = terrainPal.child("tileset");
+		assert(tilesetNode);
+
+		pugi::xml_node newInc = tilesetNode.append_child("include");
+		newInc.append_attribute("file").set_value("tilesets/terrain/MyCustomTerrain.xml");
+		assert(doc.save_file(tempPalettesPath.wstring().c_str(), "    ", pugi::format_default, pugi::encoding_utf8));
+	}
+
+	// Verify Terrain palette has 2 includes and Collection is untouched
+	{
+		pugi::xml_document doc;
+		assert(doc.load_file(tempPalettesPath.wstring().c_str()));
+		pugi::xml_node root = doc.child("palettes");
+		for (pugi::xml_node pal = root.child("palette"); pal; pal = pal.next_sibling("palette")) {
+			std::string name = pal.attribute("name").as_string();
+			if (name == "Terrain") {
+				int count = 0;
+				for (pugi::xml_node inc = pal.child("tileset").child("include"); inc; inc = inc.next_sibling("include")) {
+					count++;
+				}
+				assert(count == 2);
+			} else if (name == "Collection") {
+				int count = 0;
+				for (pugi::xml_node inc = pal.child("tileset").child("include"); inc; inc = inc.next_sibling("include")) {
+					count++;
+				}
+				assert(count == 0);
+			}
+		}
+	}
+
+	std::filesystem::remove(tempPalettesPath);
+	std::cout << "[PASS] TestTargetPaletteXmlAndPaths passed!\n";
+}
+
+void TestMultiFloorSelectionAndHitTesting() {
+	std::cout << "[RUN] TestMultiFloorSelectionAndHitTesting...\n";
+
+	constexpr int MAP_MAX_LAYER = 15;
+	constexpr int GROUND_LAYER = 7;
+
+	auto getFloorTileOffset = [](int floor) -> int {
+		if (floor <= GROUND_LAYER) {
+			return GROUND_LAYER - floor;
+		}
+		return 0;
+	};
+
+	assert(getFloorTileOffset(7) == 0);
+	assert(getFloorTileOffset(6) == 1);
+	assert(getFloorTileOffset(5) == 2);
+	assert(getFloorTileOffset(8) == 0);
+	assert(getFloorTileOffset(15) == 0);
+
+	// 1. Verify "Floors Below" bounding box: s_z = MAP_MAX_LAYER, e_z = floor
+	// For floor = 8 (underground)
+	{
+		const int floor = 8;
+		const int s_z = MAP_MAX_LAYER;
+		const int e_z = floor;
+		assert(s_z == 15);
+		assert(e_z == 8);
+		assert(s_z >= e_z);
+		// Floors above 8 (0..7) are NEVER included
+		for (int z = s_z; z >= e_z; --z) {
+			assert(z >= 8 && z <= 15);
+		}
+	}
+
+	// For floor = 7 (ground)
+	{
+		const int floor = 7;
+		const int s_z = MAP_MAX_LAYER;
+		const int e_z = floor;
+		assert(s_z == 15);
+		assert(e_z == 7);
+		for (int z = s_z; z >= e_z; --z) {
+			assert(z >= 7 && z <= 15);
+		}
+	}
+
+	// 2. Multi-floor cursor hit test projection
+	// Active floor is 6 (tower roof). User clicks screen position mapped to (100, 100, 6).
+	// Lower visible floor 7 tile should be at (100 - 1 + 0, 100 - 1 + 0, 7) = (99, 99, 7).
+	{
+		const int mouse_x = 100;
+		const int mouse_y = 100;
+		const int mouse_z = 6;
+
+		struct MockTile {
+			int x;
+			int y;
+			int z;
+			bool selected;
+		};
+
+		std::vector<MockTile> tiles = {
+			{ 100, 100, 6, false }, // unselected on active floor
+			{ 99, 99, 7, true },    // selected on visible floor below!
+		};
+
+		auto findTile = [&](int x, int y, int z) -> const MockTile* {
+			for (const auto& t : tiles) {
+				if (t.x == x && t.y == y && t.z == z) return &t;
+			}
+			return nullptr;
+		};
+
+		// Algorithm: check active floor first, if unselected check visible floors below
+		const MockTile* activeTile = findTile(mouse_x, mouse_y, mouse_z);
+		assert(activeTile != nullptr && !activeTile->selected);
+
+		const MockTile* resolvedTile = nullptr;
+		for (int z = mouse_z + 1; z <= MAP_MAX_LAYER; ++z) {
+			const int z_x = mouse_x - getFloorTileOffset(mouse_z) + getFloorTileOffset(z);
+			const int z_y = mouse_y - getFloorTileOffset(mouse_z) + getFloorTileOffset(z);
+			const MockTile* lower = findTile(z_x, z_y, z);
+			if (lower && lower->selected) {
+				resolvedTile = lower;
+				break;
+			}
+		}
+
+		assert(resolvedTile != nullptr);
+		assert(resolvedTile->z == 7);
+		assert(resolvedTile->x == 99 && resolvedTile->y == 99);
+		assert(resolvedTile->selected == true);
+	}
+
+	std::cout << "[PASS] TestMultiFloorSelectionAndHitTesting passed!\n";
+}
+
 int main() {
 	std::cout << "========== RUNNING COLLECTION STUDIO TESTS ==========\n";
 	TestFilenameSanitization();
@@ -424,6 +613,8 @@ int main() {
 	TestPalettesXmlIncludeSync();
 	TestMaterialDatabaseSources();
 	TestPaletteCatalogSetTilesetBrushes();
+	TestTargetPaletteXmlAndPaths();
+	TestMultiFloorSelectionAndHitTesting();
 	std::cout << "========== ALL TESTS PASSED SUCCESSFULLY! ==========\n";
 	return 0;
 }

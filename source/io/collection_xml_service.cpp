@@ -2,6 +2,7 @@
 
 #include "app/managers/version_manager.h"
 #include "brushes/brush.h"
+#include "game/materials.h"
 #include "util/file_system.h"
 #include "util/common.h"
 #include "ext/pugixml.hpp"
@@ -36,55 +37,134 @@ std::filesystem::path CollectionXmlService::GetPalettesXmlPath() {
 	return baseDir / "palettes.xml";
 }
 
-std::filesystem::path CollectionXmlService::GetTilesetFilePath(std::string_view tilesetName) {
-	std::string filename = SanitizeTilesetFilename(tilesetName) + ".xml";
-	return GetCollectionsDirectory() / filename;
-}
+std::filesystem::path CollectionXmlService::GetTilesetFilePath(std::string_view paletteName, std::string_view tilesetName) {
+	std::string sanitized = SanitizeTilesetFilename(tilesetName);
+	if (as_lower_str(std::string(paletteName)) == "collection") {
+		return GetCollectionsDirectory() / (sanitized + ".xml");
+	}
 
-std::vector<std::string> CollectionXmlService::GetExistingCollectionTilesetNames() {
-	std::vector<std::string> names;
-	std::set<std::string> uniqueNames;
-
-	// 1. Scan directory
-	std::filesystem::path collDir = GetCollectionsDirectory();
+	std::filesystem::path palettesPath = GetPalettesXmlPath();
 	std::error_code ec;
-	if (std::filesystem::exists(collDir, ec) && std::filesystem::is_directory(collDir, ec)) {
-		for (const auto& entry : std::filesystem::directory_iterator(collDir, ec)) {
-			if (!entry.is_regular_file()) {
-				continue;
-			}
-			if (entry.path().extension() == ".xml") {
-				pugi::xml_document doc;
-				if (doc.load_file(entry.path().wstring().c_str())) {
-					pugi::xml_node root = doc.child("tileset");
-					if (root && root.attribute("name")) {
-						std::string name = root.attribute("name").as_string();
-						if (!name.empty()) {
-							uniqueNames.insert(std::move(name));
-							continue;
+
+	// Check if this tileset already has an explicit include in palettes.xml under paletteName
+	if (std::filesystem::exists(palettesPath, ec)) {
+		pugi::xml_document doc;
+		if (doc.load_file(palettesPath.wstring().c_str())) {
+			pugi::xml_node root = doc.child("materials");
+			if (!root) root = doc.child("palettes");
+			if (!root) root = doc.first_child();
+
+			for (pugi::xml_node pal = root ? root.child("palette") : doc.child("palette"); pal; pal = pal.next_sibling("palette")) {
+				if (as_lower_str(pal.attribute("name").as_string()) == as_lower_str(std::string(paletteName))) {
+					for (pugi::xml_node ts = pal.child("tileset"); ts; ts = ts.next_sibling("tileset")) {
+						for (pugi::xml_node inc = ts.child("include"); inc; inc = inc.next_sibling("include")) {
+							std::string rel = inc.attribute("file").as_string();
+							if (rel.empty()) continue;
+							std::filesystem::path full = palettesPath.parent_path() / rel;
+							if (std::filesystem::exists(full, ec)) {
+								pugi::xml_document incDoc;
+								if (incDoc.load_file(full.wstring().c_str())) {
+									if (pugi::xml_node tNode = incDoc.child("tileset")) {
+										if (as_lower_str(tNode.attribute("name").as_string()) == as_lower_str(std::string(tilesetName))) {
+											return full;
+										}
+									}
+								}
+							}
+							if (as_lower_str(std::filesystem::path(rel).stem().string()) == as_lower_str(sanitized)) {
+								return full;
+							}
 						}
 					}
 				}
-				uniqueNames.insert(entry.path().stem().string());
 			}
 		}
 	}
 
-	// 2. Scan palettes.xml under <palette name="Collection">
+	// For a new tileset under another palette: place under tilesets/<palette_name_lower>/
+	std::string folderName = as_lower_str(std::string(paletteName));
+	std::filesystem::path targetDir = palettesPath.parent_path() / "tilesets" / folderName;
+	return targetDir / (sanitized + ".xml");
+}
+
+std::vector<std::string> CollectionXmlService::GetAvailablePalettes() {
+	std::vector<std::string> result;
+	std::set<std::string> uniqueNames;
+
+	// 1. From palettes.xml
+	std::filesystem::path palettesPath = GetPalettesXmlPath();
+	std::error_code ec;
+	if (std::filesystem::exists(palettesPath, ec)) {
+		pugi::xml_document doc;
+		if (doc.load_file(palettesPath.wstring().c_str())) {
+			pugi::xml_node root = doc.child("materials");
+			if (!root) root = doc.child("palettes");
+			if (!root) root = doc.first_child();
+
+			for (pugi::xml_node pal = root ? root.child("palette") : doc.child("palette"); pal; pal = pal.next_sibling("palette")) {
+				std::string name = pal.attribute("name").as_string();
+				if (!name.empty() && as_lower_str(name) != "collection") {
+					uniqueNames.insert(std::move(name));
+				}
+			}
+		}
+	}
+
+	// 2. From runtime PaletteCatalog dynamicPalettes
+	for (const auto& pal : g_materials.paletteCatalog().dynamicPalettes()) {
+		if (!pal.name.empty() && as_lower_str(pal.name) != "collection") {
+			uniqueNames.insert(pal.name);
+		}
+	}
+
+	// "Collection" is guaranteed to be first
+	result.push_back("Collection");
+	for (const auto& name : uniqueNames) {
+		result.push_back(name);
+	}
+	return result;
+}
+
+std::vector<std::string> CollectionXmlService::GetExistingTilesetNamesForPalette(std::string_view paletteName) {
+	std::vector<std::string> names;
+	std::set<std::string> uniqueNames;
+	std::error_code ec;
+
+	// If Collection, scan collections directory
+	if (as_lower_str(std::string(paletteName)) == "collection") {
+		std::filesystem::path collDir = GetCollectionsDirectory();
+		if (std::filesystem::exists(collDir, ec) && std::filesystem::is_directory(collDir, ec)) {
+			for (const auto& entry : std::filesystem::directory_iterator(collDir, ec)) {
+				if (!entry.is_regular_file()) continue;
+				if (entry.path().extension() == ".xml") {
+					pugi::xml_document doc;
+					if (doc.load_file(entry.path().wstring().c_str())) {
+						pugi::xml_node root = doc.child("tileset");
+						if (root && root.attribute("name")) {
+							std::string name = root.attribute("name").as_string();
+							if (!name.empty()) {
+								uniqueNames.insert(std::move(name));
+								continue;
+							}
+						}
+					}
+					uniqueNames.insert(entry.path().stem().string());
+				}
+			}
+		}
+	}
+
+	// Scan palettes.xml under <palette name="paletteName">
 	std::filesystem::path palettesPath = GetPalettesXmlPath();
 	if (std::filesystem::exists(palettesPath, ec)) {
 		pugi::xml_document palDoc;
 		if (palDoc.load_file(palettesPath.wstring().c_str())) {
 			pugi::xml_node root = palDoc.child("materials");
-			if (!root) {
-				root = palDoc.child("palettes");
-			}
-			if (!root) {
-				root = palDoc.first_child();
-			}
+			if (!root) root = palDoc.child("palettes");
+			if (!root) root = palDoc.first_child();
 
 			for (pugi::xml_node palNode = root ? root.child("palette") : palDoc.child("palette"); palNode; palNode = palNode.next_sibling("palette")) {
-				if (as_lower_str(palNode.attribute("name").as_string()) == "collection") {
+				if (as_lower_str(palNode.attribute("name").as_string()) == as_lower_str(std::string(paletteName))) {
 					for (pugi::xml_node tilesetNode = palNode.child("tileset"); tilesetNode; tilesetNode = tilesetNode.next_sibling("tileset")) {
 						for (pugi::xml_node incNode = tilesetNode.child("include"); incNode; incNode = incNode.next_sibling("include")) {
 							std::string relPath = incNode.attribute("file").as_string();
@@ -116,27 +196,34 @@ std::vector<std::string> CollectionXmlService::GetExistingCollectionTilesetNames
 		}
 	}
 
+	// Also check in-memory PaletteCatalog
+	if (const auto* pal = g_materials.paletteCatalog().findPalette(paletteName)) {
+		for (const auto& ts : pal->tilesets) {
+			if (!ts.name.empty()) {
+				uniqueNames.insert(ts.name);
+			}
+		}
+	}
+
 	names.assign(uniqueNames.begin(), uniqueNames.end());
 	std::ranges::sort(names);
 	return names;
 }
 
 bool CollectionXmlService::SaveTilesetXml(
+	const std::filesystem::path& filePath,
 	const std::string& tilesetName,
 	std::span<const uint16_t> itemIds,
 	std::span<Brush* const> brushes,
 	bool appendToExisting,
 	std::string& outErrorMessage) {
 	try {
-		std::filesystem::path collDir = GetCollectionsDirectory();
 		std::error_code ec;
-		std::filesystem::create_directories(collDir, ec);
+		std::filesystem::create_directories(filePath.parent_path(), ec);
 		if (ec) {
-			outErrorMessage = std::format("Failed to create collections directory: {}", ec.message());
+			outErrorMessage = std::format("Failed to create directory: {}", ec.message());
 			return false;
 		}
-
-		std::filesystem::path filePath = GetTilesetFilePath(tilesetName);
 
 		std::vector<std::string> finalBrushNames;
 		std::vector<uint16_t> finalItemIds;
@@ -229,6 +316,7 @@ bool CollectionXmlService::SaveTilesetXml(
 }
 
 bool CollectionXmlService::EnsurePaletteInclude(
+	const std::string& paletteName,
 	const std::string& tilesetName,
 	std::string& outErrorMessage) {
 	try {
@@ -246,8 +334,9 @@ bool CollectionXmlService::EnsurePaletteInclude(
 			return false;
 		}
 
-		std::string filename = SanitizeTilesetFilename(tilesetName) + ".xml";
-		std::string includeRelPath = "tilesets/collections/" + filename;
+		std::filesystem::path tilesetFile = GetTilesetFilePath(paletteName, tilesetName);
+		std::filesystem::path relPath = std::filesystem::relative(tilesetFile, palettesPath.parent_path(), ec);
+		std::string includeRelPath = ec ? ("tilesets/collections/" + SanitizeTilesetFilename(tilesetName) + ".xml") : relPath.generic_string();
 
 		pugi::xml_node root = doc.child("materials");
 		if (!root) {
@@ -257,34 +346,34 @@ bool CollectionXmlService::EnsurePaletteInclude(
 			root = doc.first_child();
 		}
 
-		pugi::xml_node collectionPal;
+		pugi::xml_node targetPal;
 		for (pugi::xml_node palNode = root ? root.child("palette") : doc.child("palette"); palNode; palNode = palNode.next_sibling("palette")) {
-			if (as_lower_str(palNode.attribute("name").as_string()) == "collection") {
-				collectionPal = palNode;
+			if (as_lower_str(palNode.attribute("name").as_string()) == as_lower_str(paletteName)) {
+				targetPal = palNode;
 				break;
 			}
 		}
 
-		if (!collectionPal) {
+		if (!targetPal) {
 			if (root) {
-				collectionPal = root.append_child("palette");
-				collectionPal.append_attribute("name").set_value("Collection");
+				targetPal = root.append_child("palette");
+				targetPal.append_attribute("name").set_value(paletteName.c_str());
 			} else {
 				outErrorMessage = "Invalid palettes.xml structure: no root found";
 				return false;
 			}
 		}
 
-		pugi::xml_node tilesetNode = collectionPal.child("tileset");
+		pugi::xml_node tilesetNode = targetPal.child("tileset");
 		if (!tilesetNode) {
-			tilesetNode = collectionPal.append_child("tileset");
+			tilesetNode = targetPal.append_child("tileset");
 		}
 
 		// Check if include already present
 		bool alreadyIncluded = false;
 		for (pugi::xml_node inc = tilesetNode.child("include"); inc; inc = inc.next_sibling("include")) {
 			std::string existingFile = inc.attribute("file").as_string();
-			if (std::filesystem::path(existingFile).generic_string() == includeRelPath) {
+			if (as_lower_str(std::filesystem::path(existingFile).generic_string()) == as_lower_str(includeRelPath)) {
 				alreadyIncluded = true;
 				break;
 			}

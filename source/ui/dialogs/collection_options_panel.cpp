@@ -24,13 +24,14 @@ public:
 		Cancel
 	};
 
-	CollisionDialog(wxWindow* parent, const std::string& tilesetName) :
+	CollisionDialog(wxWindow* parent, const std::string& paletteName, const std::string& tilesetName) :
 		wxDialog(parent, wxID_ANY, "Tileset Already Exists", wxDefaultPosition, wxDefaultSize, wxDEFAULT_DIALOG_STYLE) {
 		wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
 
 		wxString msg = wxString::Format(
-			"A tileset named \"%s\" already exists in Collections.\n\nWould you like to append these elements to it instead?",
-			wxstr(tilesetName)
+			"A tileset named \"%s\" already exists in the \"%s\" palette.\n\nWould you like to append these elements to it instead?",
+			wxstr(tilesetName),
+			wxstr(paletteName)
 		);
 		wxStaticText* text = new wxStaticText(this, wxID_ANY, msg);
 		mainSizer->Add(text, 0, wxALL, 16);
@@ -70,8 +71,14 @@ CollectionOptionsPanel::CollectionOptionsPanel(wxWindow* parent, Callbacks callb
 void CollectionOptionsPanel::InitUI() {
 	wxBoxSizer* rootSizer = new wxBoxSizer(wxVERTICAL);
 
-	// Group: Target Tileset Mode
+	// Group: Target Palette & Tileset
 	wxStaticBoxSizer* targetBox = new wxStaticBoxSizer(wxVERTICAL, this, "Target Tileset");
+
+	wxStaticText* palLabel = new wxStaticText(targetBox->GetStaticBox(), wxID_ANY, "Target Palette:");
+	targetBox->Add(palLabel, 0, wxTOP | wxLEFT | wxRIGHT, 6);
+
+	m_paletteChoice = new wxChoice(targetBox->GetStaticBox(), wxID_ANY);
+	targetBox->Add(m_paletteChoice, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 6);
 
 	m_radioNew = new wxRadioButton(targetBox->GetStaticBox(), wxID_ANY, "Create New Tileset", wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
 	targetBox->Add(m_radioNew, 0, wxTOP | wxLEFT | wxRIGHT, 6);
@@ -127,6 +134,7 @@ void CollectionOptionsPanel::InitUI() {
 	SetSizer(rootSizer);
 
 	// Event bindings
+	m_paletteChoice->Bind(wxEVT_CHOICE, &CollectionOptionsPanel::OnPaletteChanged, this);
 	m_radioNew->Bind(wxEVT_RADIOBUTTON, &CollectionOptionsPanel::OnModeChanged, this);
 	m_radioExisting->Bind(wxEVT_RADIOBUTTON, &CollectionOptionsPanel::OnModeChanged, this);
 	m_nameInput->Bind(wxEVT_TEXT, &CollectionOptionsPanel::OnNameChanged, this);
@@ -148,14 +156,44 @@ void CollectionOptionsPanel::InitUI() {
 		}
 	});
 
+	RefreshPalettes();
 	RefreshExistingTilesets();
+	m_nameInput->SetValue(wxstr(GenerateDefaultTilesetName()));
+	UpdateFilePreview();
+}
+
+void CollectionOptionsPanel::RefreshPalettes() {
+	auto palettes = rme::collection::CollectionXmlService::GetAvailablePalettes();
+	m_paletteChoice->Clear();
+	for (const auto& pal : palettes) {
+		m_paletteChoice->Append(wxstr(pal));
+	}
+	if (!palettes.empty()) {
+		m_paletteChoice->SetSelection(0);
+	}
+}
+
+std::string CollectionOptionsPanel::GetTargetPaletteName() const {
+	if (m_paletteChoice && m_paletteChoice->GetSelection() != wxNOT_FOUND) {
+		return m_paletteChoice->GetStringSelection().ToStdString();
+	}
+	return "Collection";
+}
+
+void CollectionOptionsPanel::OnPaletteChanged(wxCommandEvent&) {
+	RefreshExistingTilesets();
+	m_nameInput->SetValue(wxstr(GenerateDefaultTilesetName()));
+	std::string pal = GetTargetPaletteName();
+	m_saveBtn->SetLabel(wxString::Format("&Save to %s", wxstr(pal)));
 	UpdateFilePreview();
 }
 
 std::string CollectionOptionsPanel::GenerateDefaultTilesetName() const {
-	auto existing = rme::collection::CollectionXmlService::GetExistingCollectionTilesetNames();
+	std::string pal = GetTargetPaletteName();
+	auto existing = rme::collection::CollectionXmlService::GetExistingTilesetNamesForPalette(pal);
+	std::string prefix = pal;
 	for (int i = 1; i <= 999; ++i) {
-		std::string candidate = std::format("Collection_{}", i);
+		std::string candidate = std::format("{}_{}", prefix, i);
 		bool found = false;
 		for (const auto& ex : existing) {
 			if (as_lower_str(ex) == as_lower_str(candidate)) {
@@ -167,11 +205,12 @@ std::string CollectionOptionsPanel::GenerateDefaultTilesetName() const {
 			return candidate;
 		}
 	}
-	return "Collection_Custom";
+	return prefix + "_Custom";
 }
 
 void CollectionOptionsPanel::RefreshExistingTilesets() {
-	auto names = rme::collection::CollectionXmlService::GetExistingCollectionTilesetNames();
+	std::string pal = GetTargetPaletteName();
+	auto names = rme::collection::CollectionXmlService::GetExistingTilesetNamesForPalette(pal);
 	m_existingChoice->Clear();
 	for (const auto& name : names) {
 		m_existingChoice->Append(wxstr(name));
@@ -219,9 +258,14 @@ void CollectionOptionsPanel::OnExistingChanged(wxCommandEvent&) {
 }
 
 void CollectionOptionsPanel::UpdateFilePreview() {
+	std::string pal = GetTargetPaletteName();
 	std::string targetName = GetTargetTilesetName();
-	std::string filename = rme::collection::CollectionXmlService::SanitizeTilesetFilename(targetName) + ".xml";
-	m_filePathLabel->SetLabel(wxString::Format("Target:\ntilesets/collections/%s", wxstr(filename)));
+	auto filePath = rme::collection::CollectionXmlService::GetTilesetFilePath(pal, targetName);
+	auto palettesPath = rme::collection::CollectionXmlService::GetPalettesXmlPath();
+	std::error_code ec;
+	auto rel = std::filesystem::relative(filePath, palettesPath.parent_path(), ec);
+	std::string displayRel = ec ? filePath.string() : rel.generic_string();
+	m_filePathLabel->SetLabel(wxString::Format("Target (%s):\n%s", wxstr(pal), wxstr(displayRel)));
 	m_filePathLabel->Wrap(240);
 	Layout();
 }
@@ -265,6 +309,7 @@ void CollectionOptionsPanel::PerformSave() {
 	}
 
 	// 2. Validate Target Tileset
+	std::string paletteName = GetTargetPaletteName();
 	const bool isNew = m_radioNew->GetValue();
 	std::string targetName;
 
@@ -281,7 +326,7 @@ void CollectionOptionsPanel::PerformSave() {
 		targetName = targetName.substr(first, last - first + 1);
 
 		// Collision check
-		auto existing = rme::collection::CollectionXmlService::GetExistingCollectionTilesetNames();
+		auto existing = rme::collection::CollectionXmlService::GetExistingTilesetNamesForPalette(paletteName);
 		bool collision = false;
 		for (const auto& ex : existing) {
 			if (as_lower_str(ex) == as_lower_str(targetName)) {
@@ -292,22 +337,22 @@ void CollectionOptionsPanel::PerformSave() {
 
 		if (!collision) {
 			std::error_code ec;
-			if (std::filesystem::exists(rme::collection::CollectionXmlService::GetTilesetFilePath(targetName), ec)) {
+			if (std::filesystem::exists(rme::collection::CollectionXmlService::GetTilesetFilePath(paletteName, targetName), ec)) {
 				collision = true;
 			}
 		}
 
 		if (collision) {
-			CollisionDialog dlg(this, targetName);
+			CollisionDialog dlg(this, paletteName, targetName);
 			int result = dlg.ShowModal();
 			if (result == CollisionDialog::Append) {
 				if (m_callbacks.onSave) {
-					m_callbacks.onSave(targetName, false, true, incItems, incBrushes);
+					m_callbacks.onSave(paletteName, targetName, false, true, incItems, incBrushes);
 				}
 				return;
 			} else if (result == CollisionDialog::Overwrite) {
 				if (m_callbacks.onSave) {
-					m_callbacks.onSave(targetName, true, false, incItems, incBrushes);
+					m_callbacks.onSave(paletteName, targetName, true, false, incItems, incBrushes);
 				}
 				return;
 			} else if (result == CollisionDialog::Rename) {
@@ -320,16 +365,16 @@ void CollectionOptionsPanel::PerformSave() {
 		}
 
 		if (m_callbacks.onSave) {
-			m_callbacks.onSave(targetName, true, false, incItems, incBrushes);
+			m_callbacks.onSave(paletteName, targetName, true, false, incItems, incBrushes);
 		}
 	} else {
 		if (m_existingChoice->GetCount() == 0 || m_existingChoice->GetSelection() == wxNOT_FOUND) {
-			wxMessageBox("Please select an existing collection tileset, or create a new one.", "Collection Studio", wxOK | wxICON_WARNING, this);
+			wxMessageBox("Please select an existing tileset, or create a new one.", "Collection Studio", wxOK | wxICON_WARNING, this);
 			return;
 		}
 		targetName = m_existingChoice->GetStringSelection().ToStdString();
 		if (m_callbacks.onSave) {
-			m_callbacks.onSave(targetName, false, true, incItems, incBrushes);
+			m_callbacks.onSave(paletteName, targetName, false, true, incItems, incBrushes);
 		}
 	}
 }

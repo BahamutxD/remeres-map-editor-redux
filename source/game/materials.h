@@ -23,6 +23,7 @@
 
 class CreatureType;
 class RAWBrush;
+class CreatureBrush;
 
 class Materials {
 public:
@@ -36,6 +37,7 @@ public:
 
 	RAWBrush* ensureRawBrush(ServerItemId item_id);
 	void ensureAllRawBrushes();
+	CreatureBrush* ensureCreatureBrush(CreatureType* type);
 
 	[[nodiscard]] PaletteCatalog& paletteCatalog() {
 		return database.paletteCatalog();

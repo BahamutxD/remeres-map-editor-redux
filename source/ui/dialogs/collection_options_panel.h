@@ -20,13 +20,14 @@ public:
 	struct Callbacks {
 		std::function<void()> onAccumulateSelection;
 		std::function<void()> onClearAll;
-		std::function<void(const std::string& name, bool isNew, bool append, bool includeItems, bool includeBrushes)> onSave;
+		std::function<void(const std::string& paletteName, const std::string& name, bool isNew, bool append, bool includeItems, bool includeBrushes)> onSave;
 	};
 
 	CollectionOptionsPanel(wxWindow* parent, Callbacks callbacks);
 	~CollectionOptionsPanel() override = default;
 
 	void UpdateCounts(size_t itemCount, size_t brushCount);
+	void RefreshPalettes();
 	void RefreshExistingTilesets();
 	void EnableAccumulate(bool enable);
 
@@ -36,6 +37,7 @@ public:
 	[[nodiscard]] bool IsIncludeBrushes() const {
 		return m_includeBrushesCheck->GetValue();
 	}
+	[[nodiscard]] std::string GetTargetPaletteName() const;
 	[[nodiscard]] std::string GetTargetTilesetName() const;
 	[[nodiscard]] bool IsCreateNew() const {
 		return m_radioNew->GetValue();
@@ -45,6 +47,7 @@ public:
 
 private:
 	void InitUI();
+	void OnPaletteChanged(wxCommandEvent& event);
 	void OnModeChanged(wxCommandEvent& event);
 	void OnNameChanged(wxCommandEvent& event);
 	void OnExistingChanged(wxCommandEvent& event);
@@ -55,6 +58,7 @@ private:
 	size_t m_itemCount = 0;
 	size_t m_brushCount = 0;
 
+	wxChoice* m_paletteChoice = nullptr;
 	wxRadioButton* m_radioNew = nullptr;
 	wxRadioButton* m_radioExisting = nullptr;
 	wxTextCtrl* m_nameInput = nullptr;

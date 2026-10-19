@@ -117,11 +117,11 @@ void MapMenuHandler::OnScriptMenu(wxCommandEvent& event) {
 		try {
 			const auto& item = menuItems[index];
 			if (item.callback.valid()) {
-				Tile* tile = editor.map.getTile(canvas->last_click_map_x, canvas->last_click_map_y, canvas->GetFloor());
+				Tile* tile = editor.map.getTile(canvas->last_click_map_x, canvas->last_click_map_y, canvas->last_click_map_z);
 				if (tile) {
 					item.callback(tile);
 				} else {
-					item.callback(Position(canvas->last_click_map_x, canvas->last_click_map_y, canvas->GetFloor()));
+					item.callback(Position(canvas->last_click_map_x, canvas->last_click_map_y, canvas->last_click_map_z));
 				}
 			}
 		} catch (const sol::error& e) {

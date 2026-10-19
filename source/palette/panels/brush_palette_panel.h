@@ -47,6 +47,7 @@ public:
 	void ClearSort();
 	void SetShowLabels(bool show);
 	void SetTileSize(int sizePx);
+	void SetDisplayMode(TilesetDisplayMode mode);
 	void ApplyTheme();
 
 	// Search and filter operations
@@ -76,6 +77,7 @@ protected:
 	bool m_hasSort;
 	bool m_showLabels;
 	int m_tileSize;
+	bool m_isListMode = false;
 
 	static TilesetSortKey s_defaultSortKey;
 	static TilesetSortDirection s_defaultSortDir;
@@ -83,6 +85,7 @@ protected:
 	static bool s_defaultShowLabels;
 	static int s_defaultTileSize;
 	static bool s_defaultFilterAll;
+	static bool s_defaultIsListMode;
 	static bool s_defaultsLoaded;
 
 	// No size_panel, it was unused

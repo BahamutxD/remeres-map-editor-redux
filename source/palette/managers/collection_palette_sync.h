@@ -17,11 +17,18 @@ public:
 	/**
 	 * Synchronizes the newly saved tileset into the runtime MaterialDatabase
 	 * and PaletteCatalog, triggers safe reconstruction of BrushPalettePanel
-	 * choicebook pages, and activates the "Collection" palette page.
+	 * choicebook pages, and activates the chosen palette page and tileset.
 	 */
 	static void Sync(
+		const std::string& paletteName,
 		const std::string& tilesetName,
 		const std::filesystem::path& tilesetFilePath);
+
+	static void Sync(
+		const std::string& tilesetName,
+		const std::filesystem::path& tilesetFilePath) {
+		Sync("Collection", tilesetName, tilesetFilePath);
+	}
 };
 
 } // namespace rme::collection

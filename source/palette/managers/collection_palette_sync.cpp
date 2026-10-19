@@ -1,8 +1,11 @@
 #include "palette/managers/collection_palette_sync.h"
 
 #include "game/materials.h"
+#include "game/creatures.h"
+#include "game/creature.h"
 #include "palette/managers/palette_manager.h"
 #include "brushes/raw/raw_brush.h"
+#include "brushes/creature/creature_brush.h"
 #include "brushes/brush.h"
 
 #include "ext/pugixml.hpp"
@@ -11,6 +14,7 @@
 namespace rme::collection {
 
 void CollectionPaletteSync::Sync(
+	const std::string& paletteName,
 	const std::string& tilesetName,
 	const std::filesystem::path& tilesetFilePath) {
 
@@ -30,7 +34,13 @@ void CollectionPaletteSync::Sync(
 				std::string_view tag = child.name();
 				if (tag == "brush") {
 					std::string bname = child.attribute("name").as_string();
-					if (Brush* b = g_brushes.getBrush(bname)) {
+					Brush* b = g_brushes.getBrush(bname);
+					if (!b) {
+						if (CreatureType* ct = g_creatures[bname]) {
+							b = g_materials.ensureCreatureBrush(ct);
+						}
+					}
+					if (b) {
 						b->flagAsVisible();
 						b->setCollection();
 						if (std::ranges::find(activeBrushes, b) == activeBrushes.end()) {
@@ -70,13 +80,13 @@ void CollectionPaletteSync::Sync(
 	}
 
 	// 3. Update PaletteCatalog tileset brushes directly (handles New, Append, and Overwrite)
-	g_materials.paletteCatalog().setTilesetBrushes("Collection", tilesetName, std::move(activeBrushes));
+	g_materials.paletteCatalog().setTilesetBrushes(paletteName, tilesetName, std::move(activeBrushes));
 
 	// 4. Safely rebuild BrushPalettePanel choicebook pages without dangling pointers
 	g_palettes.ReloadDynamicPalettes();
 
-	// 5. Select "Collection" palette and jump to the new tileset
-	g_palettes.SelectTilesetInPalette("Collection", tilesetName);
+	// 5. Select target palette and jump to the new tileset
+	g_palettes.SelectTilesetInPalette(paletteName, tilesetName);
 }
 
 } // namespace rme::collection

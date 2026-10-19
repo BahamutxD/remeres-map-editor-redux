@@ -10,6 +10,7 @@ bool BrushPalettePanel::s_defaultHasSort = false;
 bool BrushPalettePanel::s_defaultShowLabels = false;
 int BrushPalettePanel::s_defaultTileSize = 32;
 bool BrushPalettePanel::s_defaultFilterAll = false;
+bool BrushPalettePanel::s_defaultIsListMode = false;
 bool BrushPalettePanel::s_defaultsLoaded = false;
 
 namespace {
@@ -72,11 +73,17 @@ void BrushPalettePanel::EnsureDefaultsLoaded() {
 	s_defaultSortDir = static_cast<TilesetSortDirection>(g_settings.getInteger(Config::PALETTE_SORT_DIR));
 	s_defaultShowLabels = g_settings.getBoolean(Config::PALETTE_SHOW_LABELS);
 
+	std::string dynStyle = g_settings.getString(Config::PALETTE_DYNAMIC_STYLE);
+	if (dynStyle == "listbox" || dynStyle == "List style") {
+		s_defaultIsListMode = true;
+	} else {
+		s_defaultIsListMode = false;
+	}
+
 	int loadedSize = g_settings.getInteger(Config::PALETTE_TILE_SIZE);
 	if (loadedSize == 32 || loadedSize == 64 || loadedSize == 128) {
 		s_defaultTileSize = loadedSize;
 	} else {
-		std::string dynStyle = g_settings.getString(Config::PALETTE_DYNAMIC_STYLE);
 		if (dynStyle == "64x64 px") {
 			s_defaultTileSize = 64;
 		} else if (dynStyle == "128x128 px") {
@@ -153,6 +160,7 @@ BrushPalettePanel::BrushPalettePanel(wxWindow* parent, const DynamicPaletteDefin
 	m_hasSort = s_defaultHasSort;
 	m_showLabels = s_defaultShowLabels;
 	m_tileSize = s_defaultTileSize;
+	m_isListMode = s_defaultIsListMode;
 	Bind(wxEVT_CHOICEBOOK_PAGE_CHANGING, &BrushPalettePanel::OnSwitchingPage, this);
 	Bind(wxEVT_CHOICEBOOK_PAGE_CHANGED, &BrushPalettePanel::OnPageChanged, this);
 	Bind(wxEVT_SYS_COLOUR_CHANGED, [this](wxSysColourChangedEvent& event) {
@@ -180,7 +188,13 @@ BrushPalettePanel::BrushPalettePanel(wxWindow* parent, const DynamicPaletteDefin
 			SetShowLabels(show);
 		};
 		actions.icon_size = [this](int size) {
+			if (m_isListMode) {
+				SetDisplayMode(TilesetDisplayMode::Grid);
+			}
 			SetTileSize(size);
+		};
+		actions.list_mode = [this](bool list) {
+			SetDisplayMode(list ? TilesetDisplayMode::List : TilesetDisplayMode::Grid);
 		};
 		actions.filter = [this](const std::string& query) {
 			m_filterQuery = query;
@@ -208,7 +222,7 @@ BrushPalettePanel::BrushPalettePanel(wxWindow* parent, const DynamicPaletteDefin
 
 		gridToolbar = newd TilesetGridToolbar(tmp_choicebook, std::move(actions), TilesetGridToolbar::Part_Standard | TilesetGridToolbar::Part_FilterAll);
 		gridToolbar->SetStacked(true);
-		gridToolbar->SetState(m_showLabels, m_tileSize, m_hasSort, m_sortKey, m_sortDir, m_filterAll);
+		gridToolbar->SetState(m_showLabels, m_tileSize, m_hasSort, m_sortKey, m_sortDir, m_filterAll, m_isListMode);
 		gridToolbar->SetFilterQuery(m_filterQuery);
 	}
 	wxChoice* choice = tmp_choicebook->GetChoiceCtrl();
@@ -238,6 +252,7 @@ BrushPalettePanel::BrushPalettePanel(wxWindow* parent, const DynamicPaletteDefin
 			}
 			panel->SetShowLabels(m_showLabels);
 			panel->SetTileSize(m_tileSize);
+			panel->SetDisplayMode(m_isListMode ? TilesetDisplayMode::List : TilesetDisplayMode::Grid);
 			tmp_choicebook->AddPage(panel, wxstr(tileset.name));
 		}
 	}
@@ -287,6 +302,11 @@ wxString BrushPalettePanel::GetName() const {
 }
 
 void BrushPalettePanel::SetListType(BrushListType ltype) {
+	if (ltype == BRUSHLIST_LISTBOX || ltype == BRUSHLIST_TEXT_LISTBOX) {
+		SetDisplayMode(TilesetDisplayMode::List);
+		return;
+	}
+	SetDisplayMode(TilesetDisplayMode::Grid);
 	if (ltype == BRUSHLIST_ICONS_32) {
 		m_tileSize = 32;
 	} else if (ltype == BRUSHLIST_ICONS_64) {
@@ -430,6 +450,9 @@ void BrushPalettePanel::OnSwitchIn() {
 	g_palettes.ActivatePalette(GetParentPalette());
 	g_gui.RestoreBrushSizeState(last_brush_size_state);
 
+	if (m_isListMode != s_defaultIsListMode) {
+		SetDisplayMode(s_defaultIsListMode ? TilesetDisplayMode::List : TilesetDisplayMode::Grid);
+	}
 	if (m_showLabels != s_defaultShowLabels) {
 		SetShowLabels(s_defaultShowLabels);
 	}
@@ -445,7 +468,7 @@ void BrushPalettePanel::OnSwitchIn() {
 	}
 
 	if (gridToolbar) {
-		gridToolbar->SetState(m_showLabels, m_tileSize, m_hasSort, m_sortKey, m_sortDir, m_filterAll);
+		gridToolbar->SetState(m_showLabels, m_tileSize, m_hasSort, m_sortKey, m_sortDir, m_filterAll, m_isListMode);
 		gridToolbar->SetFilterQuery(m_filterQuery);
 	}
 	if (choicebook && choicebook->GetChoiceCtrl()) {
@@ -507,7 +530,7 @@ void BrushPalettePanel::SetShowLabels(bool show) {
 	g_settings.save();
 
 	if (gridToolbar) {
-		gridToolbar->SetState(m_showLabels, m_tileSize, m_hasSort, m_sortKey, m_sortDir, m_filterAll);
+		gridToolbar->SetState(m_showLabels, m_tileSize, m_hasSort, m_sortKey, m_sortDir, m_filterAll, m_isListMode);
 	}
 
 	if (!choicebook) {
@@ -524,11 +547,17 @@ void BrushPalettePanel::SetShowLabels(bool show) {
 void BrushPalettePanel::SetTileSize(int sizePx) {
 	m_tileSize = sizePx;
 	s_defaultTileSize = sizePx;
+	m_isListMode = false;
+	s_defaultIsListMode = false;
 
 	g_settings.setInteger(Config::PALETTE_TILE_SIZE, sizePx);
 	std::string style = std::to_string(sizePx) + "x" + std::to_string(sizePx) + " px";
 	g_settings.setString(Config::PALETTE_DYNAMIC_STYLE, style);
 	g_settings.save();
+
+	if (gridToolbar) {
+		gridToolbar->SetState(m_showLabels, m_tileSize, m_hasSort, m_sortKey, m_sortDir, m_filterAll, m_isListMode);
+	}
 
 	if (!choicebook) {
 		return;
@@ -536,7 +565,35 @@ void BrushPalettePanel::SetTileSize(int sizePx) {
 	for (size_t iz = 0; iz < choicebook->GetPageCount(); ++iz) {
 		BrushPanel* panel = dynamic_cast<BrushPanel*>(choicebook->GetPage(iz));
 		if (panel) {
+			panel->SetDisplayMode(TilesetDisplayMode::Grid);
 			panel->SetTileSize(sizePx);
+		}
+	}
+}
+
+void BrushPalettePanel::SetDisplayMode(TilesetDisplayMode mode) {
+	m_isListMode = (mode == TilesetDisplayMode::List);
+	s_defaultIsListMode = m_isListMode;
+
+	if (m_isListMode) {
+		g_settings.setString(Config::PALETTE_DYNAMIC_STYLE, "List style");
+	} else {
+		std::string style = std::to_string(m_tileSize) + "x" + std::to_string(m_tileSize) + " px";
+		g_settings.setString(Config::PALETTE_DYNAMIC_STYLE, style);
+	}
+	g_settings.save();
+
+	if (gridToolbar) {
+		gridToolbar->SetState(m_showLabels, m_tileSize, m_hasSort, m_sortKey, m_sortDir, m_filterAll, m_isListMode);
+	}
+
+	if (!choicebook) {
+		return;
+	}
+	for (size_t iz = 0; iz < choicebook->GetPageCount(); ++iz) {
+		BrushPanel* panel = dynamic_cast<BrushPanel*>(choicebook->GetPage(iz));
+		if (panel) {
+			panel->SetDisplayMode(mode);
 		}
 	}
 }
@@ -744,6 +801,7 @@ void BrushPalettePanel::ReloadPages() {
 			}
 			panel->SetShowLabels(m_showLabels);
 			panel->SetTileSize(m_tileSize);
+			panel->SetDisplayMode(m_isListMode ? TilesetDisplayMode::List : TilesetDisplayMode::Grid);
 			choicebook->AddPage(panel, wxstr(tileset.name));
 		}
 	}

@@ -136,8 +136,8 @@ void CollectionStudioWindow::InitLayout() {
 	callbacks.onClearAll = [this]() {
 		OnClearAll();
 	};
-	callbacks.onSave = [this](const std::string& name, bool isNew, bool append, bool includeItems, bool includeBrushes) {
-		OnSave(name, isNew, append, includeItems, includeBrushes);
+	callbacks.onSave = [this](const std::string& paletteName, const std::string& name, bool isNew, bool append, bool includeItems, bool includeBrushes) {
+		OnSave(paletteName, name, isNew, append, includeItems, includeBrushes);
 	};
 
 	m_optionsPanel = new rme::ui::CollectionOptionsPanel(this, std::move(callbacks));
@@ -226,27 +226,28 @@ void CollectionStudioWindow::UpdateUI() {
 	Layout();
 }
 
-void CollectionStudioWindow::OnSave(const std::string& name, bool isNew, bool append, bool includeItems, bool includeBrushes) {
+void CollectionStudioWindow::OnSave(const std::string& paletteName, const std::string& name, bool isNew, bool append, bool includeItems, bool includeBrushes) {
 	std::span<const uint16_t> itemsToSave = includeItems ? m_staging.itemIds : std::span<const uint16_t>{};
 	std::span<Brush* const> brushesToSave = includeBrushes ? m_staging.brushes : std::span<Brush* const>{};
 
+	auto tilesetFilePath = rme::collection::CollectionXmlService::GetTilesetFilePath(paletteName, name);
+
 	std::string error;
-	if (!rme::collection::CollectionXmlService::SaveTilesetXml(name, itemsToSave, brushesToSave, append, error)) {
+	if (!rme::collection::CollectionXmlService::SaveTilesetXml(tilesetFilePath, name, itemsToSave, brushesToSave, append, error)) {
 		wxMessageBox(wxString::Format("Error saving tileset:\n%s", wxstr(error)), "Collection Studio", wxOK | wxICON_ERROR, this);
 		return;
 	}
 
-	if (!rme::collection::CollectionXmlService::EnsurePaletteInclude(name, error)) {
+	if (!rme::collection::CollectionXmlService::EnsurePaletteInclude(paletteName, name, error)) {
 		wxMessageBox(wxString::Format("Error updating palettes.xml:\n%s", wxstr(error)), "Collection Studio", wxOK | wxICON_ERROR, this);
 		return;
 	}
 
-	auto tilesetFilePath = rme::collection::CollectionXmlService::GetTilesetFilePath(name);
-	rme::collection::CollectionPaletteSync::Sync(name, tilesetFilePath);
+	rme::collection::CollectionPaletteSync::Sync(paletteName, name, tilesetFilePath);
 
 	m_isDirty = false;
 	m_optionsPanel->RefreshExistingTilesets();
-	wxMessageBox("Successfully saved tileset to Collection palette!", "Collection Studio", wxOK | wxICON_INFORMATION, this);
+	wxMessageBox(wxString::Format("Successfully saved tileset to %s palette!", wxstr(paletteName)), "Collection Studio", wxOK | wxICON_INFORMATION, this);
 	Close();
 }
 

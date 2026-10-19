@@ -38,7 +38,7 @@ private:
 	void OnClearItems();
 	void OnClearBrushes();
 	void OnClearAll();
-	void OnSave(const std::string& name, bool isNew, bool append, bool includeItems, bool includeBrushes);
+	void OnSave(const std::string& paletteName, const std::string& name, bool isNew, bool append, bool includeItems, bool includeBrushes);
 
 	Editor* m_editor = nullptr;
 	rme::collection::CollectionStagingContent m_staging;

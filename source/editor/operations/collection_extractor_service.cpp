@@ -3,9 +3,16 @@
 #include "editor/editor.h"
 #include "map/tile.h"
 #include "game/item.h"
+#include "game/creature.h"
+#include "game/creatures.h"
+#include "game/spawn.h"
 #include "brushes/brush.h"
 #include "brushes/raw/raw_brush.h"
 #include "brushes/ground/ground_brush.h"
+#include "brushes/creature/creature_brush.h"
+#include "brushes/spawn/spawn_brush.h"
+#include "brushes/managers/brush_manager.h"
+#include "game/materials.h"
 #include "ui/replace_tool/map_item_collector.h"
 
 #include <algorithm>
@@ -91,6 +98,29 @@ CollectionStagingContent CollectionExtractorService::ExtractFromSelection(Editor
 			if (Brush* db = item->getDoodadBrush()) {
 				candidates.push_back(db);
 			}
+		}
+
+		if (tile->creature) {
+			CreatureBrush* cb = tile->creature->getBrush();
+			if (!cb) {
+				if (CreatureType* ct = g_creatures[tile->creature->getName()]) {
+					cb = g_materials.ensureCreatureBrush(ct);
+				}
+			}
+			if (cb) {
+				candidates.push_back(cb);
+			}
+			for (const auto& alt : tile->creature->getAlternatives()) {
+				if (CreatureType* altType = g_creatures[alt.name]) {
+					if (Brush* b = g_materials.ensureCreatureBrush(altType)) {
+						candidates.push_back(b);
+					}
+				}
+			}
+		}
+
+		if (tile->spawn && g_brush_manager.spawn_brush) {
+			candidates.push_back(g_brush_manager.spawn_brush);
 		}
 	}
 
