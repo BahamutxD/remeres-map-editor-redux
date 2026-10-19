@@ -68,6 +68,8 @@ MapCompatibilityPage::MapCompatibilityPage(wxWindow* parent) : ScrollablePrefere
 		"Placeholder"
 	);
 	page_sizer->Add(spawns_section, 0, wxEXPAND | wxALL, FromDIP(10));
+
+	FinishLayout();
 }
 
 void MapCompatibilityPage::Apply() {
