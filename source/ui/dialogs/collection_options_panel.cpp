@@ -290,6 +290,13 @@ void CollectionOptionsPanel::PerformSave() {
 			}
 		}
 
+		if (!collision) {
+			std::error_code ec;
+			if (std::filesystem::exists(rme::collection::CollectionXmlService::GetTilesetFilePath(targetName), ec)) {
+				collision = true;
+			}
+		}
+
 		if (collision) {
 			CollisionDialog dlg(this, targetName);
 			int result = dlg.ShowModal();

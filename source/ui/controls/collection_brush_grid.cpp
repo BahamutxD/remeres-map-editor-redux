@@ -225,7 +225,7 @@ void CollectionBrushGrid::DrawBrushItem(NVGcontext* vg, int i, const wxRect& rec
 	}
 
 	if (hovered) {
-		rme::ui::grid::DrawRemoveBadge(vg, drawn, m_badgeHovered);
+		rme::ui::grid::DrawRemoveBadge(vg, rect, m_badgeHovered);
 	}
 }
 

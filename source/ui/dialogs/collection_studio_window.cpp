@@ -60,6 +60,7 @@ void CollectionStudioWindow::InitLayout() {
 		std::move(itemActions),
 		TilesetGridToolbar::Part_Standard & ~TilesetGridToolbar::Part_FilterAll
 	);
+	m_itemToolbar->SetState(false, 32, false, TilesetSortKey::Name, TilesetSortDirection::Ascending, false);
 	itemsBox->Add(m_itemToolbar, 0, wxEXPAND | wxBOTTOM, 4);
 
 	m_itemGrid = new rme::ui::CollectionItemGrid(itemsBox->GetStaticBox());
@@ -106,6 +107,7 @@ void CollectionStudioWindow::InitLayout() {
 		std::move(brushActions),
 		TilesetGridToolbar::Part_Standard & ~TilesetGridToolbar::Part_FilterAll
 	);
+	m_brushToolbar->SetState(false, 32, false, TilesetSortKey::Name, TilesetSortDirection::Ascending, false);
 	brushesBox->Add(m_brushToolbar, 0, wxEXPAND | wxBOTTOM, 4);
 
 	m_brushGrid = new rme::ui::CollectionBrushGrid(brushesBox->GetStaticBox());
@@ -240,11 +242,12 @@ void CollectionStudioWindow::OnSave(const std::string& name, bool isNew, bool ap
 	}
 
 	auto tilesetFilePath = rme::collection::CollectionXmlService::GetTilesetFilePath(name);
-	rme::collection::CollectionPaletteSync::Sync(name, tilesetFilePath, itemsToSave, brushesToSave);
+	rme::collection::CollectionPaletteSync::Sync(name, tilesetFilePath);
 
 	m_isDirty = false;
 	m_optionsPanel->RefreshExistingTilesets();
 	wxMessageBox("Successfully saved tileset to Collection palette!", "Collection Studio", wxOK | wxICON_INFORMATION, this);
+	Close();
 }
 
 void CollectionStudioWindow::OnCharHook(wxKeyEvent& event) {
