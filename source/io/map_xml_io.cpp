@@ -16,6 +16,7 @@
 
 #include <spdlog/spdlog.h>
 #include <algorithm>
+#include <chrono>
 #include <format>
 #include <filesystem>
 #include <ranges>
@@ -113,6 +114,9 @@ namespace {
 	// auxiliary writers check for cancellation every this many items.
 	constexpr size_t kCancelPollStride = 128;
 
+	// Progress within one document, before the stage it belongs to is applied.
+	using ItemProgress = std::function<void(size_t done, size_t total)>;
+
 	bool shouldAbortWriting(const MapXMLIO::CancelCheck& shouldCancel, size_t& processed) {
 		if (!shouldCancel || ++processed % kCancelPollStride != 0) {
 			return false;
@@ -120,7 +124,7 @@ namespace {
 		return shouldCancel();
 	}
 
-	bool writeSpawnDocument(const Map& map, pugi::xml_document& doc, const SpawnFileFormat& format, const MapXMLIO::CancelCheck& shouldCancel) {
+	bool writeSpawnDocument(const Map& map, pugi::xml_document& doc, const SpawnFileFormat& format, const MapXMLIO::CancelCheck& shouldCancel, const ItemProgress& report) {
 		pugi::xml_node decl = doc.prepend_child(pugi::node_declaration);
 		if (!decl) {
 			return false;
@@ -141,10 +145,19 @@ namespace {
 		ResetSavedGuard guard { creatureList };
 
 		size_t processed = 0;
+		// Building one spawn node rescans every tile inside its radius, and that
+		// scan dominates the stage, so report often enough to move the bar.
+		constexpr size_t kProgressReportStride = 256;
+		const size_t spawnCount = map.spawns.size();
+		size_t index = 0;
 		for (const auto& spawnPos : map.spawns) {
 			if (shouldAbortWriting(shouldCancel, processed)) {
 				return false;
 			}
+			if (report && index % kProgressReportStride == 0) {
+				report(index, spawnCount);
+			}
+			++index;
 
 			const Tile* tile = map.getTile(spawnPos);
 			if (!tile) {
@@ -197,6 +210,10 @@ namespace {
 			}
 		}
 
+		if (report) {
+			report(spawnCount, spawnCount);
+		}
+
 		return true;
 	}
 
@@ -212,15 +229,22 @@ namespace {
 		}));
 	}
 
-	bool saveSpawnFile(const Map& map, const wxFileName& dir, const std::string& filename, const SpawnFileFormat& format, const MapXMLIO::CancelCheck& shouldCancel) {
+	bool saveSpawnFile(const Map& map, const wxFileName& dir, const std::string& filename, const SpawnFileFormat& format, const MapXMLIO::CancelCheck& shouldCancel, const ItemProgress& report) {
 		if (filename.empty()) {
 			return false;
 		}
 		auto paths = MapXMLIO::normalizeMapFilePaths(dir, filename);
 
+		const auto started = std::chrono::steady_clock::now();
 		pugi::xml_document doc;
-		if (writeSpawnDocument(map, doc, format, shouldCancel)) {
-			return saveXMLFile(doc, paths.first, paths.second);
+		if (writeSpawnDocument(map, doc, format, shouldCancel, report)) {
+			if (saveXMLFile(doc, paths.first, paths.second)) {
+				spdlog::info("MapXMLIO: Wrote {} spawns file '{}' in {:.0f} ms",
+					format.filter == CreatureFilter::Npcs ? "npc" : "monster",
+					paths.second,
+					std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count());
+				return true;
+			}
 		}
 		return false;
 	}
@@ -389,14 +413,27 @@ bool MapXMLIO::loadSpawns(Map& map, pugi::xml_document& doc) {
 	return true;
 }
 
-bool MapXMLIO::saveSpawns(const Map& map, const wxFileName& dir, const CancelCheck& shouldCancel) {
+bool MapXMLIO::saveSpawns(const Map& map, const wxFileName& dir, const CancelCheck& shouldCancel, const ProgressReport& report) {
+	// Both files walk the same spawn list, so the stage is split evenly between
+	// them and the name travels with the report: the dialog can then say which
+	// file is being written instead of showing the whole stage as one block.
+	const auto forFile = [&report](size_t index, size_t count, const std::string& file) -> ItemProgress {
+		if (!report) {
+			return {};
+		}
+		return [&report, index, count, file](size_t done, size_t total) {
+			report(file, index * total + done, count * total);
+		};
+	};
+
 	if (map.getVersion().otbm == MAP_OTBM_5) {
 		const std::string monsterFile = map.getMonsterFilename().empty() ? (nstr(dir.GetName()) + "-monster.xml") : map.getMonsterFilename();
 		const std::string npcFile = map.getNpcFilename().empty() ? (nstr(dir.GetName()) + "-npc.xml") : map.getNpcFilename();
-		return saveSpawnFile(map, dir, monsterFile, MONSTERS_SPAWN_FILE, shouldCancel) && saveSpawnFile(map, dir, npcFile, NPCS_SPAWN_FILE, shouldCancel);
+		return saveSpawnFile(map, dir, monsterFile, MONSTERS_SPAWN_FILE, shouldCancel, forFile(0, 2, monsterFile))
+			&& saveSpawnFile(map, dir, npcFile, NPCS_SPAWN_FILE, shouldCancel, forFile(1, 2, npcFile));
 	}
 	const std::string spawnFile = map.getSpawnFilename().empty() ? (nstr(dir.GetName()) + "-spawn.xml") : map.getSpawnFilename();
-	return saveSpawnFile(map, dir, spawnFile, STANDARD_SPAWN_FILE, shouldCancel);
+	return saveSpawnFile(map, dir, spawnFile, STANDARD_SPAWN_FILE, shouldCancel, forFile(0, 1, spawnFile));
 }
 
 bool MapXMLIO::loadHouses(Map& map, const wxFileName& dir) {

@@ -62,9 +62,13 @@ namespace {
 // 100%, so tile writing stops below that and the XML phases fill the rest.
 constexpr int32_t kTileWriteStagePercent = 85;
 constexpr int32_t kFinalizeStagePercent = 88;
+// On OTBM 5 the spawn stage builds the monster and the NPC file, each walking
+// the whole spawn list, so it is by far the longest auxiliary step and owns a
+// wide band of its own.
 constexpr int32_t kSpawnStagePercent = 91;
-constexpr int32_t kHouseStagePercent = 94;
-constexpr int32_t kWaypointStagePercent = 97;
+constexpr int32_t kSpawnStageEndPercent = 96;
+constexpr int32_t kHouseStagePercent = 97;
+constexpr int32_t kWaypointStagePercent = 98;
 
 // Reports a named save stage and tells whether the save should continue
 // (the user can abort through the progress dialog). Switching the message to
@@ -723,10 +727,29 @@ bool IOMapOTBM::saveMapToDisk(Map& map, const FileName& identifier) {
 		return configured.empty() ? map_name + std::string(suffix) : configured;
 	};
 
-	if (!reportSaveStage(kSpawnStagePercent, wxstr(std::format("Saving spawns ({})...", otbm5 ? std::format("{}, {}", aux_name(map.getMonsterFilename(), "-monster.xml"), aux_name(map.getNpcFilename(), "-npc.xml")) : aux_name(map.getSpawnFilename(), "-spawn.xml"))))) {
+	const std::string spawn_files = otbm5
+		? std::format("{}, {}", aux_name(map.getMonsterFilename(), "-monster.xml"), aux_name(map.getNpcFilename(), "-npc.xml"))
+		: aux_name(map.getSpawnFilename(), "-spawn.xml");
+
+	if (!reportSaveStage(kSpawnStagePercent, wxstr(std::format("Saving spawns ({})...", spawn_files)))) {
 		return false;
 	}
-	if (!MapXMLIO::saveSpawns(map, identifier, shouldAbortSave)) {
+	// The spawn stage is the long one: it rescans the area of every spawn while
+	// it builds both files, so it reports which file it is on and how far it is.
+	int32_t last_spawn_percent = -1;
+	const auto on_spawn_progress = [&last_spawn_percent](const std::string& file, size_t done, size_t total) {
+		const int32_t percent = total == 0
+			? kSpawnStageEndPercent
+			: kSpawnStagePercent + static_cast<int32_t>(static_cast<int64_t>(kSpawnStageEndPercent - kSpawnStagePercent) * static_cast<int64_t>(done) / static_cast<int64_t>(total));
+		if (percent == last_spawn_percent) {
+			// The gauge moves in 1% steps; repainting in between shows nothing.
+			return;
+		}
+		last_spawn_percent = percent;
+		g_gui.SetLoadDone(percent, wxstr(std::format("Saving spawns ({})...", file)));
+	};
+
+	if (!MapXMLIO::saveSpawns(map, identifier, shouldAbortSave, on_spawn_progress)) {
 		spdlog::error("Failed to save spawns!");
 		return false;
 	}
