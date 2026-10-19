@@ -12,15 +12,17 @@
 
 #include <format>
 
-namespace {
-	enum MenuId { ID_LINK = wxID_HIGHEST + 1, ID_UNLINK, ID_KEEP_GROUND_BORDER };
-
-	wxString linkedStatus(const WallBrush* wall) {
-		return wxString::FromUTF8(std::format("Grounds now paint with wall: {}", wall->getName()));
-	}
-} // namespace
-
 namespace GroundWallLinkMenu {
+	// Kept inside GroundWallLinkMenu so unity builds can't clash with other
+	// files' file-local MenuId enums.
+	namespace {
+		enum MenuId { ID_LINK = wxID_HIGHEST + 1, ID_UNLINK, ID_KEEP_GROUND_BORDER };
+
+		wxString linkedStatus(const WallBrush* wall) {
+			return wxString::FromUTF8(std::format("Grounds now paint with wall: {}", wall->getName()));
+		}
+	} // namespace
+
 	bool show(wxWindow* parent, Brush* clicked) {
 		WallBrush* linked = g_ground_wall_link.linkedWall();
 		WallBrush* clicked_wall = (clicked && clicked->is<WallBrush>()) ? clicked->as<WallBrush>() : nullptr;
