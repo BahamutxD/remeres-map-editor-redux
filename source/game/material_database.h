@@ -40,6 +40,7 @@ class PaletteCatalog {
 public:
 	void clear();
 	void addDynamicPalette(DynamicPaletteDefinition palette);
+	void setTilesetBrushes(std::string_view paletteName, std::string_view tilesetName, std::vector<Brush*> brushes);
 	void prepareCreatureImportTargets();
 	[[nodiscard]] PaletteBrushRegistrationResult registerImportedCreatureBrush(Brush* brush, bool isNpc);
 

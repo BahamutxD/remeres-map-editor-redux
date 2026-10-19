@@ -31,7 +31,7 @@ namespace {
 }
 
 [[nodiscard]] bool paletteNameMatches(const PalettePanel* panel, std::string_view name) {
-	return panel && nstr(panel->GetName()) == name;
+	return panel && as_lower_str(nstr(panel->GetName())) == as_lower_str(std::string(name));
 }
 
 [[nodiscard]] wxWindow* choicebookPageAt(wxChoicebook* choicebook, int index) {
@@ -187,6 +187,25 @@ void PaletteWindow::ReloadDynamicPages() {
 	if (!choicebook) {
 		return;
 	}
+
+	for (const auto& palette : g_materials.paletteCatalog().dynamicPalettes()) {
+		bool found = false;
+		for (auto* panel : palette_pages) {
+			if (auto* brushPanel = dynamic_cast<BrushPalettePanel*>(panel)) {
+				if (as_lower_str(nstr(brushPanel->GetName())) == as_lower_str(palette.name)) {
+					found = true;
+					break;
+				}
+			}
+		}
+		if (!found) {
+			auto* panel = newd BrushPalettePanel(choicebook, palette);
+			panel->SetListType(dynamicBrushListType());
+			palette_pages.push_back(panel);
+			choicebook->AddPage(panel, panel->GetName());
+		}
+	}
+
 	for (auto* panel : palette_pages) {
 		if (auto* brushPanel = dynamic_cast<BrushPalettePanel*>(panel)) {
 			brushPanel->ReloadPages();

@@ -52,6 +52,36 @@ void PaletteCatalog::addDynamicPalette(DynamicPaletteDefinition palette) {
 	}
 }
 
+void PaletteCatalog::setTilesetBrushes(std::string_view paletteName, std::string_view tilesetName, std::vector<Brush*> brushes) {
+	auto it = std::ranges::find_if(palettes, [paletteName](const auto& existing) {
+		return as_lower_str(existing.name) == as_lower_str(std::string(paletteName));
+	});
+
+	if (it == palettes.end()) {
+		DynamicPaletteDefinition newPal;
+		newPal.name = std::string(paletteName);
+		DynamicTilesetDefinition newTileset;
+		newTileset.name = std::string(tilesetName);
+		newTileset.brushes = std::move(brushes);
+		newPal.tilesets.push_back(std::move(newTileset));
+		palettes.push_back(std::move(newPal));
+		return;
+	}
+
+	auto tilesetIt = std::ranges::find_if(it->tilesets, [tilesetName](const auto& existingTileset) {
+		return as_lower_str(existingTileset.name) == as_lower_str(std::string(tilesetName));
+	});
+
+	if (tilesetIt != it->tilesets.end()) {
+		tilesetIt->brushes = std::move(brushes);
+	} else {
+		DynamicTilesetDefinition newTileset;
+		newTileset.name = std::string(tilesetName);
+		newTileset.brushes = std::move(brushes);
+		it->tilesets.push_back(std::move(newTileset));
+	}
+}
+
 void PaletteCatalog::prepareCreatureImportTargets() {
 	auto paletteIt = std::ranges::find_if(palettes, [](const auto& palette) {
 		return as_lower_str(palette.name) == as_lower_str(std::string(CREATURE_PALETTE_NAME));

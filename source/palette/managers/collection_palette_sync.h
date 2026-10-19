@@ -21,9 +21,7 @@ public:
 	 */
 	static void Sync(
 		const std::string& tilesetName,
-		const std::filesystem::path& tilesetFilePath,
-		std::span<const uint16_t> itemIds,
-		std::span<Brush* const> brushes);
+		const std::filesystem::path& tilesetFilePath);
 };
 
 } // namespace rme::collection

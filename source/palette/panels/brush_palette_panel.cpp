@@ -697,8 +697,9 @@ bool BrushPalettePanel::SelectTileset(std::string_view tilesetName) {
 	if (!choicebook) {
 		return false;
 	}
+	std::string targetLower = as_lower_str(std::string(tilesetName));
 	for (size_t iz = 0; iz < choicebook->GetPageCount(); ++iz) {
-		if (choicebook->GetPageText(iz) == wxstr(tilesetName)) {
+		if (as_lower_str(nstr(choicebook->GetPageText(iz))) == targetLower) {
 			choicebook->SetSelection(iz);
 			LoadCurrentContents();
 			Layout();
@@ -721,7 +722,7 @@ void BrushPalettePanel::ReloadPages() {
 
 	const auto& palettes = g_materials.paletteCatalog().dynamicPalettes();
 	auto it = std::ranges::find_if(palettes, [this](const auto& pal) {
-		return pal.name == palette_name;
+		return as_lower_str(pal.name) == as_lower_str(palette_name);
 	});
 	if (it != palettes.end()) {
 		m_paletteDef = &(*it);
@@ -748,8 +749,9 @@ void BrushPalettePanel::ReloadPages() {
 	}
 
 	if (!currentTilesetName.empty()) {
+		std::string curLower = as_lower_str(nstr(currentTilesetName));
 		for (size_t iz = 0; iz < choicebook->GetPageCount(); ++iz) {
-			if (choicebook->GetPageText(iz) == currentTilesetName) {
+			if (as_lower_str(nstr(choicebook->GetPageText(iz))) == curLower) {
 				choicebook->SetSelection(iz);
 				break;
 			}
