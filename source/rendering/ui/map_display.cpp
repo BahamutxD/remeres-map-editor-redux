@@ -106,6 +106,8 @@ MapCanvas::MapCanvas(wxWindow* parent, Editor& editor, int* attriblist) :
 	last_click_y(-1),
 	last_mmb_click_x(-1),
 	last_mmb_click_y(-1) {
+	SetExtraStyle(wxWS_EX_PROCESS_IDLE);
+
 	// Enable the phase profiler when RME_PROFILE is set (see util/phase_profiler.h).
 	rme::prof::configureFromEnv();
 
@@ -171,6 +173,8 @@ void MapCanvas::QueueNativeRefresh(bool immediate) {
 	wxGLCanvas::Refresh();
 	if (immediate) {
 		wxGLCanvas::Update();
+	} else {
+		wxWakeUpIdle();
 	}
 }
 
