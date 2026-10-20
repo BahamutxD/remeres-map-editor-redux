@@ -4,6 +4,14 @@
 
 ---
 
+## Tooling & Build Workflow
+
+- **Primary Platform & Target**: **Windows x64** is the primary, canonical build and development target.
+- **Primary Build Tool**: Use `build_ninja.bat` from the repository root (e.g. `cmd /c build_ninja.bat`). It automatically sets up the MSVC toolchain, locates vcpkg dependencies, and drives Ninja to compile `build-ninja/rme.exe` and generate `compile_commands.json`.
+- For incremental builds, run `cmd /c build_ninja.bat`.
+
+---
+
 ## Priority Order
 
 When rules conflict, the higher one wins:
