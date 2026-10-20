@@ -117,6 +117,11 @@ void GraphicsAssembler::installAnimation(GameSprite& sprite, const DatCatalogEnt
 		// Pre-10.50 (7.x - 9.x) uniform 500ms pacing
 		data.shortest_step_ms = rme::rendering::ITEM_FRAME_DURATION;
 		data.total_duration_ms = static_cast<uint32_t>(data.frame_count) * rme::rendering::ITEM_FRAME_DURATION;
+		// In classic Tibia without duration headers, non-ground animated items (torches, campfires, fields)
+		// desynchronize per tile, while multi-pattern ground tiles (e.g. water) stay synchronous.
+		const bool is_ground = (entry.pattern_x > 1 || entry.pattern_y > 1);
+		data.is_async = !is_ground;
+		data.start_frame = data.is_async ? 255 : 0;
 	}
 
 	sprite.animation_data = std::move(data);

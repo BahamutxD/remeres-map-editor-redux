@@ -24,6 +24,7 @@
 #include "rendering/core/sprite_preloader.h"
 #include "util/phase_profiler.h"
 #include <thread>
+#include <bitset>
 #include "rendering/shaders/chunk_shader.h"
 #include "rendering/indicators/technical_item_registry.h"
 #include "rendering/core/render_depth.h"
@@ -868,12 +869,11 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 }
 
 bool ChunkCacheManager::refreshAnimatedFrames(CachedChunk& chunk, long elapsed_time) {
-	// ponytail: a chunk rarely holds more than a handful of distinct animated sprites, so a linear scan and a
-	// 64-bit changed mask are enough; chunks with more than 64 distinct animated sprites fall back to re-baking.
-	if (chunk.animated_sprites.size() > 64) {
+	// A 16x16 chunk has at most 256 tiles, so a 256-bit stack bitset covers every possible slot without dynamic allocation.
+	if (chunk.animated_sprites.size() > 256) {
 		return false;
 	}
-	uint64_t changed_slots = 0;
+	std::bitset<256> changed_slots;
 	for (size_t slot = 0; slot < chunk.animated_sprites.size(); ++slot) {
 		AnimatedSpriteFrame& entry = chunk.animated_sprites[slot];
 		if (!entry.sprite || !entry.sprite->isAnimated()) {
@@ -882,17 +882,17 @@ bool ChunkCacheManager::refreshAnimatedFrames(CachedChunk& chunk, long elapsed_t
 		const int frame = entry.sprite->getAnimationFrame(elapsed_time, entry.tile_x, entry.tile_y, entry.tile_z);
 		if (frame != entry.frame) {
 			entry.frame = frame;
-			changed_slots |= uint64_t { 1 } << slot;
+			changed_slots.set(slot);
 		}
 	}
-	if (changed_slots == 0) {
+	if (changed_slots.none()) {
 		return true;
 	}
 
 	size_t patch_begin = chunk.animated_shadow.size();
 	size_t patch_end = 0;
 	for (const AnimatedSpriteRun& run : chunk.animated_runs) {
-		if ((changed_slots & (uint64_t { 1 } << run.sprite_slot)) == 0) {
+		if (run.sprite_slot >= 256 || !changed_slots.test(run.sprite_slot)) {
 			continue;
 		}
 

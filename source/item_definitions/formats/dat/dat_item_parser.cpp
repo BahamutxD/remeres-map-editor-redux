@@ -252,11 +252,12 @@ namespace {
 
 		auto animation = DatAnimationInfo {};
 		if (catalog.has_frame_durations) {
-			uint8_t async = 0;
-			if (!file.getByte(async) || !file.get32(animation.loop_count) || !file.getSByte(animation.start_frame)) {
+			uint8_t async = 0, start = 0;
+			if (!file.getByte(async) || !file.get32(animation.loop_count) || !file.getByte(start)) {
 				return false;
 			}
-			animation.asynchronous = async == 1;
+			animation.asynchronous = (async == 0);
+			animation.start_frame = static_cast<int16_t>(start);
 			animation.frame_durations.reserve(frames);
 			for (uint8_t frame_index = 0; frame_index < frames; ++frame_index) {
 				DatAnimationFrameDuration duration;
