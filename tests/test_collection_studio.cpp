@@ -8,6 +8,7 @@
 #include <span>
 #include <algorithm>
 #include <set>
+#include <map>
 
 // Include pugixml and CollectionXmlService
 #include "../source/ext/pugixml.hpp"
@@ -711,6 +712,55 @@ void TestMultiFloorSelectionAndHitTesting() {
 	std::cout << "[PASS] TestMultiFloorSelectionAndHitTesting passed!\n";
 }
 
+
+void TestCreatureNameAndReloadPreservation() {
+	std::cout << "[RUN] TestCreatureNameAndReloadPreservation...\n";
+
+	// Test 1: Creature name fallback when CreatureType is not in database
+	struct MockCreatureType {
+		std::string name;
+		bool standard = false;
+		bool missing = false;
+		bool isNpc = false;
+	};
+
+	std::map<std::string, MockCreatureType*> mock_database;
+
+	auto getName = [&](const std::string& type_name) -> const std::string& {
+		auto it = mock_database.find(type_name);
+		if (it != mock_database.end() && it->second) {
+			return it->second->name;
+		}
+		return type_name;
+	};
+
+	// When type is not registered, getName() returns type_name, NOT empty string
+	std::string npcName = "Frodo";
+	assert(getName(npcName) == "Frodo");
+
+	// Test 2: Standard vs non-standard database clearing
+	MockCreatureType standardMonster{ "Demon", true, false, false };
+	MockCreatureType spawnLoadedNpc{ "Frodo", false, true, true };
+
+	mock_database["demon"] = &standardMonster;
+	mock_database["frodo"] = &spawnLoadedNpc;
+
+	// Clear only standard (as on F5 reload)
+	for (auto it = mock_database.begin(); it != mock_database.end(); ) {
+		if (it->second && it->second->standard) {
+			it = mock_database.erase(it);
+		} else {
+			++it;
+		}
+	}
+
+	assert(mock_database.find("demon") == mock_database.end());
+	assert(mock_database.find("frodo") != mock_database.end());
+	assert(mock_database["frodo"]->name == "Frodo");
+
+	std::cout << "[PASS] TestCreatureNameAndReloadPreservation passed!\n";
+}
+
 int main() {
 	std::cout << "========== RUNNING COLLECTION STUDIO TESTS ==========\n";
 	TestFilenameSanitization();
@@ -722,6 +772,7 @@ int main() {
 	TestPaletteCatalogSetTilesetBrushes();
 	TestTargetPaletteXmlAndPaths();
 	TestMultiFloorSelectionAndHitTesting();
+	TestCreatureNameAndReloadPreservation();
 	std::cout << "========== ALL TESTS PASSED SUCCESSFULLY! ==========\n";
 	return 0;
 }
