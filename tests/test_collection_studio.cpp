@@ -287,10 +287,31 @@ void TestPalettesXmlIncludeSync() {
 
 		std::string incRelPath = "tilesets/collections/MyDungeon.xml";
 		bool alreadyIncluded = false;
+		std::string normIncludeRel = incRelPath;
+		std::ranges::transform(normIncludeRel, normIncludeRel.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+		std::replace(normIncludeRel.begin(), normIncludeRel.end(), '\\', '/');
+
 		for (pugi::xml_node inc = tilesetNode.child("include"); inc; inc = inc.next_sibling("include")) {
-			if (std::string(inc.attribute("file").as_string()) == incRelPath) {
-				alreadyIncluded = true;
-				break;
+			std::string existingFolder = inc.attribute("folder").as_string();
+			if (!existingFolder.empty()) {
+				std::string normFolder = existingFolder;
+				std::ranges::transform(normFolder, normFolder.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+				std::replace(normFolder.begin(), normFolder.end(), '\\', '/');
+				if (!normFolder.empty() && normFolder.back() != '/') normFolder += '/';
+				if (normIncludeRel.starts_with(normFolder)) {
+					alreadyIncluded = true;
+					break;
+				}
+			}
+			std::string existingFile = inc.attribute("file").as_string();
+			if (!existingFile.empty()) {
+				std::string normExisting = existingFile;
+				std::ranges::transform(normExisting, normExisting.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+				std::replace(normExisting.begin(), normExisting.end(), '\\', '/');
+				if (normExisting == normIncludeRel) {
+					alreadyIncluded = true;
+					break;
+				}
 			}
 		}
 		assert(!alreadyIncluded);
@@ -325,6 +346,43 @@ void TestPalettesXmlIncludeSync() {
 		assert(count == 1);
 	}
 
+	// Verify that a folder include <include folder="tilesets/collections/" /> covers files
+	{
+		pugi::xml_document doc;
+		assert(doc.load_file(tempPalettesPath.wstring().c_str()));
+		pugi::xml_node root = doc.child("palettes");
+		pugi::xml_node collectionPal = root.child("palette");
+		while (collectionPal && std::string(collectionPal.attribute("name").as_string()) != "Collection") {
+			collectionPal = collectionPal.next_sibling("palette");
+		}
+		pugi::xml_node tilesetNode = collectionPal.child("tileset");
+		tilesetNode.remove_child("include"); // Clear file include
+		pugi::xml_node folderInc = tilesetNode.append_child("include");
+		folderInc.append_attribute("folder").set_value("tilesets/collections/");
+		folderInc.append_attribute("subfolders").set_value("true");
+
+		std::string incRelPath = "tilesets/collections/NewSet.xml";
+		bool covered = false;
+		std::string normIncludeRel = incRelPath;
+		std::ranges::transform(normIncludeRel, normIncludeRel.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+		std::replace(normIncludeRel.begin(), normIncludeRel.end(), '\\', '/');
+
+		for (pugi::xml_node inc = tilesetNode.child("include"); inc; inc = inc.next_sibling("include")) {
+			std::string existingFolder = inc.attribute("folder").as_string();
+			if (!existingFolder.empty()) {
+				std::string normFolder = existingFolder;
+				std::ranges::transform(normFolder, normFolder.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+				std::replace(normFolder.begin(), normFolder.end(), '\\', '/');
+				if (!normFolder.empty() && normFolder.back() != '/') normFolder += '/';
+				if (normIncludeRel.starts_with(normFolder)) {
+					covered = true;
+					break;
+				}
+			}
+		}
+		assert(covered);
+	}
+
 	// Clean up
 	std::filesystem::remove(tempPalettesPath);
 	std::cout << "[PASS] TestPalettesXmlIncludeSync passed!\n";
@@ -335,15 +393,23 @@ void TestMaterialDatabaseSources() {
 
 	std::vector<std::string> sources;
 
-	auto addSource = [&sources](std::string key) {
+	auto normalizeKey = [](std::string key) -> std::string {
+		std::ranges::transform(key, key.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+		std::replace(key.begin(), key.end(), '\\', '/');
+		return key;
+	};
+
+	auto addSource = [&sources, &normalizeKey](std::string key) {
+		key = normalizeKey(std::move(key));
 		auto it = std::ranges::lower_bound(sources, key);
 		if (it == sources.end() || *it != key) {
 			sources.insert(it, std::move(key));
 		}
 	};
 
-	auto isKnown = [&sources](std::string_view key) -> bool {
-		return std::ranges::binary_search(sources, key);
+	auto isKnown = [&sources, &normalizeKey](std::string_view key) -> bool {
+		std::string normKey = normalizeKey(std::string(key));
+		return std::ranges::binary_search(sources, normKey);
 	};
 
 	addSource("data/1098/tilesets/terrain/Nature.xml");
@@ -353,12 +419,20 @@ void TestMaterialDatabaseSources() {
 	assert(sources.size() == 3);
 	assert(std::ranges::is_sorted(sources));
 
+	// Case-insensitive checks
 	assert(isKnown("data/1098/tilesets/collections/Custom_1.xml"));
-	assert(isKnown("data/1098/tilesets/terrain/Nature.xml"));
+	assert(isKnown("DATA/1098/TILESETS/COLLECTIONS/CUSTOM_1.XML"));
+	assert(isKnown("data/1098/tilesets/collections/custom_1.xml"));
+
+	// Windows backslash vs forward slash checks
+	assert(isKnown("data\\1098\\tilesets\\collections\\Custom_1.xml"));
+	assert(isKnown("DATA\\1098\\TILESETS\\terrain\\Nature.xml"));
+
+	// Non-existent
 	assert(!isKnown("data/1098/tilesets/collections/NonExistent.xml"));
 
-	// Duplicate add
-	addSource("data/1098/tilesets/collections/Custom_1.xml");
+	// Duplicate add with different slashes and casing
+	addSource("DATA\\1098\\tilesets\\collections\\CUSTOM_1.xml");
 	assert(sources.size() == 3);
 	assert(std::ranges::is_sorted(sources));
 

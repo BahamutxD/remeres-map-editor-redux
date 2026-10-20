@@ -174,11 +174,17 @@ void MaterialDatabase::bindSourceTruth(Brushes& brushRegistry, ItemDefinitionSto
 
 void MaterialDatabase::setTilesetSources(std::vector<std::string> sources) {
 	tileset_sources = std::move(sources);
+	for (auto& s : tileset_sources) {
+		std::ranges::transform(s, s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+		std::replace(s.begin(), s.end(), '\\', '/');
+	}
 	std::ranges::sort(tileset_sources);
 	tileset_sources.erase(std::ranges::unique(tileset_sources).begin(), tileset_sources.end());
 }
 
 void MaterialDatabase::addTilesetSource(std::string key) {
+	std::ranges::transform(key, key.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+	std::replace(key.begin(), key.end(), '\\', '/');
 	auto it = std::ranges::lower_bound(tileset_sources, key);
 	if (it == tileset_sources.end() || *it != key) {
 		tileset_sources.insert(it, std::move(key));
@@ -205,5 +211,8 @@ bool MaterialDatabase::hasSourceTruth() const {
 }
 
 bool MaterialDatabase::isKnownTilesetSource(std::string_view source) const {
-	return std::ranges::binary_search(tileset_sources, source);
+	std::string key(source);
+	std::ranges::transform(key, key.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+	std::replace(key.begin(), key.end(), '\\', '/');
+	return std::ranges::binary_search(tileset_sources, key);
 }

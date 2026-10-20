@@ -37,7 +37,11 @@ Materials g_materials;
 
 namespace {
 	[[nodiscard]] std::string tilesetSourceKey(const FileName& file) {
-		return file.GetFullPath().ToStdString();
+		FileName fn = file;
+		fn.Normalize(wxPATH_NORM_ALL);
+		wxString s = fn.GetFullPath();
+		s.Replace("\\", "/");
+		return s.Lower().ToStdString();
 	}
 }
 
@@ -440,8 +444,7 @@ bool Materials::loadTilesetInclude(const FileName& manifest, pugi::xml_node incl
 	if (const auto folderAttribute = includeNode.attribute("folder")) {
 		FileName folder = MaterialIncludeResolver::resolveRelativeFolder(manifest, folderAttribute.as_string());
 		if (!folder.DirExists()) {
-			error = "Missing tileset include folder: " + folder.GetFullPath();
-			return false;
+			return true;
 		}
 		for (const FileName& file : MaterialIncludeResolver::collectXmlFiles(folder, includeNode.attribute("subfolders").as_bool(false))) {
 			if (!database.isKnownTilesetSource(tilesetSourceKey(file))) {
@@ -494,6 +497,7 @@ bool Materials::loadDynamicTilesetFile(const FileName& filename, DynamicPaletteD
 		targetTileset->name = tilesetName;
 	}
 
+	const bool isCollection = as_lower_str(palette.name) == "collection";
 	for (pugi::xml_node childNode = root.first_child(); childNode; childNode = childNode.next_sibling()) {
 		const std::string childName = as_lower_str(childNode.name());
 		if (childName == "brush") {
@@ -502,6 +506,15 @@ bool Materials::loadDynamicTilesetFile(const FileName& filename, DynamicPaletteD
 			loadTilesetItemEntry(childNode, *targetTileset, warnings, *this);
 		} else if (childName == "creature") {
 			loadTilesetCreatureEntry(childNode, *targetTileset, warnings, *this);
+		}
+	}
+
+	if (isCollection) {
+		for (Brush* b : targetTileset->brushes) {
+			if (b) {
+				b->flagAsVisible();
+				b->setCollection();
+			}
 		}
 	}
 

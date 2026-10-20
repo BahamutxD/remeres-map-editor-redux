@@ -168,6 +168,28 @@ std::vector<std::string> CollectionXmlService::GetExistingTilesetNamesForPalette
 					for (pugi::xml_node tilesetNode = palNode.child("tileset"); tilesetNode; tilesetNode = tilesetNode.next_sibling("tileset")) {
 						for (pugi::xml_node incNode = tilesetNode.child("include"); incNode; incNode = incNode.next_sibling("include")) {
 							std::string relPath = incNode.attribute("file").as_string();
+							std::string folderPath = incNode.attribute("folder").as_string();
+							if (!folderPath.empty()) {
+								std::filesystem::path fullFolder = palettesPath.parent_path() / folderPath;
+								if (std::filesystem::exists(fullFolder, ec) && std::filesystem::is_directory(fullFolder, ec)) {
+									for (const auto& entry : std::filesystem::directory_iterator(fullFolder, ec)) {
+										if (entry.is_regular_file() && entry.path().extension() == ".xml") {
+											pugi::xml_document incDoc;
+											if (incDoc.load_file(entry.path().wstring().c_str())) {
+												pugi::xml_node tNode = incDoc.child("tileset");
+												if (tNode && tNode.attribute("name")) {
+													std::string name = tNode.attribute("name").as_string();
+													if (!name.empty()) {
+														uniqueNames.insert(std::move(name));
+														continue;
+													}
+												}
+											}
+											uniqueNames.insert(entry.path().stem().string());
+										}
+									}
+								}
+							}
 							if (!relPath.empty()) {
 								std::filesystem::path fullPath = palettesPath.parent_path() / relPath;
 								if (std::filesystem::exists(fullPath, ec)) {
@@ -369,13 +391,32 @@ bool CollectionXmlService::EnsurePaletteInclude(
 			tilesetNode = targetPal.append_child("tileset");
 		}
 
-		// Check if include already present
+		// Check if include already present (as file or via parent folder include)
 		bool alreadyIncluded = false;
+		std::string normIncludeRel = as_lower_str(includeRelPath);
+		std::replace(normIncludeRel.begin(), normIncludeRel.end(), '\\', '/');
+
 		for (pugi::xml_node inc = tilesetNode.child("include"); inc; inc = inc.next_sibling("include")) {
+			std::string existingFolder = inc.attribute("folder").as_string();
+			if (!existingFolder.empty()) {
+				std::string normFolder = as_lower_str(existingFolder);
+				std::replace(normFolder.begin(), normFolder.end(), '\\', '/');
+				if (!normFolder.empty() && normFolder.back() != '/') {
+					normFolder += '/';
+				}
+				if (normIncludeRel.starts_with(normFolder)) {
+					alreadyIncluded = true;
+					break;
+				}
+			}
 			std::string existingFile = inc.attribute("file").as_string();
-			if (as_lower_str(std::filesystem::path(existingFile).generic_string()) == as_lower_str(includeRelPath)) {
-				alreadyIncluded = true;
-				break;
+			if (!existingFile.empty()) {
+				std::string normExisting = as_lower_str(existingFile);
+				std::replace(normExisting.begin(), normExisting.end(), '\\', '/');
+				if (normExisting == normIncludeRel) {
+					alreadyIncluded = true;
+					break;
+				}
 			}
 		}
 
