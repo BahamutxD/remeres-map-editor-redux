@@ -211,13 +211,7 @@ void MapCanvas::RequestAnimationRepaint() {
 		return;
 	}
 
-	const auto now = std::chrono::steady_clock::now();
-	const auto refresh_interval = std::chrono::milliseconds(GetAnimationRefreshIntervalMs());
-	if (last_animation_refresh_time_ != std::chrono::steady_clock::time_point{} && now - last_animation_refresh_time_ < refresh_interval) {
-		return;
-	}
-
-	last_animation_refresh_time_ = now;
+	last_animation_refresh_time_ = std::chrono::steady_clock::now();
 	RequestLocalRefresh();
 }
 
