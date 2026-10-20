@@ -391,24 +391,12 @@ bool CollectionXmlService::EnsurePaletteInclude(
 			tilesetNode = targetPal.append_child("tileset");
 		}
 
-		// Check if include already present (as file or via parent folder include)
+		// Check if explicit include file is already present
 		bool alreadyIncluded = false;
 		std::string normIncludeRel = as_lower_str(includeRelPath);
 		std::replace(normIncludeRel.begin(), normIncludeRel.end(), '\\', '/');
 
 		for (pugi::xml_node inc = tilesetNode.child("include"); inc; inc = inc.next_sibling("include")) {
-			std::string existingFolder = inc.attribute("folder").as_string();
-			if (!existingFolder.empty()) {
-				std::string normFolder = as_lower_str(existingFolder);
-				std::replace(normFolder.begin(), normFolder.end(), '\\', '/');
-				if (!normFolder.empty() && normFolder.back() != '/') {
-					normFolder += '/';
-				}
-				if (normIncludeRel.starts_with(normFolder)) {
-					alreadyIncluded = true;
-					break;
-				}
-			}
 			std::string existingFile = inc.attribute("file").as_string();
 			if (!existingFile.empty()) {
 				std::string normExisting = as_lower_str(existingFile);

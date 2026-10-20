@@ -97,7 +97,10 @@ void FileMenuHandler::OnExportMinimap(wxCommandEvent& WXUNUSED(event)) {
 void FileMenuHandler::OnReloadDataFiles(wxCommandEvent& WXUNUSED(event)) {
 	wxString error;
 	std::vector<std::string> warnings;
+	g_gui.ReleaseAllChunkCaches();
 	g_version.LoadVersion(g_version.GetCurrentVersionID(), error, warnings, true);
+	g_gui.ReleaseAllChunkCaches();
+	g_palettes.ReloadDynamicPalettes();
 	DialogUtil::PopupDialog("Error", error, wxOK);
 	DialogUtil::ListDialog("Warnings", warnings);
 }

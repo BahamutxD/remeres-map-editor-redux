@@ -128,8 +128,19 @@ CollectionStagingContent CollectionExtractorService::ExtractFromSelection(Editor
 		if (b->getName().empty()) {
 			continue;
 		}
-		// Filter out raw, eraser, and spawn brushes
-		if (b->is<RAWBrush>() || b->is<EraserBrush>() || b->is<SpawnBrush>() || b->getName() == "SPAWN") {
+		// Filter out raw, eraser, spawn, and technical/meta brushes
+		auto to_lower_str = [](std::string_view s) {
+			std::string result;
+			result.reserve(s.size());
+			for (char c : s) {
+				result.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+			}
+			return result;
+		};
+		std::string lowerName = to_lower_str(b->getName());
+		if (b->is<RAWBrush>() || b->is<EraserBrush>() || b->is<SpawnBrush>() ||
+			b == g_brush_manager.spawn_brush || b == g_brush_manager.eraser ||
+			lowerName == "spawn" || lowerName == "spawn brush" || lowerName.find("spawn") != std::string::npos) {
 			continue;
 		}
 		content.brushes.push_back(b);

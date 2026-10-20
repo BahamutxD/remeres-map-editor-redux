@@ -260,6 +260,9 @@ BrushPalettePanel::BrushPalettePanel(wxWindow* parent, const DynamicPaletteDefin
 	SetSizerAndFit(topsizer);
 
 	choicebook = tmp_choicebook;
+	if (choicebook && choicebook->GetPageCount() > 0 && choicebook->GetSelection() == wxNOT_FOUND) {
+		choicebook->SetSelection(0);
+	}
 	ApplyFilter();
 }
 
@@ -814,6 +817,10 @@ void BrushPalettePanel::ReloadPages() {
 				break;
 			}
 		}
+	}
+
+	if (choicebook->GetPageCount() > 0 && choicebook->GetSelection() == wxNOT_FOUND) {
+		choicebook->SetSelection(0);
 	}
 
 	ApplyFilter();

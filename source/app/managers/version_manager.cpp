@@ -154,6 +154,9 @@ bool VersionManager::LoadDataFiles(wxString& error, std::vector<std::string>& wa
 	g_brushes.init();
 	g_materials.ensureAllRawBrushes();
 
+	g_gui.ReleaseAllChunkCaches();
+	g_palettes.ReloadDynamicPalettes();
+
 	g_loading.DestroyLoadBar();
 	return true;
 }
@@ -269,6 +272,7 @@ bool VersionManager::LoadModularMaterials(const FileName& materials_manifest, wx
 
 void VersionManager::UnloadVersion() {
 	UnnamedRenderingLock();
+	g_gui.ReleaseAllChunkCaches();
 	g_gui.gfx.clear();
 	if (g_gui.tool_options) {
 		g_gui.tool_options->Clear();
