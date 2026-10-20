@@ -286,16 +286,22 @@ void CollectionStudioWindow::UndoDiscard() {
 		break;
 	}
 	case DiscardAction::Kind::ClearItems: {
-		m_staging.itemIds = std::move(act.savedItems);
+		rme::collection::CollectionStagingContent restored;
+		restored.itemIds = std::move(act.savedItems);
+		m_staging.Merge(restored);
 		break;
 	}
 	case DiscardAction::Kind::ClearBrushes: {
-		m_staging.brushes = std::move(act.savedBrushes);
+		rme::collection::CollectionStagingContent restored;
+		restored.brushes = std::move(act.savedBrushes);
+		m_staging.Merge(restored);
 		break;
 	}
 	case DiscardAction::Kind::ClearAll: {
-		m_staging.itemIds = std::move(act.savedItems);
-		m_staging.brushes = std::move(act.savedBrushes);
+		rme::collection::CollectionStagingContent restored;
+		restored.itemIds = std::move(act.savedItems);
+		restored.brushes = std::move(act.savedBrushes);
+		m_staging.Merge(restored);
 		break;
 	}
 	}

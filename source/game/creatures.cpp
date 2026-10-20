@@ -416,7 +416,7 @@ bool CreatureDatabase::loadFromXML(const FileName& filename, bool standard, wxSt
 			creatureType->standard = standard;
 			CreatureType* existing = (*this)[creatureType->name];
 			if (existing) {
-				if (existing->missing) {
+				if (existing->missing || (!existing->standard && standard)) {
 					delete existing;
 					creature_map[as_lower_str(creatureType->name)] = creatureType;
 				} else {

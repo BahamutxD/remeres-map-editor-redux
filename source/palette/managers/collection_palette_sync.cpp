@@ -48,6 +48,17 @@ void CollectionPaletteSync::Sync(
 							activeBrushes.push_back(b);
 						}
 					}
+				} else if (tag == "creature") {
+					std::string cname = child.attribute("name").as_string();
+					if (CreatureType* ct = g_creatures[cname]) {
+						if (CreatureBrush* cb = g_materials.ensureCreatureBrush(ct)) {
+							cb->flagAsVisible();
+							cb->setCollection();
+							if (std::ranges::find(activeBrushes, cb) == activeBrushes.end()) {
+								activeBrushes.push_back(cb);
+							}
+						}
+					}
 				} else if (tag == "item") {
 					uint32_t fromId = 0;
 					uint32_t toId = 0;

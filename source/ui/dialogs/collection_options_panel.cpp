@@ -207,8 +207,9 @@ void CollectionOptionsPanel::OnPaletteChanged(wxCommandEvent&) {
 	RefreshExistingTilesets();
 	m_nameInput->SetValue(wxstr(GenerateDefaultTilesetName()));
 	std::string pal = GetTargetPaletteName();
-	m_saveBtn->SetLabel(wxString::Format("&Save to %s", wxstr(pal)));
+	m_saveBtn->SetLabel(wxString::Format("&Add to %s", wxstr(pal)));
 	UpdateFilePreview();
+	Layout();
 }
 
 std::string CollectionOptionsPanel::GenerateDefaultTilesetName() const {

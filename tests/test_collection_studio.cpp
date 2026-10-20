@@ -779,6 +779,25 @@ void TestCreatureNameAndReloadPreservation() {
 	TEST_ASSERT(mock_database.find("frodo") != mock_database.end());
 	TEST_ASSERT(mock_database["frodo"]->name == "Frodo");
 
+	// Test 3: Standard creature superseding retained non-standard creature
+	MockCreatureType dummyNpc{ "Frodo", false, true, true }; // non-standard from spawn
+	mock_database["frodo"] = &dummyNpc;
+	MockCreatureType officialNpc{ "Frodo (Official)", true, true, false }; // standard from npcs.xml
+
+	auto loadCreature = [&](MockCreatureType* ct, bool isStandard) {
+		auto it = mock_database.find("frodo");
+		if (it != mock_database.end()) {
+			if (it->second->missing || (!it->second->standard && isStandard)) {
+				mock_database["frodo"] = ct;
+			}
+		} else {
+			mock_database["frodo"] = ct;
+		}
+	};
+	loadCreature(&officialNpc, true);
+	TEST_ASSERT(mock_database["frodo"]->name == "Frodo (Official)");
+	TEST_ASSERT(mock_database["frodo"]->standard == true);
+
 	std::cout << "[PASS] TestCreatureNameAndReloadPreservation passed!\n";
 }
 
@@ -867,16 +886,23 @@ void TestDiscardUndoRedo() {
 	}
 	TEST_ASSERT(staging.Empty());
 
-	// Undo Action 3 (Clear All)
+	// Simulate user adding an item while empty:
+	staging.itemIds.push_back(999);
+
+	// Undo Action 3 (Clear All) - must MERGE, preserving item 999!
 	{
 		TEST_ASSERT(!undoStack.empty());
 		auto act = std::move(undoStack.back());
 		undoStack.pop_back();
-		staging.itemIds = std::move(act.savedItems);
-		staging.brushes = std::move(act.savedBrushes);
+		TestStagingContent restored;
+		restored.itemIds = std::move(act.savedItems);
+		restored.brushes = std::move(act.savedBrushes);
+		staging.Merge(restored);
 		redoStack.push_back(std::move(act));
 	}
-	TEST_ASSERT(staging.itemIds.size() == 2);
+	TEST_ASSERT(staging.itemIds.size() == 3);
+	TEST_ASSERT(std::find(staging.itemIds.begin(), staging.itemIds.end(), 999) != staging.itemIds.end());
+	TEST_ASSERT(std::find(staging.itemIds.begin(), staging.itemIds.end(), 100) != staging.itemIds.end());
 	TEST_ASSERT(staging.brushes.size() == 2);
 
 	std::cout << "[PASS] TestDiscardUndoRedo passed!\n";
