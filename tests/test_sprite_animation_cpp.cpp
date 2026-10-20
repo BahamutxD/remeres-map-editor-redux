@@ -1,11 +1,20 @@
-#include <cassert>
 #include <chrono>
 #include <cstdint>
+#include <cstdlib>
 #include <iostream>
 #include <thread>
 #include <vector>
 
 #include "rendering/core/sprite_animation.h"
+
+#define TEST_CHECK(expr) \
+	do { \
+		if (!(expr)) { \
+			std::cerr << "Assertion failed at " << __FILE__ << ":" << __LINE__ \
+			          << " (" #expr ")" << std::endl; \
+			std::exit(1); \
+		} \
+	} while (false)
 
 using namespace rme::rendering;
 
@@ -21,17 +30,17 @@ void test_uniform_forward_loop() {
 	data.total_duration_ms = 2000;
 
 	// Frame changes every 500ms: 0, 1, 2, 3, 0, 1...
-	assert(SpriteAnimation::getFrame(data, 0) == 0);
-	assert(SpriteAnimation::getFrame(data, 250) == 0);
-	assert(SpriteAnimation::getFrame(data, 499) == 0);
-	assert(SpriteAnimation::getFrame(data, 500) == 1);
-	assert(SpriteAnimation::getFrame(data, 999) == 1);
-	assert(SpriteAnimation::getFrame(data, 1000) == 2);
-	assert(SpriteAnimation::getFrame(data, 1499) == 2);
-	assert(SpriteAnimation::getFrame(data, 1500) == 3);
-	assert(SpriteAnimation::getFrame(data, 1999) == 3);
-	assert(SpriteAnimation::getFrame(data, 2000) == 0);
-	assert(SpriteAnimation::getFrame(data, 2500) == 1);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 0) == 0);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 250) == 0);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 499) == 0);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 500) == 1);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 999) == 1);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 1000) == 2);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 1499) == 2);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 1500) == 3);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 1999) == 3);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 2000) == 0);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 2500) == 1);
 
 	std::cout << "  OK" << std::endl;
 }
@@ -52,15 +61,15 @@ void test_custom_durations_forward_loop() {
 	data.total_duration_ms = 1000;
 	data.shortest_step_ms = 100;
 
-	assert(SpriteAnimation::getFrame(data, 0) == 0);
-	assert(SpriteAnimation::getFrame(data, 99) == 0);
-	assert(SpriteAnimation::getFrame(data, 100) == 1);
-	assert(SpriteAnimation::getFrame(data, 399) == 1);
-	assert(SpriteAnimation::getFrame(data, 400) == 2);
-	assert(SpriteAnimation::getFrame(data, 999) == 2);
-	assert(SpriteAnimation::getFrame(data, 1000) == 0);
-	assert(SpriteAnimation::getFrame(data, 1050) == 0);
-	assert(SpriteAnimation::getFrame(data, 1100) == 1);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 0) == 0);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 99) == 0);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 100) == 1);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 399) == 1);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 400) == 2);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 999) == 2);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 1000) == 0);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 1050) == 0);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 1100) == 1);
 
 	std::cout << "  OK" << std::endl;
 }
@@ -75,14 +84,14 @@ void test_ping_pong_uniform() {
 	data.is_async = false;
 
 	// Frames sequence: 0, 1, 2, 3, 2, 1 -> repeats every 6 ticks (3000ms)
-	assert(SpriteAnimation::getFrame(data, 0) == 0);
-	assert(SpriteAnimation::getFrame(data, 500) == 1);
-	assert(SpriteAnimation::getFrame(data, 1000) == 2);
-	assert(SpriteAnimation::getFrame(data, 1500) == 3);
-	assert(SpriteAnimation::getFrame(data, 2000) == 2);
-	assert(SpriteAnimation::getFrame(data, 2500) == 1);
-	assert(SpriteAnimation::getFrame(data, 3000) == 0);
-	assert(SpriteAnimation::getFrame(data, 3500) == 1);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 0) == 0);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 500) == 1);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 1000) == 2);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 1500) == 3);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 2000) == 2);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 2500) == 1);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 3000) == 0);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 3500) == 1);
 
 	std::cout << "  OK" << std::endl;
 }
@@ -107,20 +116,20 @@ void test_ping_pong_variable_durations() {
 	data.shortest_step_ms = 100;
 
 	// 0..99ms -> Phase 0
-	assert(SpriteAnimation::getFrame(data, 0) == 0);
-	assert(SpriteAnimation::getFrame(data, 50) == 0);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 0) == 0);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 50) == 0);
 	// 100..299ms -> Phase 1
-	assert(SpriteAnimation::getFrame(data, 100) == 1);
-	assert(SpriteAnimation::getFrame(data, 250) == 1);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 100) == 1);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 250) == 1);
 	// 300..599ms -> Phase 2
-	assert(SpriteAnimation::getFrame(data, 300) == 2);
-	assert(SpriteAnimation::getFrame(data, 550) == 2);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 300) == 2);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 550) == 2);
 	// 600..799ms -> Phase 1 (rebound)
-	assert(SpriteAnimation::getFrame(data, 600) == 1);
-	assert(SpriteAnimation::getFrame(data, 750) == 1);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 600) == 1);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 750) == 1);
 	// 800ms -> Phase 0 (cycle restart)
-	assert(SpriteAnimation::getFrame(data, 800) == 0);
-	assert(SpriteAnimation::getFrame(data, 900) == 1);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 800) == 0);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 900) == 1);
 
 	std::cout << "  OK" << std::endl;
 }
@@ -140,14 +149,130 @@ void test_spatial_async_desynchronization() {
 	const int frame_tile3 = SpriteAnimation::getFrame(data, 0, 100, 101, 7);
 
 	// tile1 offset: (100*17 + 100*31 + 7*7) % 4 = (1700 + 3100 + 49) % 4 = 4849 % 4 = 1
-	assert(frame_tile1 == 1);
+	TEST_CHECK(frame_tile1 == 1);
 	// tile2 offset: (101*17 + 100*31 + 49) % 4 = 4866 % 4 = 2
-	assert(frame_tile2 == 2);
+	TEST_CHECK(frame_tile2 == 2);
 	// tile3 offset: (100*17 + 101*31 + 49) % 4 = 4880 % 4 = 0
-	assert(frame_tile3 == 0);
+	TEST_CHECK(frame_tile3 == 0);
 
 	// Verify that advancing time advances all tiles deterministically
-	assert(SpriteAnimation::getFrame(data, 500, 100, 100, 7) == (frame_tile1 + 1) % 4);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 500, 100, 100, 7) == (frame_tile1 + 1) % 4);
+
+	std::cout << "  OK" << std::endl;
+}
+
+void test_finite_loop_termination() {
+	std::cout << "[Test] Finite loop count termination..." << std::endl;
+
+	// Uniform mode: 3 frames, loop_count = 2 (total 6 ticks = 3000ms)
+	SpriteAnimationData uniform_data;
+	uniform_data.frame_count = 3;
+	uniform_data.loop_count = 2;
+	uniform_data.start_frame = 0;
+	uniform_data.is_async = false;
+
+	TEST_CHECK(SpriteAnimation::getFrame(uniform_data, 0) == 0);
+	TEST_CHECK(SpriteAnimation::getFrame(uniform_data, 500) == 1);
+	TEST_CHECK(SpriteAnimation::getFrame(uniform_data, 1000) == 2);
+	TEST_CHECK(SpriteAnimation::getFrame(uniform_data, 1500) == 0);
+	TEST_CHECK(SpriteAnimation::getFrame(uniform_data, 2000) == 1);
+	TEST_CHECK(SpriteAnimation::getFrame(uniform_data, 2500) == 2);
+	// At and beyond 3000ms (2 loops * 3 frames * 500ms), must hold terminal frame 2
+	TEST_CHECK(SpriteAnimation::getFrame(uniform_data, 3000) == 2);
+	TEST_CHECK(SpriteAnimation::getFrame(uniform_data, 5000) == 2);
+	TEST_CHECK(SpriteAnimation::getFrame(uniform_data, 50000) == 2);
+
+	// Variable duration mode: 2 frames (100ms, 200ms -> cycle = 300ms), loop_count = 3 (total 900ms)
+	SpriteAnimationData var_data;
+	var_data.frame_count = 2;
+	var_data.loop_count = 3;
+	var_data.start_frame = 0;
+	var_data.is_async = false;
+	var_data.durations.push_back(AnimationDuration { 100, 100 });
+	var_data.durations.push_back(AnimationDuration { 200, 200 });
+	var_data.total_duration_ms = 300;
+
+	TEST_CHECK(SpriteAnimation::getFrame(var_data, 0) == 0);
+	TEST_CHECK(SpriteAnimation::getFrame(var_data, 99) == 0);
+	TEST_CHECK(SpriteAnimation::getFrame(var_data, 100) == 1);
+	TEST_CHECK(SpriteAnimation::getFrame(var_data, 299) == 1);
+	TEST_CHECK(SpriteAnimation::getFrame(var_data, 300) == 0);
+	TEST_CHECK(SpriteAnimation::getFrame(var_data, 600) == 0);
+	TEST_CHECK(SpriteAnimation::getFrame(var_data, 700) == 1);
+	// At and beyond 900ms (3 * 300ms), must hold terminal frame 1
+	TEST_CHECK(SpriteAnimation::getFrame(var_data, 900) == 1);
+	TEST_CHECK(SpriteAnimation::getFrame(var_data, 1500) == 1);
+	TEST_CHECK(SpriteAnimation::getFrame(var_data, 10000) == 1);
+
+	std::cout << "  OK" << std::endl;
+}
+
+void test_ping_pong_more_than_32_phases() {
+	std::cout << "[Test] Ping-pong animation with > 32 duration phases (unbounded)..." << std::endl;
+
+	SpriteAnimationData data;
+	data.frame_count = 40;
+	data.loop_count = -1; // Ping-pong
+	data.is_async = false;
+
+	uint32_t total = 0;
+	for (int i = 0; i < 40; ++i) {
+		data.durations.push_back(AnimationDuration { 50, 50 }); // 50ms each
+		total += 50;
+	}
+	data.total_duration_ms = total; // 2000ms
+
+	// Cycle length = 40 phases forward (2000ms) + 38 phases backward (1900ms) = 3900ms
+	// Phase 0: 0..49ms
+	TEST_CHECK(SpriteAnimation::getFrame(data, 0) == 0);
+	// Phase 35 (beyond old 32 cap): 35 * 50 = 1750ms
+	TEST_CHECK(SpriteAnimation::getFrame(data, 1750) == 35);
+	// Peak phase 39: 39 * 50 = 1950ms
+	TEST_CHECK(SpriteAnimation::getFrame(data, 1950) == 39);
+	// Rebound phase 38: 2000ms
+	TEST_CHECK(SpriteAnimation::getFrame(data, 2000) == 38);
+	// Rebound phase 35: 2000 + (39 - 1 - 35) * 50 = 2000 + 3 * 50 = 2150ms
+	TEST_CHECK(SpriteAnimation::getFrame(data, 2150) == 35);
+	// Rebound phase 1: 2000 + 37 * 50 = 3850ms
+	TEST_CHECK(SpriteAnimation::getFrame(data, 3850) == 1);
+	// Cycle restart phase 0: 3900ms
+	TEST_CHECK(SpriteAnimation::getFrame(data, 3900) == 0);
+
+	std::cout << "  OK" << std::endl;
+}
+
+void test_phase_aligned_durations() {
+	std::cout << "[Test] Phase-aligned duration lookup with start_phase > 0..." << std::endl;
+
+	SpriteAnimationData data;
+	data.frame_count = 3;
+	data.start_frame = 1; // start at phase 1
+	data.loop_count = 0;
+	data.is_async = false;
+
+	// Phase 0: 100ms, Phase 1: 300ms, Phase 2: 500ms -> Total = 900ms
+	data.durations.push_back(AnimationDuration { 100, 100 });
+	data.durations.push_back(AnimationDuration { 300, 300 });
+	data.durations.push_back(AnimationDuration { 500, 500 });
+	data.total_duration_ms = 900;
+
+	// Starting at phase 1:
+	// First 300ms must show Phase 1 (using Phase 1's duration: 300ms)
+	TEST_CHECK(SpriteAnimation::getFrame(data, 0) == 1);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 150) == 1);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 299) == 1);
+
+	// Next 500ms must show Phase 2 (using Phase 2's duration: 500ms)
+	TEST_CHECK(SpriteAnimation::getFrame(data, 300) == 2);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 500) == 2);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 799) == 2);
+
+	// Final 100ms must show Phase 0 (using Phase 0's duration: 100ms)
+	TEST_CHECK(SpriteAnimation::getFrame(data, 800) == 0);
+	TEST_CHECK(SpriteAnimation::getFrame(data, 899) == 0);
+
+	// Cycle restart:
+	TEST_CHECK(SpriteAnimation::getFrame(data, 900) == 1);
 
 	std::cout << "  OK" << std::endl;
 }
@@ -156,15 +281,15 @@ void test_edge_cases() {
 	std::cout << "[Test] Edge cases (single frame, zero frames, negative time)..." << std::endl;
 
 	SpriteAnimationData empty_data;
-	assert(SpriteAnimation::getFrame(empty_data, 1000) == 0);
+	TEST_CHECK(SpriteAnimation::getFrame(empty_data, 1000) == 0);
 
 	SpriteAnimationData single_frame;
 	single_frame.frame_count = 1;
-	assert(SpriteAnimation::getFrame(single_frame, 1000) == 0);
+	TEST_CHECK(SpriteAnimation::getFrame(single_frame, 1000) == 0);
 
 	SpriteAnimationData negative_time;
 	negative_time.frame_count = 3;
-	assert(SpriteAnimation::getFrame(negative_time, -500) == 0);
+	TEST_CHECK(SpriteAnimation::getFrame(negative_time, -500) == 0);
 
 	std::cout << "  OK" << std::endl;
 }
@@ -200,7 +325,7 @@ void test_concurrency_stress() {
 				const int frame = SpriteAnimation::getFrame(data, time, x, y, 7);
 				checksum += frame;
 			}
-			assert(checksum > 0);
+			TEST_CHECK(checksum > 0);
 		});
 	}
 
@@ -226,6 +351,9 @@ int main() {
 	test_ping_pong_uniform();
 	test_ping_pong_variable_durations();
 	test_spatial_async_desynchronization();
+	test_finite_loop_termination();
+	test_ping_pong_more_than_32_phases();
+	test_phase_aligned_durations();
 	test_edge_cases();
 	test_concurrency_stress();
 

@@ -132,7 +132,7 @@ If you could not confirm something (a name, an API signature, runtime behavior),
 
 ## Orientation
 
-C++ source files live exclusively in `source/`. Repo-root folders hold game data, assets, and runtime content:
+Production C++ source files live exclusively in `source/` (with test sources under `tests/`). Repo-root folders hold game data, assets, and runtime content:
 - `brushes/` — XML brush configurations and bordering definitions
 - `data/` — materials, item mappings, menubar configs, and version manifests
 - `extensions/` — editor extension packages
@@ -164,7 +164,7 @@ source/
     operations/           draw, copy, selection, spawn validation, unreachable cleaning, map version change, collection extraction
     persistence/          save/load coordination, map backup, minimap export
   ext/                  VENDORED (pugixml, fast_noise_lite). Do not edit
-  game/                 domain objects (Item, Creature, House, Spawn, Town, Waypoints, Outfit), item attributes, material database/manifest/includes, animation timer
+  game/                 domain objects (Item, Creature, House, Spawn, Town, Waypoints, Outfit), item attributes, material database/manifest/includes
   ingame_preview/       in-game preview: window, canvas, renderer, floor visibility
   io/                   map I/O base, OTBM coordinator, XML I/O, file handles, collection XML
     compression/          gzip streams and node file writing

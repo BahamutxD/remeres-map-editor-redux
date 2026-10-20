@@ -395,12 +395,14 @@ void MapCanvas::OnPaint(wxPaintEvent& event) {
 void MapCanvas::OnIdle(wxIdleEvent& event) {
 	PerformGarbageCollection();
 
-	if (IsShownOnScreen()) {
+	if (IsShownOnScreen() && g_gui.IsRenderingEnabled()) {
 		auto* top = wxDynamicCast(wxGetTopLevelParent(this), wxTopLevelWindow);
 		const bool is_iconized = top && top->IsIconized();
 		if (!is_iconized && IsAnimationEnabled()) {
-			QueueNativeRefresh(true);
-			event.RequestMore(true);
+			if (drawer && (drawer->HasVisibleAnimation() || drawer->HasIncompleteChunks())) {
+				QueueNativeRefresh(true);
+				event.RequestMore(true);
+			}
 		}
 	}
 

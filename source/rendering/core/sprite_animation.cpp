@@ -8,6 +8,18 @@
 
 namespace rme::rendering {
 
+namespace {
+
+[[nodiscard]] constexpr int euclideanModulo(int64_t val, int mod) noexcept {
+	if (mod <= 0) {
+		return 0;
+	}
+	const int64_t rem = val % mod;
+	return static_cast<int>(rem >= 0 ? rem : rem + mod);
+}
+
+} // namespace
+
 int SpriteAnimation::getFrame(
 	const SpriteAnimationData& data,
 	int64_t elapsed_ms,
@@ -26,79 +38,69 @@ int SpriteAnimation::getFrame(
 
 	const int tile_offset = data.is_async ? std::abs(tile_x * 17 + tile_y * 31 + tile_z * 7) : 0;
 
-	int start_phase = 0;
-	if ((data.start_frame == 255 || data.start_frame == -1) && data.is_async) {
-		start_phase = tile_offset % frames;
-	} else if (data.start_frame > 0) {
-		start_phase = static_cast<int>(data.start_frame) % frames;
-	}
+	// Explicit start phase (0..frames-1).
+	// When start_frame is the random sentinel (255 or -1), async spatial phase is applied via
+	// timeline offset (tile_offset), so start_phase stays 0 to prevent applying the spatial offset twice.
+	const int start_phase = (data.start_frame > 0) ? (static_cast<int>(data.start_frame) % frames) : 0;
 
 	// Ping-pong mode (loop_count == -1)
 	if (data.loop_count == -1) {
 		if (data.durations.empty()) {
-			const int tick = static_cast<int>(elapsed_ms / 500);
-			const int phase_shift = ((data.start_frame == 255 || data.start_frame == -1) && data.is_async) ? start_phase : (tile_offset + start_phase);
-			return getPingPongPhase(tick + phase_shift, frames);
+			const int64_t tick = elapsed_ms / 500;
+			const int64_t phase_shift = data.is_async ? tile_offset : start_phase;
+			const int cycle = 2 * frames - 2;
+			const int tick_in_cycle = cycle > 0 ? euclideanModulo(tick + phase_shift, cycle) : 0;
+			return getPingPongPhase(tick_in_cycle, frames);
 		}
 
 		const int num_phases = static_cast<int>(data.durations.size());
-		if (num_phases == 0) {
-			return start_phase;
+		if (num_phases <= 1) {
+			return 0;
 		}
 
-		constexpr int MAX_PHASES = 32;
-		const int effective_phases = std::min<int>(num_phases, MAX_PHASES);
-
-		// Stack-allocated phase durations (zero heap churn)
-		int phase_durs[MAX_PHASES];
-		int cycle_length = 0;
-		for (int i = 0; i < effective_phases; ++i) {
-			phase_durs[i] = static_cast<int>(data.durations[i].getDuration());
-			cycle_length += phase_durs[i];
-		}
-
-		// Ping-pong timeline: [0, 1, ..., N-1, N-2, ..., 1] without duplicate ends
-		constexpr int MAX_TIMELINE = MAX_PHASES * 2 - 2;
-		int timeline[MAX_TIMELINE];
-		int timeline_len = 0;
-		for (int i = 0; i < effective_phases; ++i) {
-			timeline[timeline_len++] = i;
-		}
-		for (int i = effective_phases - 2; i >= 1; --i) {
-			timeline[timeline_len++] = i;
-			cycle_length += phase_durs[i];
+		// Calculate total cycle duration: forward sequence (0..num_phases-1) + backward (num_phases-2..1)
+		// data.total_duration_ms is the sum of all num_phases forward.
+		int64_t cycle_length = data.total_duration_ms;
+		for (int i = num_phases - 2; i >= 1; --i) {
+			cycle_length += data.durations[i].getDuration();
 		}
 
 		if (cycle_length <= 0) {
-			return start_phase;
+			return 0;
 		}
 
-		int start_offset = 0;
-		for (int i = 0; i < start_phase && i < effective_phases; ++i) {
-			start_offset += phase_durs[i];
-		}
+		const int64_t time_offset = data.is_async ? static_cast<int64_t>(tile_offset) * 500 : 0;
+		int elapsed = static_cast<int>((elapsed_ms + time_offset) % cycle_length);
 
-		int64_t total_elapsed = elapsed_ms + static_cast<int64_t>(tile_offset) * 500 + start_offset;
-		if (total_elapsed < 0) {
-			total_elapsed = 0;
-		}
-		int elapsed = static_cast<int>(total_elapsed % cycle_length);
-
-		for (int i = 0; i < timeline_len; ++i) {
-			const int dur = phase_durs[timeline[i]];
+		// Forward phase: 0 -> num_phases - 1
+		for (int i = 0; i < num_phases; ++i) {
+			const int dur = static_cast<int>(data.durations[i].getDuration());
 			if (elapsed < dur) {
-				return timeline[i] % frames;
+				return i % frames;
 			}
 			elapsed -= dur;
 		}
+
+		// Backward phase: num_phases - 2 down to 1
+		for (int i = num_phases - 2; i >= 1; --i) {
+			const int dur = static_cast<int>(data.durations[i].getDuration());
+			if (elapsed < dur) {
+				return i % frames;
+			}
+			elapsed -= dur;
+		}
+
 		return 0;
 	}
 
 	// Forward loop
 	if (data.durations.empty()) {
-		const int tick = static_cast<int>(elapsed_ms / 500);
-		const int phase_shift = ((data.start_frame == 255 || data.start_frame == -1) && data.is_async) ? start_phase : (tile_offset + start_phase);
-		return (tick + phase_shift) % frames;
+		const int64_t tick = elapsed_ms / 500;
+		if (data.loop_count > 0 && tick >= static_cast<int64_t>(data.loop_count) * frames) {
+			return frames - 1;
+		}
+		const int64_t phase_shift = data.is_async ? tile_offset : start_phase;
+		return euclideanModulo(tick + phase_shift, frames);
 	}
 
 	const int total = static_cast<int>(data.total_duration_ms);
@@ -106,16 +108,20 @@ int SpriteAnimation::getFrame(
 		return start_phase;
 	}
 
-	int64_t total_elapsed = elapsed_ms + static_cast<int64_t>(tile_offset) * 500;
-	if (total_elapsed < 0) {
-		total_elapsed = 0;
+	// Finite loop termination: hold terminal frame once all cycles complete
+	if (data.loop_count > 0 && elapsed_ms >= static_cast<int64_t>(data.loop_count) * total) {
+		return frames - 1;
 	}
-	int elapsed = static_cast<int>(total_elapsed % total);
 
-	for (size_t phase = 0; phase < data.durations.size(); ++phase) {
+	const int64_t time_offset = data.is_async ? static_cast<int64_t>(tile_offset) * 500 : 0;
+	int elapsed = static_cast<int>((elapsed_ms + time_offset) % total);
+
+	const int num_phases = static_cast<int>(data.durations.size());
+	for (int i = 0; i < num_phases; ++i) {
+		const int phase = (start_phase + i) % num_phases;
 		const int dur = static_cast<int>(data.durations[phase].getDuration());
 		if (elapsed < dur) {
-			return (static_cast<int>(phase) + start_phase) % frames;
+			return phase % frames;
 		}
 		elapsed -= dur;
 	}

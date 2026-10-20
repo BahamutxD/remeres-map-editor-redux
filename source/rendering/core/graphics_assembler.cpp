@@ -77,7 +77,7 @@ void GraphicsAssembler::installAnimation(GameSprite& sprite, const DatCatalogEnt
 	rme::rendering::SpriteAnimationData data;
 	data.frame_count = entry.frames;
 
-	if (entry.animation.has_value()) {
+	if (entry.animation.has_value() && !entry.animation->frame_durations.empty()) {
 		const auto& animation = *entry.animation;
 		data.start_frame = animation.start_frame;
 		data.loop_count = static_cast<int8_t>(animation.loop_count);
@@ -85,19 +85,19 @@ void GraphicsAssembler::installAnimation(GameSprite& sprite, const DatCatalogEnt
 
 		data.durations.reserve(animation.frame_durations.size());
 		uint32_t total_dur = 0;
-		uint16_t shortest = 0;
+		uint32_t shortest = 0;
 
 		for (const auto& dur : animation.frame_durations) {
-			const uint16_t min_d = static_cast<uint16_t>(dur.minimum);
-			const uint16_t max_d = static_cast<uint16_t>(dur.maximum);
+			const uint32_t min_d = dur.minimum;
+			const uint32_t max_d = dur.maximum;
 			data.durations.push_back(rme::rendering::AnimationDuration {
 				.min_ms = min_d,
 				.max_ms = max_d
 			});
-			const uint32_t avg = (static_cast<uint32_t>(min_d) + static_cast<uint32_t>(max_d)) / 2;
+			const uint32_t avg = (min_d + max_d) / 2;
 			total_dur += avg;
 
-			const uint16_t candidate = min_d > 0 ? min_d : max_d;
+			const uint32_t candidate = min_d > 0 ? min_d : max_d;
 			if (candidate > 0 && (shortest == 0 || candidate < shortest)) {
 				shortest = candidate;
 			}
@@ -105,13 +105,10 @@ void GraphicsAssembler::installAnimation(GameSprite& sprite, const DatCatalogEnt
 
 		data.total_duration_ms = total_dur;
 
-		if (data.durations.empty()) {
-			data.shortest_step_ms = rme::rendering::ITEM_FRAME_DURATION;
-			data.total_duration_ms = static_cast<uint32_t>(data.frame_count) * rme::rendering::ITEM_FRAME_DURATION;
-		} else if (shortest == 0) {
-			data.shortest_step_ms = data.frame_count > 0 ? static_cast<uint16_t>(std::max(1u, total_dur / data.frame_count)) : 500;
+		if (shortest == 0) {
+			data.shortest_step_ms = data.frame_count > 0 ? std::max(1u, total_dur / data.frame_count) : 500;
 		} else {
-			data.shortest_step_ms = std::max<uint16_t>(16, shortest);
+			data.shortest_step_ms = std::max<uint32_t>(16, shortest);
 		}
 	} else {
 		// Pre-10.50 (7.x - 9.x) uniform 500ms pacing

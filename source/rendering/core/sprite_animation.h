@@ -16,11 +16,11 @@ enum ItemAnimationDuration : uint16_t {
 };
 
 struct AnimationDuration {
-	uint16_t min_ms = 500;
-	uint16_t max_ms = 500;
+	uint32_t min_ms = 500;
+	uint32_t max_ms = 500;
 
 	[[nodiscard]] constexpr uint32_t getDuration() const noexcept {
-		return (static_cast<uint32_t>(min_ms) + static_cast<uint32_t>(max_ms)) / 2;
+		return (min_ms + max_ms) / 2;
 	}
 };
 
@@ -29,7 +29,7 @@ struct SpriteAnimationData {
 	int16_t start_frame = 0;         // 0..frames-1, or 255 (-1) for async random
 	int8_t loop_count = 0;           // 0 = infinite, -1 = ping-pong, >0 = count
 	bool is_async = false;
-	uint16_t shortest_step_ms = 500; // Precalculated at load time (O(1) lookup)
+	uint32_t shortest_step_ms = 500; // Precalculated at load time (O(1) lookup)
 	uint32_t total_duration_ms = 0;  // Sum of average durations
 	std::vector<AnimationDuration> durations; // Empty if uniform 500ms
 };

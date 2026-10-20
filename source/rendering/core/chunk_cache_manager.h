@@ -361,6 +361,7 @@ private:
 
 	std::unordered_map<ChunkCoord, CachedChunk, ChunkCoordHash> cached_chunks_;
 	std::vector<TileInstance> bake_buffer_;
+	std::vector<uint8_t> scratch_changed_slots_;
 	uint64_t current_frame_ = 0;
 
 	std::vector<CachedChunk*> active_visible_chunks_;
