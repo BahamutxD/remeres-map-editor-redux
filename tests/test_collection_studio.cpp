@@ -146,6 +146,38 @@ void TestStagingContentLogic() {
 	std::cout << "[PASS] TestStagingContentLogic passed!\n";
 }
 
+void TestSpawnBrushExclusion() {
+	std::cout << "[RUN] TestSpawnBrushExclusion...\n";
+
+	MockBrush bGround{1, "Grass"};
+	MockBrush bCreature{2, "Dragon"};
+	MockBrush bDoodad{3, "Ancient Fountain"};
+	MockBrush bSpawn{4, "SPAWN"};
+	MockBrush bRaw{5, "raw_brush"};
+	MockBrush bEraser{6, "Eraser"};
+
+	std::vector<MockBrush*> candidates = { &bGround, &bCreature, &bSpawn, &bDoodad, &bRaw, &bEraser };
+
+	std::vector<MockBrush*> filtered;
+	for (MockBrush* b : candidates) {
+		if (!b || b->getName().empty()) continue;
+		if (b->getName() == "SPAWN" || b->getName() == "Eraser" || b->getName() == "raw_brush") {
+			continue;
+		}
+		filtered.push_back(b);
+	}
+
+	assert(filtered.size() == 3);
+	assert(filtered[0] == &bGround);
+	assert(filtered[1] == &bCreature);
+	assert(filtered[2] == &bDoodad);
+	for (MockBrush* b : filtered) {
+		assert(b->getName() != "SPAWN");
+	}
+
+	std::cout << "[PASS] TestSpawnBrushExclusion passed!\n";
+}
+
 void TestXmlGenerationAndRoundtrip() {
 	std::cout << "[RUN] TestXmlGenerationAndRoundtrip...\n";
 
@@ -609,6 +641,7 @@ int main() {
 	std::cout << "========== RUNNING COLLECTION STUDIO TESTS ==========\n";
 	TestFilenameSanitization();
 	TestStagingContentLogic();
+	TestSpawnBrushExclusion();
 	TestXmlGenerationAndRoundtrip();
 	TestPalettesXmlIncludeSync();
 	TestMaterialDatabaseSources();

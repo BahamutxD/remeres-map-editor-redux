@@ -119,9 +119,6 @@ CollectionStagingContent CollectionExtractorService::ExtractFromSelection(Editor
 			}
 		}
 
-		if (tile->spawn && g_brush_manager.spawn_brush) {
-			candidates.push_back(g_brush_manager.spawn_brush);
-		}
 	}
 
 	for (Brush* b : candidates) {
@@ -131,8 +128,8 @@ CollectionStagingContent CollectionExtractorService::ExtractFromSelection(Editor
 		if (b->getName().empty()) {
 			continue;
 		}
-		// Filter out raw and eraser brushes
-		if (b->is<RAWBrush>() || b->is<EraserBrush>()) {
+		// Filter out raw, eraser, and spawn brushes
+		if (b->is<RAWBrush>() || b->is<EraserBrush>() || b->is<SpawnBrush>() || b->getName() == "SPAWN") {
 			continue;
 		}
 		content.brushes.push_back(b);
