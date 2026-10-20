@@ -19,6 +19,8 @@ class CollectionOptionsPanel : public wxPanel {
 public:
 	struct Callbacks {
 		std::function<void()> onAccumulateSelection;
+		std::function<void()> onUndo;
+		std::function<void()> onRedo;
 		std::function<void()> onClearAll;
 		std::function<void(const std::string& paletteName, const std::string& name, bool isNew, bool append, bool includeItems, bool includeBrushes)> onSave;
 	};
@@ -30,6 +32,7 @@ public:
 	void RefreshPalettes();
 	void RefreshExistingTilesets();
 	void EnableAccumulate(bool enable);
+	void UpdateUndoRedo(bool canUndo, bool canRedo);
 
 	[[nodiscard]] bool IsIncludeItems() const {
 		return m_includeItemsCheck->GetValue();
@@ -68,6 +71,8 @@ private:
 	wxStaticText* m_filePathLabel = nullptr;
 	wxButton* m_accumulateBtn = nullptr;
 	wxButton* m_saveBtn = nullptr;
+	wxButton* m_undoBtn = nullptr;
+	wxButton* m_redoBtn = nullptr;
 	wxButton* m_clearBtn = nullptr;
 };
 

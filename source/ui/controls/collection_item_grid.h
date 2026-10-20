@@ -15,6 +15,8 @@ public:
 
 	void SetItems(const std::vector<uint16_t>& items);
 	void SetFilter(const std::string& query);
+	void SetSort(TilesetSortKey key, TilesetSortDirection dir);
+	void ClearSort();
 	void SetDiscardCallback(std::function<void(uint16_t)> cb) {
 		m_discardCallback = std::move(cb);
 	}

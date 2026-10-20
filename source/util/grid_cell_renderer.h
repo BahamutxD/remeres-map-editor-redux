@@ -96,11 +96,11 @@ namespace rme::ui::grid {
 	/** Centred label under the icon, wrapped to the cell width. */
 	void DrawCellLabel(NVGcontext* vg, const wxRect& cell, const wxString& text, bool selected, LabelCache& cache);
 
-	inline constexpr int kBadgeSize = 18;
+	inline constexpr int kBadgeSize = 12;
 
 	/** The remove ("x") badge rect for a given card cell. Located at top-right corner. */
 	inline wxRect GetBadgeRect(const wxRect& cell) {
-		return wxRect(cell.GetRight() - kBadgeSize - 3, cell.y + 3, kBadgeSize, kBadgeSize);
+		return wxRect(cell.GetRight() - kBadgeSize - 2, cell.y + 2, kBadgeSize, kBadgeSize);
 	}
 
 	/** Draws the 18px remove badge with an "x" icon inside a card cell. */

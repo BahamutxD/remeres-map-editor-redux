@@ -21,6 +21,16 @@ void CollectionItemGrid::SetFilter(const std::string& query) {
 	SetScrollPosition(0);
 }
 
+void CollectionItemGrid::SetSort(TilesetSortKey key, TilesetSortDirection dir) {
+	VirtualItemGrid::SetSort(key, dir);
+	ApplyFilterAndSort();
+}
+
+void CollectionItemGrid::ClearSort() {
+	VirtualItemGrid::ClearSort();
+	ApplyFilterAndSort();
+}
+
 void CollectionItemGrid::ApplyFilterAndSort() {
 	if (m_filterQuery.empty()) {
 		m_filteredItems = m_allItems;

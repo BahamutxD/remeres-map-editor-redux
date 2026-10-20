@@ -14,7 +14,7 @@
 #include <wx/msgdlg.h>
 
 CollectionStudioWindow::CollectionStudioWindow(wxWindow* parent, Editor* editor) :
-	wxDialog(parent, wxID_ANY, "Collection Studio - Add to Collection", wxDefaultPosition, wxSize(940, 600), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
+	wxDialog(parent, wxID_ANY, "Add to Tileset", wxDefaultPosition, wxSize(940, 600), wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER),
 	m_editor(editor) {
 	SetMinSize(wxSize(800, 480));
 	InitLayout();
@@ -133,6 +133,12 @@ void CollectionStudioWindow::InitLayout() {
 			AppendFromSelection(m_editor);
 		}
 	};
+	callbacks.onUndo = [this]() {
+		UndoDiscard();
+	};
+	callbacks.onRedo = [this]() {
+		RedoDiscard();
+	};
 	callbacks.onClearAll = [this]() {
 		OnClearAll();
 	};
@@ -165,6 +171,7 @@ void CollectionStudioWindow::AppendFromSelection(Editor* editor) {
 	m_editor = editor;
 	auto newlyExtracted = rme::collection::CollectionExtractorService::ExtractFromSelection(editor);
 	m_staging.Merge(newlyExtracted);
+	m_redoStack.clear();
 	m_isDirty = true;
 	UpdateUI();
 }
@@ -177,31 +184,163 @@ void CollectionStudioWindow::DetachEditor() {
 }
 
 void CollectionStudioWindow::OnDiscardItem(uint16_t itemId) {
+	auto it = std::find(m_staging.itemIds.begin(), m_staging.itemIds.end(), itemId);
+	if (it != m_staging.itemIds.end()) {
+		DiscardAction act;
+		act.kind = DiscardAction::Kind::Item;
+		act.itemId = itemId;
+		act.originalIndex = static_cast<size_t>(std::distance(m_staging.itemIds.begin(), it));
+		m_undoStack.push_back(std::move(act));
+		m_redoStack.clear();
+	}
 	m_staging.DiscardItem(itemId);
 	m_isDirty = true;
 	UpdateUI();
 }
 
 void CollectionStudioWindow::OnDiscardBrush(Brush* brush) {
+	auto it = std::find(m_staging.brushes.begin(), m_staging.brushes.end(), brush);
+	if (it != m_staging.brushes.end()) {
+		DiscardAction act;
+		act.kind = DiscardAction::Kind::Brush;
+		act.brush = brush;
+		act.originalIndex = static_cast<size_t>(std::distance(m_staging.brushes.begin(), it));
+		m_undoStack.push_back(std::move(act));
+		m_redoStack.clear();
+	}
 	m_staging.DiscardBrush(brush);
 	m_isDirty = true;
 	UpdateUI();
 }
 
 void CollectionStudioWindow::OnClearItems() {
+	if (m_staging.itemIds.empty()) {
+		return;
+	}
+	DiscardAction act;
+	act.kind = DiscardAction::Kind::ClearItems;
+	act.savedItems = m_staging.itemIds;
+	m_undoStack.push_back(std::move(act));
+	m_redoStack.clear();
 	m_staging.itemIds.clear();
 	m_isDirty = true;
 	UpdateUI();
 }
 
 void CollectionStudioWindow::OnClearBrushes() {
+	if (m_staging.brushes.empty()) {
+		return;
+	}
+	DiscardAction act;
+	act.kind = DiscardAction::Kind::ClearBrushes;
+	act.savedBrushes = m_staging.brushes;
+	m_undoStack.push_back(std::move(act));
+	m_redoStack.clear();
 	m_staging.brushes.clear();
 	m_isDirty = true;
 	UpdateUI();
 }
 
 void CollectionStudioWindow::OnClearAll() {
+	if (m_staging.Empty()) {
+		return;
+	}
+	DiscardAction act;
+	act.kind = DiscardAction::Kind::ClearAll;
+	act.savedItems = m_staging.itemIds;
+	act.savedBrushes = m_staging.brushes;
+	m_undoStack.push_back(std::move(act));
+	m_redoStack.clear();
 	m_staging.Clear();
+	m_isDirty = true;
+	UpdateUI();
+}
+
+void CollectionStudioWindow::UndoDiscard() {
+	if (m_undoStack.empty()) {
+		return;
+	}
+
+	DiscardAction act = std::move(m_undoStack.back());
+	m_undoStack.pop_back();
+
+	switch (act.kind) {
+	case DiscardAction::Kind::Item: {
+		if (std::find(m_staging.itemIds.begin(), m_staging.itemIds.end(), act.itemId) == m_staging.itemIds.end()) {
+			if (act.originalIndex < m_staging.itemIds.size()) {
+				m_staging.itemIds.insert(m_staging.itemIds.begin() + act.originalIndex, act.itemId);
+			} else {
+				m_staging.itemIds.push_back(act.itemId);
+			}
+		}
+		break;
+	}
+	case DiscardAction::Kind::Brush: {
+		if (std::find(m_staging.brushes.begin(), m_staging.brushes.end(), act.brush) == m_staging.brushes.end()) {
+			if (act.originalIndex < m_staging.brushes.size()) {
+				m_staging.brushes.insert(m_staging.brushes.begin() + act.originalIndex, act.brush);
+			} else {
+				m_staging.brushes.push_back(act.brush);
+			}
+		}
+		break;
+	}
+	case DiscardAction::Kind::ClearItems: {
+		m_staging.itemIds = std::move(act.savedItems);
+		break;
+	}
+	case DiscardAction::Kind::ClearBrushes: {
+		m_staging.brushes = std::move(act.savedBrushes);
+		break;
+	}
+	case DiscardAction::Kind::ClearAll: {
+		m_staging.itemIds = std::move(act.savedItems);
+		m_staging.brushes = std::move(act.savedBrushes);
+		break;
+	}
+	}
+
+	m_redoStack.push_back(std::move(act));
+	m_isDirty = true;
+	UpdateUI();
+}
+
+void CollectionStudioWindow::RedoDiscard() {
+	if (m_redoStack.empty()) {
+		return;
+	}
+
+	DiscardAction act = std::move(m_redoStack.back());
+	m_redoStack.pop_back();
+
+	switch (act.kind) {
+	case DiscardAction::Kind::Item: {
+		m_staging.DiscardItem(act.itemId);
+		break;
+	}
+	case DiscardAction::Kind::Brush: {
+		m_staging.DiscardBrush(act.brush);
+		break;
+	}
+	case DiscardAction::Kind::ClearItems: {
+		act.savedItems = m_staging.itemIds;
+		m_staging.itemIds.clear();
+		break;
+	}
+	case DiscardAction::Kind::ClearBrushes: {
+		act.savedBrushes = m_staging.brushes;
+		m_staging.brushes.clear();
+		break;
+	}
+	case DiscardAction::Kind::ClearAll: {
+		act.savedItems = m_staging.itemIds;
+		act.savedBrushes = m_staging.brushes;
+		m_staging.Clear();
+		break;
+	}
+	}
+
+	m_undoStack.push_back(std::move(act));
 	m_isDirty = true;
 	UpdateUI();
 }
@@ -222,6 +361,7 @@ void CollectionStudioWindow::UpdateUI() {
 	if (m_optionsPanel) {
 		m_optionsPanel->UpdateCounts(m_staging.itemIds.size(), m_staging.brushes.size());
 		m_optionsPanel->EnableAccumulate(m_editor != nullptr);
+		m_optionsPanel->UpdateUndoRedo(!m_undoStack.empty(), !m_redoStack.empty());
 	}
 	Layout();
 }
@@ -234,12 +374,12 @@ void CollectionStudioWindow::OnSave(const std::string& paletteName, const std::s
 
 	std::string error;
 	if (!rme::collection::CollectionXmlService::SaveTilesetXml(tilesetFilePath, name, itemsToSave, brushesToSave, append, error)) {
-		wxMessageBox(wxString::Format("Error saving tileset:\n%s", wxstr(error)), "Collection Studio", wxOK | wxICON_ERROR, this);
+		wxMessageBox(wxString::Format("Error saving tileset:\n%s", wxstr(error)), "Add to Tileset", wxOK | wxICON_ERROR, this);
 		return;
 	}
 
 	if (!rme::collection::CollectionXmlService::EnsurePaletteInclude(paletteName, name, error)) {
-		wxMessageBox(wxString::Format("Error updating palettes.xml:\n%s", wxstr(error)), "Collection Studio", wxOK | wxICON_ERROR, this);
+		wxMessageBox(wxString::Format("Error updating palettes.xml:\n%s", wxstr(error)), "Add to Tileset", wxOK | wxICON_ERROR, this);
 		return;
 	}
 
@@ -247,7 +387,7 @@ void CollectionStudioWindow::OnSave(const std::string& paletteName, const std::s
 
 	m_isDirty = false;
 	m_optionsPanel->RefreshExistingTilesets();
-	wxMessageBox(wxString::Format("Successfully saved tileset to %s palette!", wxstr(paletteName)), "Collection Studio", wxOK | wxICON_INFORMATION, this);
+	wxMessageBox(wxString::Format("Successfully saved tileset to %s palette!", wxstr(paletteName)), "Add to Tileset", wxOK | wxICON_INFORMATION, this);
 	Close();
 }
 
@@ -256,14 +396,34 @@ void CollectionStudioWindow::OnCharHook(wxKeyEvent& event) {
 		Close();
 		return;
 	}
+
+	const int key = event.GetKeyCode();
+	const bool ctrlDown = event.ControlDown() || event.RawControlDown();
+	const bool shiftDown = event.ShiftDown();
+
+	if (ctrlDown && (key == 'Z' || key == 'z' || key == 'Y' || key == 'y')) {
+		wxWindow* focused = wxWindow::FindFocus();
+		if (dynamic_cast<wxTextCtrl*>(focused)) {
+			event.Skip();
+			return;
+		}
+
+		if (key == 'Y' || key == 'y' || shiftDown) {
+			RedoDiscard();
+		} else {
+			UndoDiscard();
+		}
+		return;
+	}
+
 	event.Skip();
 }
 
 void CollectionStudioWindow::OnClose(wxCloseEvent& event) {
 	if (m_isDirty && !m_staging.Empty() && event.CanVeto()) {
 		const int answer = wxMessageBox(
-			"You have unsaved elements in the Collection Studio.\n\nWould you like to save them before closing?",
-			"Unsaved Collection",
+			"You have unsaved elements in Add to Tileset.\n\nWould you like to save them before closing?",
+			"Unsaved Changes",
 			wxYES_NO | wxCANCEL | wxICON_WARNING,
 			this
 		);

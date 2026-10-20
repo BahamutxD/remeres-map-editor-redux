@@ -124,9 +124,20 @@ void CollectionOptionsPanel::InitUI() {
 	m_accumulateBtn->SetToolTip("Add items and brushes from the current map selection");
 	rootSizer->Add(m_accumulateBtn, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 6);
 
-	m_saveBtn = new wxButton(this, wxID_ANY, "&Save to Collection");
+	m_saveBtn = new wxButton(this, wxID_ANY, "&Add to Tileset");
 	m_saveBtn->SetDefault();
 	rootSizer->Add(m_saveBtn, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 6);
+
+	wxBoxSizer* undoRedoSizer = new wxBoxSizer(wxHORIZONTAL);
+	m_undoBtn = new wxButton(this, wxID_ANY, "&Undo");
+	m_undoBtn->SetToolTip("Undo discard (Ctrl+Z)");
+	m_undoBtn->Enable(false);
+	m_redoBtn = new wxButton(this, wxID_ANY, "&Redo");
+	m_redoBtn->SetToolTip("Redo discard (Ctrl+Y)");
+	m_redoBtn->Enable(false);
+	undoRedoSizer->Add(m_undoBtn, 1, wxRIGHT, 4);
+	undoRedoSizer->Add(m_redoBtn, 1, wxLEFT, 4);
+	rootSizer->Add(undoRedoSizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 6);
 
 	m_clearBtn = new wxButton(this, wxID_ANY, "&Clear All");
 	rootSizer->Add(m_clearBtn, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 6);
@@ -148,6 +159,18 @@ void CollectionOptionsPanel::InitUI() {
 
 	m_saveBtn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
 		PerformSave();
+	});
+
+	m_undoBtn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+		if (m_callbacks.onUndo) {
+			m_callbacks.onUndo();
+		}
+	});
+
+	m_redoBtn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+		if (m_callbacks.onRedo) {
+			m_callbacks.onRedo();
+		}
 	});
 
 	m_clearBtn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
@@ -234,6 +257,15 @@ void CollectionOptionsPanel::EnableAccumulate(bool enable) {
 	}
 }
 
+void CollectionOptionsPanel::UpdateUndoRedo(bool canUndo, bool canRedo) {
+	if (m_undoBtn) {
+		m_undoBtn->Enable(canUndo);
+	}
+	if (m_redoBtn) {
+		m_redoBtn->Enable(canRedo);
+	}
+}
+
 void CollectionOptionsPanel::UpdateCounts(size_t itemCount, size_t brushCount) {
 	m_itemCount = itemCount;
 	m_brushCount = brushCount;
@@ -288,7 +320,7 @@ void CollectionOptionsPanel::PerformSave() {
 	if (!incItems && !incBrushes) {
 		wxMessageBox(
 			"No elements selected to be saved.\nPlease enable 'Include Items' and/or 'Include Brushes'.",
-			"Collection Studio",
+			"Add to Tileset",
 			wxOK | wxICON_INFORMATION,
 			this
 		);
@@ -300,8 +332,8 @@ void CollectionOptionsPanel::PerformSave() {
 
 	if (effectiveItems == 0 && effectiveBrushes == 0) {
 		wxMessageBox(
-			"No items or brushes are selected to be added to the collection.\nPlease keep at least one element.",
-			"Collection Studio",
+			"No items or brushes are selected to be added to the tileset.\nPlease keep at least one element.",
+			"Add to Tileset",
 			wxOK | wxICON_INFORMATION,
 			this
 		);
@@ -318,7 +350,7 @@ void CollectionOptionsPanel::PerformSave() {
 		// Trim whitespace
 		size_t first = targetName.find_first_not_of(" \t\r\n");
 		if (first == std::string::npos) {
-			wxMessageBox("Please enter a valid tileset name.", "Collection Studio", wxOK | wxICON_WARNING, this);
+			wxMessageBox("Please enter a valid tileset name.", "Add to Tileset", wxOK | wxICON_WARNING, this);
 			m_nameInput->SetFocus();
 			return;
 		}
@@ -369,7 +401,7 @@ void CollectionOptionsPanel::PerformSave() {
 		}
 	} else {
 		if (m_existingChoice->GetCount() == 0 || m_existingChoice->GetSelection() == wxNOT_FOUND) {
-			wxMessageBox("Please select an existing tileset, or create a new one.", "Collection Studio", wxOK | wxICON_WARNING, this);
+			wxMessageBox("Please select an existing tileset, or create a new one.", "Add to Tileset", wxOK | wxICON_WARNING, this);
 			return;
 		}
 		targetName = m_existingChoice->GetStringSelection().ToStdString();

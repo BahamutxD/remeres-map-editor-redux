@@ -1,6 +1,8 @@
 #include "ui/controls/collection_brush_grid.h"
 
 #include "brushes/brush.h"
+#include "brushes/raw/raw_brush.h"
+#include "brushes/creature/creature_brush.h"
 #include "rendering/indicators/indicator_drawing_utils.h"
 #include "ui/gui.h"
 #include "util/common.h"
@@ -14,6 +16,29 @@ namespace {
 	constexpr int kAnimInterval = 20;
 	constexpr float kAnimThreshold = 0.01f;
 	constexpr float kAnimFactor = 0.3f;
+
+	uint32_t GetBrushSortID(const Brush* brush) {
+		if (!brush) {
+			return 0;
+		}
+		if (const auto* raw = dynamic_cast<const RAWBrush*>(brush)) {
+			return raw->getItemID();
+		}
+		if (const auto* cb = dynamic_cast<const CreatureBrush*>(brush)) {
+			if (cb->getType()) {
+				if (cb->getType()->outfit.lookType != 0) {
+					return static_cast<uint32_t>(cb->getType()->outfit.lookType);
+				}
+				if (cb->getType()->outfit.lookItem != 0) {
+					return static_cast<uint32_t>(cb->getType()->outfit.lookItem);
+				}
+			}
+		}
+		if (brush->getLookID() != 0) {
+			return static_cast<uint32_t>(brush->getLookID());
+		}
+		return brush->getID();
+	}
 }
 
 CollectionBrushGrid::CollectionBrushGrid(wxWindow* parent, wxWindowID id) :
@@ -102,19 +127,35 @@ void CollectionBrushGrid::ApplyFilterAndSort() {
 
 	if (m_hasSort) {
 		const bool ascending = (m_sortDir == TilesetSortDirection::Ascending);
-		std::ranges::sort(m_filteredBrushes, [this, ascending](Brush* a, Brush* b) {
-			if (!a || !b) {
-				return a < b;
-			}
+		std::stable_sort(m_filteredBrushes.begin(), m_filteredBrushes.end(), [this, ascending](Brush* a, Brush* b) {
+			if (!a && !b) return false;
+			if (!a) return false;
+			if (!b) return true;
+
 			if (m_sortKey == TilesetSortKey::ID) {
-				return ascending ? a->getID() < b->getID() : a->getID() > b->getID();
+				uint32_t idA = GetBrushSortID(a);
+				uint32_t idB = GetBrushSortID(b);
+				if (idA != idB) {
+					return ascending ? (idA < idB) : (idA > idB);
+				}
+				std::string na = as_lower_str(a->getName());
+				std::string nb = as_lower_str(b->getName());
+				if (na != nb) {
+					return ascending ? (na < nb) : (na > nb);
+				}
+			} else {
+				std::string na = as_lower_str(a->getName());
+				std::string nb = as_lower_str(b->getName());
+				if (na != nb) {
+					return ascending ? (na < nb) : (na > nb);
+				}
+				uint32_t idA = GetBrushSortID(a);
+				uint32_t idB = GetBrushSortID(b);
+				if (idA != idB) {
+					return ascending ? (idA < idB) : (idA > idB);
+				}
 			}
-			std::string na = as_lower_str(a->getName());
-			std::string nb = as_lower_str(b->getName());
-			if (na != nb) {
-				return ascending ? na < nb : na > nb;
-			}
-			return ascending ? a->getID() < b->getID() : a->getID() > b->getID();
+			return false;
 		});
 	}
 

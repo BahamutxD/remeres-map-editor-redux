@@ -40,9 +40,33 @@ private:
 	void OnClearAll();
 	void OnSave(const std::string& paletteName, const std::string& name, bool isNew, bool append, bool includeItems, bool includeBrushes);
 
+	struct DiscardAction {
+		enum class Kind {
+			Item,
+			Brush,
+			ClearItems,
+			ClearBrushes,
+			ClearAll
+		};
+
+		Kind kind = Kind::Item;
+		uint16_t itemId = 0;
+		size_t originalIndex = 0;
+		Brush* brush = nullptr;
+		std::vector<uint16_t> savedItems;
+		std::vector<Brush*> savedBrushes;
+	};
+
+	void UndoDiscard();
+	void RedoDiscard();
+	[[nodiscard]] bool CanUndo() const { return !m_undoStack.empty(); }
+	[[nodiscard]] bool CanRedo() const { return !m_redoStack.empty(); }
+
 	Editor* m_editor = nullptr;
 	rme::collection::CollectionStagingContent m_staging;
 	bool m_isDirty = false;
+	std::vector<DiscardAction> m_undoStack;
+	std::vector<DiscardAction> m_redoStack;
 
 	// Col 1: Items
 	TilesetGridToolbar* m_itemToolbar = nullptr;

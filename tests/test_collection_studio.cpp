@@ -782,6 +782,189 @@ void TestCreatureNameAndReloadPreservation() {
 	std::cout << "[PASS] TestCreatureNameAndReloadPreservation passed!\n";
 }
 
+void TestDiscardUndoRedo() {
+	std::cout << "[RUN] TestDiscardUndoRedo...\n";
+
+	TestStagingContent staging;
+	MockBrush b1{ 10, "Brush A" };
+	MockBrush b2{ 20, "Brush B" };
+	staging.itemIds = { 100, 200, 300 };
+	staging.brushes = { &b1, &b2 };
+
+	struct TestAction {
+		enum class Kind { Item, Brush, ClearItems, ClearBrushes, ClearAll };
+		Kind kind;
+		uint16_t itemId = 0;
+		size_t originalIndex = 0;
+		MockBrush* brush = nullptr;
+		std::vector<uint16_t> savedItems;
+		std::vector<MockBrush*> savedBrushes;
+	};
+
+	std::vector<TestAction> undoStack;
+	std::vector<TestAction> redoStack;
+
+	// Action 1: Discard item 200 at index 1
+	{
+		auto it = std::find(staging.itemIds.begin(), staging.itemIds.end(), 200);
+		TEST_ASSERT(it != staging.itemIds.end());
+		size_t idx = std::distance(staging.itemIds.begin(), it);
+		undoStack.push_back({ TestAction::Kind::Item, 200, idx });
+		staging.DiscardItem(200);
+	}
+	TEST_ASSERT(staging.itemIds.size() == 2);
+	TEST_ASSERT(staging.itemIds[0] == 100 && staging.itemIds[1] == 300);
+
+	// Action 2: Discard brush b1 at index 0
+	{
+		auto it = std::find(staging.brushes.begin(), staging.brushes.end(), &b1);
+		TEST_ASSERT(it != staging.brushes.end());
+		size_t idx = std::distance(staging.brushes.begin(), it);
+		undoStack.push_back({ TestAction::Kind::Brush, 0, idx, &b1 });
+		staging.DiscardBrush(&b1);
+	}
+	TEST_ASSERT(staging.brushes.size() == 1);
+	TEST_ASSERT(staging.brushes[0] == &b2);
+
+	// Undo Action 2 (Brush)
+	{
+		TEST_ASSERT(!undoStack.empty());
+		auto act = std::move(undoStack.back());
+		undoStack.pop_back();
+		staging.brushes.insert(staging.brushes.begin() + act.originalIndex, act.brush);
+		redoStack.push_back(std::move(act));
+	}
+	TEST_ASSERT(staging.brushes.size() == 2);
+	TEST_ASSERT(staging.brushes[0] == &b1);
+
+	// Undo Action 1 (Item)
+	{
+		TEST_ASSERT(!undoStack.empty());
+		auto act = std::move(undoStack.back());
+		undoStack.pop_back();
+		staging.itemIds.insert(staging.itemIds.begin() + act.originalIndex, act.itemId);
+		redoStack.push_back(std::move(act));
+	}
+	TEST_ASSERT(staging.itemIds.size() == 3);
+	TEST_ASSERT(staging.itemIds[0] == 100 && staging.itemIds[1] == 200 && staging.itemIds[2] == 300);
+
+	// Redo Action 1 (Item)
+	{
+		TEST_ASSERT(!redoStack.empty());
+		auto act = std::move(redoStack.back());
+		redoStack.pop_back();
+		staging.DiscardItem(act.itemId);
+		undoStack.push_back(std::move(act));
+	}
+	TEST_ASSERT(staging.itemIds.size() == 2);
+	TEST_ASSERT(staging.itemIds[0] == 100 && staging.itemIds[1] == 300);
+
+	// Action 3: Clear All
+	{
+		undoStack.push_back({ TestAction::Kind::ClearAll, 0, 0, nullptr, staging.itemIds, staging.brushes });
+		redoStack.clear();
+		staging.Clear();
+	}
+	TEST_ASSERT(staging.Empty());
+
+	// Undo Action 3 (Clear All)
+	{
+		TEST_ASSERT(!undoStack.empty());
+		auto act = std::move(undoStack.back());
+		undoStack.pop_back();
+		staging.itemIds = std::move(act.savedItems);
+		staging.brushes = std::move(act.savedBrushes);
+		redoStack.push_back(std::move(act));
+	}
+	TEST_ASSERT(staging.itemIds.size() == 2);
+	TEST_ASSERT(staging.brushes.size() == 2);
+
+	std::cout << "[PASS] TestDiscardUndoRedo passed!\n";
+}
+
+void TestGridSorting() {
+	std::cout << "[RUN] TestGridSorting...\n";
+
+	auto toLower = [](std::string s) {
+		for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+		return s;
+	};
+
+	// 1. Item ID sort ascending & descending
+	std::vector<uint16_t> items = { 300, 100, 500, 200 };
+	std::ranges::sort(items, [](uint16_t a, uint16_t b) { return a < b; });
+	TEST_ASSERT(items[0] == 100 && items[1] == 200 && items[2] == 300 && items[3] == 500);
+
+	std::ranges::sort(items, [](uint16_t a, uint16_t b) { return a > b; });
+	TEST_ASSERT(items[0] == 500 && items[1] == 300 && items[2] == 200 && items[3] == 100);
+
+	// 2. Item Name sort (case-insensitive with ID fallback)
+	struct MockItemName {
+		std::string name;
+		uint16_t id;
+	};
+	std::vector<MockItemName> namedItems = {
+		{ "Sword", 10 },
+		{ "apple", 20 },
+		{ "Axe", 30 },
+		{ "banana", 40 },
+		{ "Axe", 25 }
+	};
+
+	// Ascending
+	std::ranges::sort(namedItems, [&toLower](const MockItemName& a, const MockItemName& b) {
+		std::string na = toLower(a.name);
+		std::string nb = toLower(b.name);
+		if (na != nb) return na < nb;
+		return a.id < b.id;
+	});
+	TEST_ASSERT(namedItems[0].name == "apple");
+	TEST_ASSERT(namedItems[1].name == "Axe" && namedItems[1].id == 25);
+	TEST_ASSERT(namedItems[2].name == "Axe" && namedItems[2].id == 30);
+	TEST_ASSERT(namedItems[3].name == "banana");
+	TEST_ASSERT(namedItems[4].name == "Sword");
+
+	// Descending
+	std::ranges::sort(namedItems, [&toLower](const MockItemName& a, const MockItemName& b) {
+		std::string na = toLower(a.name);
+		std::string nb = toLower(b.name);
+		if (na != nb) return na > nb;
+		return a.id > b.id;
+	});
+	TEST_ASSERT(namedItems[0].name == "Sword");
+	TEST_ASSERT(namedItems[1].name == "banana");
+	TEST_ASSERT(namedItems[2].name == "Axe" && namedItems[2].id == 30);
+	TEST_ASSERT(namedItems[3].name == "Axe" && namedItems[3].id == 25);
+	TEST_ASSERT(namedItems[4].name == "apple");
+
+	// 3. Brush sorting by ID and Name
+	MockBrush bWater{ 50, "Water" };
+	MockBrush bGrass{ 20, "Grass" };
+	MockBrush bSand{ 80, "sand" };
+	std::vector<MockBrush*> brushes = { &bWater, &bGrass, &bSand };
+
+	// Sort brushes by name ascending
+	std::ranges::sort(brushes, [&toLower](const MockBrush* a, const MockBrush* b) {
+		std::string na = toLower(a->getName());
+		std::string nb = toLower(b->getName());
+		if (na != nb) return na < nb;
+		return a->getID() < b->getID();
+	});
+	TEST_ASSERT(brushes[0]->getName() == "Grass");
+	TEST_ASSERT(brushes[1]->getName() == "sand");
+	TEST_ASSERT(brushes[2]->getName() == "Water");
+
+	// Sort brushes by ID ascending
+	std::ranges::sort(brushes, [](const MockBrush* a, const MockBrush* b) {
+		return a->getID() < b->getID();
+	});
+	TEST_ASSERT(brushes[0]->getID() == 20);
+	TEST_ASSERT(brushes[1]->getID() == 50);
+	TEST_ASSERT(brushes[2]->getID() == 80);
+
+	std::cout << "[PASS] TestGridSorting passed!\n";
+}
+
 int main() {
 	std::cout << "========== RUNNING COLLECTION STUDIO TESTS ==========\n";
 	TestFilenameSanitization();
@@ -794,6 +977,8 @@ int main() {
 	TestTargetPaletteXmlAndPaths();
 	TestMultiFloorSelectionAndHitTesting();
 	TestCreatureNameAndReloadPreservation();
+	TestDiscardUndoRedo();
+	TestGridSorting();
 	std::cout << "========== ALL TESTS PASSED SUCCESSFULLY! ==========\n";
 	return 0;
 }
