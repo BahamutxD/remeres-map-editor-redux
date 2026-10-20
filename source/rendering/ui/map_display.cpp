@@ -172,17 +172,13 @@ bool MapCanvas::IsAnimationEnabled() const {
 }
 
 int MapCanvas::GetAnimationRefreshIntervalMs() const noexcept {
-	// Repaint only as often as the fastest animation on screen can actually change: a view
-	// whose animations step every 500 ms has nothing new to show at 60 Hz, and the sprite
-	// frames are derived from the wall clock, so repainting at the animation's own pace draws
-	// exactly the same images. The old far-zoom cap was different - it throttled a view that
-	// did have work to do (see below). When nothing animates, RequestAnimationRepaint returns
-	// before this is used.
-	const uint32_t step = drawer->VisibleAnimationStepMs();
-	if (step == 0) {
-		return 1000 / 60;
-	}
-	return static_cast<int>(std::clamp<uint32_t>(step, 1000 / 60, 1000));
+	// Repaint smoothly at 60 Hz whenever animations are visible on screen.
+	// Asynchronous and variable-duration animations advance frames continuously across tiles,
+	// so throttling the repaint cadence to the slowest tile caused visible 10 FPS stutter at idle.
+	// When nothing on screen animates (or beyond animation LOD), RequestAnimationRepaint()
+	// returns early before repainting, preserving idle power savings.
+	constexpr int TARGET_ANIMATION_FPS = 60;
+	return 1000 / TARGET_ANIMATION_FPS;
 }
 
 void MapCanvas::QueueNativeRefresh(bool immediate) {
