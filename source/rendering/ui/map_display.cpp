@@ -1,3 +1,4 @@
+#include <wx/toplevel.h>
 //////////////////////////////////////////////////////////////////////
 // This file is part of Remere's Map Editor
 //////////////////////////////////////////////////////////////////////
@@ -50,7 +51,6 @@
 #include "ui/browse_tile_window.h"
 #include "ui/dialog_helper.h"
 #include "ui/map_tab.h"
-#include "game/animation_timer.h"
 #include "rendering/core/sprite_preloader.h"
 #include "util/phase_profiler.h"
 #include <chrono>
@@ -81,8 +81,6 @@
 #include "brushes/carpet/carpet_brush.h"
 #include "brushes/table/table_brush.h"
 
-bool MapCanvas::processed[] = { 0 };
-
 MapCanvas::MapCanvas(wxWindow* parent, Editor& editor, int* attriblist) :
 	wxGLCanvas(parent, GLContextManager::CanvasAttributes(), wxID_ANY, wxDefaultPosition, wxDefaultSize, wxWANTS_CHARS),
 	editor(editor),
@@ -107,8 +105,7 @@ MapCanvas::MapCanvas(wxWindow* parent, Editor& editor, int* attriblist) :
 	last_click_x(-1),
 	last_click_y(-1),
 	last_mmb_click_x(-1),
-	last_mmb_click_y(-1),
-	m_last_gc_time(0) {
+	last_mmb_click_y(-1) {
 	// Enable the phase profiler when RME_PROFILE is set (see util/phase_profiler.h).
 	rme::prof::configureFromEnv();
 
@@ -120,7 +117,6 @@ MapCanvas::MapCanvas(wxWindow* parent, Editor& editor, int* attriblist) :
 	}
 
 	popup_menu = std::make_unique<MapPopupMenu>(editor);
-	animation_timer = std::make_unique<AnimationTimer>(this);
 	drawer = std::make_unique<MapDrawer>(editor);
 	selection_controller = std::make_unique<SelectionController>(this, editor);
 	drawing_controller = std::make_unique<DrawingController>(this, editor);
@@ -171,20 +167,9 @@ bool MapCanvas::IsAnimationEnabled() const {
 	return g_settings.getBoolean(Config::SHOW_PREVIEW);
 }
 
-int MapCanvas::GetAnimationRefreshIntervalMs() const noexcept {
-	// Repaint smoothly at 60 Hz whenever animations are visible on screen.
-	// Asynchronous and variable-duration animations advance frames continuously across tiles,
-	// so throttling the repaint cadence to the slowest tile caused visible 10 FPS stutter at idle.
-	// When nothing on screen animates (or beyond animation LOD), RequestAnimationRepaint()
-	// returns early before repainting, preserving idle power savings.
-	constexpr int TARGET_ANIMATION_FPS = 60;
-	return 1000 / TARGET_ANIMATION_FPS;
-}
-
 void MapCanvas::QueueNativeRefresh(bool immediate) {
 	wxGLCanvas::Refresh();
-	if (immediate || refresh_watch.Time() > g_settings.getInteger(Config::HARD_REFRESH_RATE)) {
-		refresh_watch.Start();
+	if (immediate) {
 		wxGLCanvas::Update();
 	}
 }
@@ -195,24 +180,6 @@ void MapCanvas::RequestLocalRefresh(bool immediate) {
 
 void MapCanvas::RequestSharedMapRefresh(bool immediate) {
 	g_gui.RefreshView(immediate);
-}
-
-void MapCanvas::RequestAnimationRepaint() {
-	if (!IsAnimationEnabled()) {
-		return;
-	}
-
-	// Nothing that animates is on screen (no sprite frame runs, no creatures inside the
-	// animation LOD range), so an idle editor should not keep redrawing the map at 60 Hz.
-	// Any real change (input, edit, bake, option change) repaints through its own path.
-	// Chunks that are still waiting for sprites are an exception: they need the repaint to
-	// re-bake, otherwise the hole they left would stay on screen until the next input.
-	if (!drawer->HasVisibleAnimation() && !drawer->HasIncompleteChunks()) {
-		return;
-	}
-
-	last_animation_refresh_time_ = std::chrono::steady_clock::now();
-	RequestLocalRefresh();
 }
 
 void MapCanvas::SetHoverPreviewActive(bool active) {
@@ -321,10 +288,10 @@ void MapCanvas::DrawOverlays(NVGcontext* vg, const DrawingOptions& options) {
 void MapCanvas::PerformGarbageCollection() {
 	// Clean unused textures once every second
 	// Only run GC if this is the active tab to prevent multiple tabs from fighting over resources
-	long current_time = wxGetLocalTime();
-	if (current_time - m_last_gc_time >= 1 && g_gui.GetCurrentMapTab() == GetParent()) {
-		g_gui.gfx.garbageCollection();
-		m_last_gc_time = current_time;
+	const auto now = std::chrono::steady_clock::now();
+	if (now - last_gc_time_ >= std::chrono::seconds(1) && g_gui.GetCurrentMapTab() == GetParent()) {
+		g_graphics.garbageCollection();
+		last_gc_time_ = now;
 	}
 }
 
@@ -354,15 +321,6 @@ void MapCanvas::OnPaint(wxPaintEvent& event) {
 		options.boundbox_selection = selection_controller->IsBoundboxSelection();
 		options.is_drawing_mode = g_gui.IsDrawingMode();
 		options.is_drawing = drawing_controller->IsDrawing();
-
-		if (options.show_preview) {
-			animation_timer->Start();
-			g_gui.gfx.resumeAnimation();
-		} else {
-			animation_timer->Stop();
-			g_gui.gfx.pauseAnimation();
-			last_animation_refresh_time_ = {};
-		}
 
 		ViewportParameters vp;
 		MouseToMap(&vp.mouse_map_x, &vp.mouse_map_y);
@@ -420,18 +378,32 @@ void MapCanvas::OnPaint(wxPaintEvent& event) {
 		SwapBuffers();
 	}
 
+	// Frame rate safety clamp when VSync is disabled in driver settings
+	fps_counter.LimitFPS(240);
+
 	// Close the frame scope explicitly so its sample is folded into the profiler window
 	// that this frame belongs to; endFrame() runs before the scope's destructor.
 	frame_scope.end();
 	rme::prof::endFrame();
 	fps_counter.Update();
-	if (g_settings.getBoolean(Config::SHOW_FPS_COUNTER) && fps_counter.HasChanged()) {
-		MapStatusUpdater::UpdateFPS(fps_counter.GetStatusString());
-	}
 }
 
 void MapCanvas::OnIdle(wxIdleEvent& event) {
 	PerformGarbageCollection();
+
+	if (IsShownOnScreen()) {
+		auto* top = wxDynamicCast(wxGetTopLevelParent(this), wxTopLevelWindow);
+		const bool is_iconized = top && top->IsIconized();
+		if (!is_iconized && IsAnimationEnabled()) {
+			QueueNativeRefresh(true);
+			event.RequestMore(true);
+		}
+	}
+
+	if (g_settings.getBoolean(Config::SHOW_FPS_COUNTER) && fps_counter.ConsumeChanged()) {
+		MapStatusUpdater::UpdateFPS(fps_counter.GetStatusString());
+	}
+
 	event.Skip();
 }
 
