@@ -68,9 +68,6 @@ FrameDuration* Animator::getFrameDuration(int frame) {
 }
 
 int Animator::getFrame(long elapsed_time) {
-	if (!this) {
-		return 0;
-	}
 	const std::lock_guard<std::mutex> lock(g_animator_mutex);
 	long time = (elapsed_time >= 0) ? elapsed_time : g_graphics.getElapsedTime();
 	if (time != last_time && !is_complete) {

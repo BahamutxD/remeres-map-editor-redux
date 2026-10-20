@@ -7,6 +7,7 @@
 #include "brushes/raw/raw_brush.h"
 #include "brushes/creature/creature_brush.h"
 #include "brushes/brush.h"
+#include "item_definitions/core/item_definition_store.h"
 
 #include "ext/pugixml.hpp"
 #include <algorithm>
@@ -48,29 +49,36 @@ void CollectionPaletteSync::Sync(
 						}
 					}
 				} else if (tag == "item") {
+					uint32_t fromId = 0;
+					uint32_t toId = 0;
 					if (child.attribute("id")) {
-						uint16_t id = static_cast<uint16_t>(child.attribute("id").as_uint());
-						if (id != 0) {
-							if (RAWBrush* raw = g_materials.ensureRawBrush(id)) {
-								raw->flagAsVisible();
-								raw->setCollection();
-								if (std::ranges::find(activeBrushes, raw) == activeBrushes.end()) {
-									activeBrushes.push_back(raw);
-								}
-							}
-						}
+						fromId = toId = child.attribute("id").as_uint();
 					} else if (child.attribute("fromid")) {
-						uint32_t fromId = child.attribute("fromid").as_uint();
-						uint32_t toId = child.attribute("toid").as_uint(fromId);
-						for (uint32_t id = fromId; id <= toId; ++id) {
-							if (id != 0) {
-								if (RAWBrush* raw = g_materials.ensureRawBrush(static_cast<uint16_t>(id))) {
-									raw->flagAsVisible();
-									raw->setCollection();
-									if (std::ranges::find(activeBrushes, raw) == activeBrushes.end()) {
-										activeBrushes.push_back(raw);
-									}
-								}
+						fromId = child.attribute("fromid").as_uint();
+						toId = child.attribute("toid").as_uint(fromId);
+					}
+
+					if (fromId > toId) {
+						std::swap(fromId, toId);
+					}
+
+					constexpr uint32_t maxItemId = std::numeric_limits<uint16_t>::max();
+					if (toId > maxItemId) {
+						toId = maxItemId;
+					}
+
+					for (uint32_t id = fromId; id <= toId; ++id) {
+						if (id == 0) {
+							continue;
+						}
+						if (!g_item_definitions.get(static_cast<ServerItemId>(id))) {
+							continue;
+						}
+						if (RAWBrush* raw = g_materials.ensureRawBrush(static_cast<uint16_t>(id))) {
+							raw->flagAsVisible();
+							raw->setCollection();
+							if (std::ranges::find(activeBrushes, raw) == activeBrushes.end()) {
+								activeBrushes.push_back(raw);
 							}
 						}
 					}

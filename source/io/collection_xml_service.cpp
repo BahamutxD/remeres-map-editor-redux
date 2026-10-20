@@ -247,40 +247,39 @@ bool CollectionXmlService::SaveTilesetXml(
 			return false;
 		}
 
-		std::vector<std::string> finalBrushNames;
-		std::vector<uint16_t> finalItemIds;
 		std::set<std::string> brushSet;
 		std::set<uint16_t> itemSet;
+		pugi::xml_document doc;
+		pugi::xml_node root;
 
-		// If appendToExisting and file already exists, load existing contents first
+		// If appendToExisting and file already exists, load existing contents directly into doc
 		if (appendToExisting && std::filesystem::exists(filePath, ec)) {
-			pugi::xml_document existingDoc;
-			pugi::xml_parse_result res = existingDoc.load_file(filePath.wstring().c_str());
+			pugi::xml_parse_result res = doc.load_file(filePath.wstring().c_str(), pugi::parse_default | pugi::parse_comments | pugi::parse_declaration);
 			if (res) {
-				pugi::xml_node root = existingDoc.child("tileset");
+				root = doc.child("tileset");
 				if (root) {
 					for (pugi::xml_node child = root.first_child(); child; child = child.next_sibling()) {
 						std::string childName = as_lower_str(child.name());
 						if (childName == "brush") {
 							std::string bname = child.attribute("name").as_string();
-							if (!bname.empty() && !brushSet.contains(bname)) {
+							if (!bname.empty()) {
 								brushSet.insert(bname);
-								finalBrushNames.push_back(std::move(bname));
 							}
 						} else if (childName == "item") {
 							if (child.attribute("id")) {
 								uint16_t id = static_cast<uint16_t>(child.attribute("id").as_uint());
-								if (id != 0 && !itemSet.contains(id)) {
+								if (id != 0) {
 									itemSet.insert(id);
-									finalItemIds.push_back(id);
 								}
 							} else if (child.attribute("fromid")) {
 								uint32_t fromId = child.attribute("fromid").as_uint();
 								uint32_t toId = child.attribute("toid").as_uint(fromId);
-								for (uint32_t id = fromId; id <= toId; ++id) {
-									if (id != 0 && !itemSet.contains(static_cast<uint16_t>(id))) {
+								if (fromId > toId) {
+									std::swap(fromId, toId);
+								}
+								for (uint32_t id = fromId; id <= toId && id <= 0xFFFF; ++id) {
+									if (id != 0) {
 										itemSet.insert(static_cast<uint16_t>(id));
-										finalItemIds.push_back(static_cast<uint16_t>(id));
 									}
 								}
 							}
@@ -290,39 +289,32 @@ bool CollectionXmlService::SaveTilesetXml(
 			}
 		}
 
-		// Append new brushes
+		if (!root) {
+			doc.reset();
+			pugi::xml_node decl = doc.prepend_child(pugi::node_declaration);
+			decl.append_attribute("version").set_value("1.0");
+			decl.append_attribute("encoding").set_value("utf-8");
+
+			root = doc.append_child("tileset");
+			root.append_attribute("name").set_value(tilesetName.c_str());
+		}
+
+		// Append only missing brushes
 		for (Brush* b : brushes) {
 			if (b && !b->getName().empty() && !brushSet.contains(b->getName())) {
 				brushSet.insert(b->getName());
-				finalBrushNames.push_back(b->getName());
+				pugi::xml_node brushNode = root.append_child("brush");
+				brushNode.append_attribute("name").set_value(b->getName().c_str());
 			}
 		}
 
-		// Append new items
+		// Append only missing items
 		for (uint16_t id : itemIds) {
 			if (id != 0 && !itemSet.contains(id)) {
 				itemSet.insert(id);
-				finalItemIds.push_back(id);
+				pugi::xml_node itemNode = root.append_child("item");
+				itemNode.append_attribute("id").set_value(id);
 			}
-		}
-
-		// Construct document
-		pugi::xml_document doc;
-		pugi::xml_node decl = doc.prepend_child(pugi::node_declaration);
-		decl.append_attribute("version").set_value("1.0");
-		decl.append_attribute("encoding").set_value("utf-8");
-
-		pugi::xml_node root = doc.append_child("tileset");
-		root.append_attribute("name").set_value(tilesetName.c_str());
-
-		for (const std::string& bname : finalBrushNames) {
-			pugi::xml_node brushNode = root.append_child("brush");
-			brushNode.append_attribute("name").set_value(bname.c_str());
-		}
-
-		for (uint16_t id : finalItemIds) {
-			pugi::xml_node itemNode = root.append_child("item");
-			itemNode.append_attribute("id").set_value(id);
 		}
 
 		if (!doc.save_file(filePath.wstring().c_str(), "    ", pugi::format_default, pugi::encoding_utf8)) {
@@ -350,7 +342,7 @@ bool CollectionXmlService::EnsurePaletteInclude(
 		}
 
 		pugi::xml_document doc;
-		pugi::xml_parse_result res = doc.load_file(palettesPath.wstring().c_str());
+		pugi::xml_parse_result res = doc.load_file(palettesPath.wstring().c_str(), pugi::parse_default | pugi::parse_comments | pugi::parse_declaration);
 		if (!res) {
 			outErrorMessage = std::format("Failed to parse palettes.xml: {}", res.description());
 			return false;
@@ -397,6 +389,19 @@ bool CollectionXmlService::EnsurePaletteInclude(
 		std::replace(normIncludeRel.begin(), normIncludeRel.end(), '\\', '/');
 
 		for (pugi::xml_node inc = tilesetNode.child("include"); inc; inc = inc.next_sibling("include")) {
+			std::string existingFolder = inc.attribute("folder").as_string();
+			if (!existingFolder.empty()) {
+				std::string normFolder = as_lower_str(existingFolder);
+				std::replace(normFolder.begin(), normFolder.end(), '\\', '/');
+				if (!normFolder.ends_with('/')) {
+					normFolder.push_back('/');
+				}
+				if (normIncludeRel.starts_with(normFolder)) {
+					alreadyIncluded = true;
+					break;
+				}
+			}
+
 			std::string existingFile = inc.attribute("file").as_string();
 			if (!existingFile.empty()) {
 				std::string normExisting = as_lower_str(existingFile);

@@ -9,6 +9,15 @@
 #include <algorithm>
 #include <set>
 #include <map>
+#include <cstdlib>
+
+#define TEST_ASSERT(expr) \
+	do { \
+		if (!(expr)) { \
+			std::cerr << "TEST_ASSERT FAILED: " #expr " at " << __FILE__ << ":" << __LINE__ << std::endl; \
+			std::abort(); \
+		} \
+	} while (false)
 
 // Include pugixml and CollectionXmlService
 #include "../source/ext/pugixml.hpp"
@@ -85,14 +94,14 @@ void TestFilenameSanitization() {
 	std::cout << "[RUN] TestFilenameSanitization...\n";
 
 	using rme::collection::CollectionXmlService;
-	assert(CollectionXmlService::SanitizeTilesetFilename("Nature") == "Nature");
-	assert(CollectionXmlService::SanitizeTilesetFilename("  Desert Sands  ") == "Desert Sands");
-	assert(CollectionXmlService::SanitizeTilesetFilename("Cave: Rocks/Walls?*") == "Cave_ Rocks_Walls__");
-	assert(CollectionXmlService::SanitizeTilesetFilename("<invalid>|dir\"name") == "_invalid__dir_name");
-	assert(CollectionXmlService::SanitizeTilesetFilename("...") == "collection");
-	assert(CollectionXmlService::SanitizeTilesetFilename("   ") == "collection");
-	assert(CollectionXmlService::SanitizeTilesetFilename("") == "collection");
-	assert(CollectionXmlService::SanitizeTilesetFilename(".hidden.") == "hidden");
+	TEST_ASSERT(CollectionXmlService::SanitizeTilesetFilename("Nature") == "Nature");
+	TEST_ASSERT(CollectionXmlService::SanitizeTilesetFilename("  Desert Sands  ") == "Desert Sands");
+	TEST_ASSERT(CollectionXmlService::SanitizeTilesetFilename("Cave: Rocks/Walls?*") == "Cave_ Rocks_Walls__");
+	TEST_ASSERT(CollectionXmlService::SanitizeTilesetFilename("<invalid>|dir\"name") == "_invalid__dir_name");
+	TEST_ASSERT(CollectionXmlService::SanitizeTilesetFilename("...") == "collection");
+	TEST_ASSERT(CollectionXmlService::SanitizeTilesetFilename("   ") == "collection");
+	TEST_ASSERT(CollectionXmlService::SanitizeTilesetFilename("") == "collection");
+	TEST_ASSERT(CollectionXmlService::SanitizeTilesetFilename(".hidden.") == "hidden");
 
 	std::cout << "[PASS] TestFilenameSanitization passed!\n";
 }
@@ -105,13 +114,13 @@ void TestStagingContentLogic() {
 	MockBrush b3{3, "Water"};
 
 	TestStagingContent staging;
-	assert(staging.Empty());
+	TEST_ASSERT(staging.Empty());
 
 	staging.itemIds = { 2160, 2152, 100 };
 	staging.brushes = { &b1, &b2 };
-	assert(!staging.Empty());
-	assert(staging.itemIds.size() == 3);
-	assert(staging.brushes.size() == 2);
+	TEST_ASSERT(!staging.Empty());
+	TEST_ASSERT(staging.itemIds.size() == 3);
+	TEST_ASSERT(staging.brushes.size() == 2);
 
 	// Test Merge with overlapping elements
 	TestStagingContent second;
@@ -120,29 +129,29 @@ void TestStagingContentLogic() {
 
 	staging.Merge(second);
 	// Item IDs should be: 100, 300, 400, 2152, 2160 (5 unique)
-	assert(staging.itemIds.size() == 5);
-	assert(std::ranges::is_sorted(staging.itemIds));
-	assert(staging.itemIds[0] == 100);
-	assert(staging.itemIds[4] == 2160);
+	TEST_ASSERT(staging.itemIds.size() == 5);
+	TEST_ASSERT(std::ranges::is_sorted(staging.itemIds));
+	TEST_ASSERT(staging.itemIds[0] == 100);
+	TEST_ASSERT(staging.itemIds[4] == 2160);
 
 	// Brushes should be: Grass, Stone Wall, Water (3 unique)
-	assert(staging.brushes.size() == 3);
-	assert(staging.brushes[0] == &b1);
-	assert(staging.brushes[1] == &b2);
-	assert(staging.brushes[2] == &b3);
+	TEST_ASSERT(staging.brushes.size() == 3);
+	TEST_ASSERT(staging.brushes[0] == &b1);
+	TEST_ASSERT(staging.brushes[1] == &b2);
+	TEST_ASSERT(staging.brushes[2] == &b3);
 
 	// Test Discard
 	staging.DiscardItem(2160);
-	assert(staging.itemIds.size() == 4);
-	assert(std::find(staging.itemIds.begin(), staging.itemIds.end(), 2160) == staging.itemIds.end());
+	TEST_ASSERT(staging.itemIds.size() == 4);
+	TEST_ASSERT(std::find(staging.itemIds.begin(), staging.itemIds.end(), 2160) == staging.itemIds.end());
 
 	staging.DiscardBrush(&b2);
-	assert(staging.brushes.size() == 2);
-	assert(std::find(staging.brushes.begin(), staging.brushes.end(), &b2) == staging.brushes.end());
+	TEST_ASSERT(staging.brushes.size() == 2);
+	TEST_ASSERT(std::find(staging.brushes.begin(), staging.brushes.end(), &b2) == staging.brushes.end());
 
 	// Test Clear
 	staging.Clear();
-	assert(staging.Empty());
+	TEST_ASSERT(staging.Empty());
 
 	std::cout << "[PASS] TestStagingContentLogic passed!\n";
 }
@@ -156,24 +165,36 @@ void TestSpawnBrushExclusion() {
 	MockBrush bSpawn{4, "SPAWN"};
 	MockBrush bRaw{5, "raw_brush"};
 	MockBrush bEraser{6, "Eraser"};
+	MockBrush bDemonSpawn{7, "Demon Spawn"};
+	MockBrush bSpawnBrush{8, "spawn brush"};
 
-	std::vector<MockBrush*> candidates = { &bGround, &bCreature, &bSpawn, &bDoodad, &bRaw, &bEraser };
+	std::vector<MockBrush*> candidates = { &bGround, &bCreature, &bSpawn, &bDoodad, &bRaw, &bEraser, &bDemonSpawn, &bSpawnBrush };
+
+	auto to_lower = [](std::string_view s) {
+		std::string res;
+		for (char ch : s) res.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
+		return res;
+	};
 
 	std::vector<MockBrush*> filtered;
 	for (MockBrush* b : candidates) {
 		if (!b || b->getName().empty()) continue;
-		if (b->getName() == "SPAWN" || b->getName() == "Eraser" || b->getName() == "raw_brush") {
+		std::string lower = to_lower(b->getName());
+		if (lower == "spawn" || lower == "spawn brush" || lower == "eraser" || lower == "raw_brush") {
 			continue;
 		}
 		filtered.push_back(b);
 	}
 
-	assert(filtered.size() == 3);
-	assert(filtered[0] == &bGround);
-	assert(filtered[1] == &bCreature);
-	assert(filtered[2] == &bDoodad);
+	// Demon Spawn should be retained! Only exact "spawn" and "spawn brush" excluded.
+	TEST_ASSERT(filtered.size() == 4);
+	TEST_ASSERT(filtered[0] == &bGround);
+	TEST_ASSERT(filtered[1] == &bCreature);
+	TEST_ASSERT(filtered[2] == &bDoodad);
+	TEST_ASSERT(filtered[3] == &bDemonSpawn);
 	for (MockBrush* b : filtered) {
-		assert(b->getName() != "SPAWN");
+		TEST_ASSERT(b->getName() != "SPAWN");
+		TEST_ASSERT(b->getName() != "spawn brush");
 	}
 
 	std::cout << "[PASS] TestSpawnBrushExclusion passed!\n";
@@ -207,18 +228,18 @@ void TestXmlGenerationAndRoundtrip() {
 		it2.append_attribute("id").set_value(2152);
 
 		bool saved = doc.save_file(tempPath.wstring().c_str(), "    ", pugi::format_default, pugi::encoding_utf8);
-		assert(saved);
+		TEST_ASSERT(saved);
 	}
 
 	// Read back and verify
 	{
 		pugi::xml_document doc;
 		pugi::xml_parse_result res = doc.load_file(tempPath.wstring().c_str());
-		assert(res);
+		TEST_ASSERT(res);
 
 		pugi::xml_node root = doc.child("tileset");
-		assert(root);
-		assert(std::string(root.attribute("name").as_string()) == "TestCollection");
+		TEST_ASSERT(root);
+		TEST_ASSERT(std::string(root.attribute("name").as_string()) == "TestCollection");
 
 		std::vector<std::string> brushes;
 		std::vector<uint16_t> items;
@@ -232,13 +253,13 @@ void TestXmlGenerationAndRoundtrip() {
 			}
 		}
 
-		assert(brushes.size() == 2);
-		assert(brushes[0] == "grass");
-		assert(brushes[1] == "water");
+		TEST_ASSERT(brushes.size() == 2);
+		TEST_ASSERT(brushes[0] == "grass");
+		TEST_ASSERT(brushes[1] == "water");
 
-		assert(items.size() == 2);
-		assert(items[0] == 2160);
-		assert(items[1] == 2152);
+		TEST_ASSERT(items.size() == 2);
+		TEST_ASSERT(items[0] == 2160);
+		TEST_ASSERT(items[1] == 2152);
 	}
 
 	// Clean up
@@ -263,16 +284,16 @@ void TestPalettesXmlIncludeSync() {
 		collection.append_child("tileset"); // empty tileset tag
 
 		bool saved = doc.save_file(tempPalettesPath.wstring().c_str(), "    ", pugi::format_default, pugi::encoding_utf8);
-		assert(saved);
+		TEST_ASSERT(saved);
 	}
 
 	// Perform include injection
 	{
 		pugi::xml_document doc;
-		assert(doc.load_file(tempPalettesPath.wstring().c_str()));
+		TEST_ASSERT(doc.load_file(tempPalettesPath.wstring().c_str()));
 
 		pugi::xml_node root = doc.child("palettes");
-		assert(root);
+		TEST_ASSERT(root);
 
 		pugi::xml_node collectionPal;
 		for (pugi::xml_node p = root.child("palette"); p; p = p.next_sibling("palette")) {
@@ -281,10 +302,10 @@ void TestPalettesXmlIncludeSync() {
 				break;
 			}
 		}
-		assert(collectionPal);
+		TEST_ASSERT(collectionPal);
 
 		pugi::xml_node tilesetNode = collectionPal.child("tileset");
-		assert(tilesetNode);
+		TEST_ASSERT(tilesetNode);
 
 		std::string incRelPath = "tilesets/collections/MyDungeon.xml";
 		bool alreadyIncluded = false;
@@ -315,28 +336,28 @@ void TestPalettesXmlIncludeSync() {
 				}
 			}
 		}
-		assert(!alreadyIncluded);
+		TEST_ASSERT(!alreadyIncluded);
 
 		pugi::xml_node newInc = tilesetNode.append_child("include");
 		newInc.append_attribute("file").set_value(incRelPath.c_str());
 
-		assert(doc.save_file(tempPalettesPath.wstring().c_str(), "    ", pugi::format_default, pugi::encoding_utf8));
+		TEST_ASSERT(doc.save_file(tempPalettesPath.wstring().c_str(), "    ", pugi::format_default, pugi::encoding_utf8));
 	}
 
 	// Verify idempotency (second attempt should not duplicate)
 	{
 		pugi::xml_document doc;
-		assert(doc.load_file(tempPalettesPath.wstring().c_str()));
+		TEST_ASSERT(doc.load_file(tempPalettesPath.wstring().c_str()));
 
 		pugi::xml_node root = doc.child("palettes");
 		pugi::xml_node collectionPal = root.child("palette");
 		while (collectionPal && std::string(collectionPal.attribute("name").as_string()) != "Collection") {
 			collectionPal = collectionPal.next_sibling("palette");
 		}
-		assert(collectionPal);
+		TEST_ASSERT(collectionPal);
 
 		pugi::xml_node tilesetNode = collectionPal.child("tileset");
-		assert(tilesetNode);
+		TEST_ASSERT(tilesetNode);
 
 		int count = 0;
 		for (pugi::xml_node inc = tilesetNode.child("include"); inc; inc = inc.next_sibling("include")) {
@@ -344,13 +365,13 @@ void TestPalettesXmlIncludeSync() {
 				count++;
 			}
 		}
-		assert(count == 1);
+		TEST_ASSERT(count == 1);
 	}
 
 	// Verify that a folder include <include folder="tilesets/collections/" /> covers files
 	{
 		pugi::xml_document doc;
-		assert(doc.load_file(tempPalettesPath.wstring().c_str()));
+		TEST_ASSERT(doc.load_file(tempPalettesPath.wstring().c_str()));
 		pugi::xml_node root = doc.child("palettes");
 		pugi::xml_node collectionPal = root.child("palette");
 		while (collectionPal && std::string(collectionPal.attribute("name").as_string()) != "Collection") {
@@ -381,7 +402,7 @@ void TestPalettesXmlIncludeSync() {
 				}
 			}
 		}
-		assert(covered);
+		TEST_ASSERT(covered);
 	}
 
 	// Clean up
@@ -417,25 +438,25 @@ void TestMaterialDatabaseSources() {
 	addSource("data/1098/tilesets/doodad/Trash.xml");
 	addSource("data/1098/tilesets/collections/Custom_1.xml");
 
-	assert(sources.size() == 3);
-	assert(std::ranges::is_sorted(sources));
+	TEST_ASSERT(sources.size() == 3);
+	TEST_ASSERT(std::ranges::is_sorted(sources));
 
 	// Case-insensitive checks
-	assert(isKnown("data/1098/tilesets/collections/Custom_1.xml"));
-	assert(isKnown("DATA/1098/TILESETS/COLLECTIONS/CUSTOM_1.XML"));
-	assert(isKnown("data/1098/tilesets/collections/custom_1.xml"));
+	TEST_ASSERT(isKnown("data/1098/tilesets/collections/Custom_1.xml"));
+	TEST_ASSERT(isKnown("DATA/1098/TILESETS/COLLECTIONS/CUSTOM_1.XML"));
+	TEST_ASSERT(isKnown("data/1098/tilesets/collections/custom_1.xml"));
 
 	// Windows backslash vs forward slash checks
-	assert(isKnown("data\\1098\\tilesets\\collections\\Custom_1.xml"));
-	assert(isKnown("DATA\\1098\\TILESETS\\terrain\\Nature.xml"));
+	TEST_ASSERT(isKnown("data\\1098\\tilesets\\collections\\Custom_1.xml"));
+	TEST_ASSERT(isKnown("DATA\\1098\\TILESETS\\terrain\\Nature.xml"));
 
 	// Non-existent
-	assert(!isKnown("data/1098/tilesets/collections/NonExistent.xml"));
+	TEST_ASSERT(!isKnown("data/1098/tilesets/collections/NonExistent.xml"));
 
 	// Duplicate add with different slashes and casing
 	addSource("DATA\\1098\\tilesets\\collections\\CUSTOM_1.xml");
-	assert(sources.size() == 3);
-	assert(std::ranges::is_sorted(sources));
+	TEST_ASSERT(sources.size() == 3);
+	TEST_ASSERT(std::ranges::is_sorted(sources));
 
 	std::cout << "[PASS] TestMaterialDatabaseSources passed!\n";
 }
@@ -500,37 +521,37 @@ void TestPaletteCatalogSetTilesetBrushes() {
 	MockBrush b3{3, "Water"};
 
 	TestCatalog catalog;
-	assert(catalog.palettes.empty());
+	TEST_ASSERT(catalog.palettes.empty());
 
 	// 1. Initial creation of palette and tileset
 	catalog.setTilesetBrushes("Collection", "Dungeon", {&b1, &b2});
-	assert(catalog.palettes.size() == 1);
-	assert(catalog.palettes[0].name == "Collection");
-	assert(catalog.palettes[0].tilesets.size() == 1);
-	assert(catalog.palettes[0].tilesets[0].name == "Dungeon");
-	assert(catalog.palettes[0].tilesets[0].brushes.size() == 2);
+	TEST_ASSERT(catalog.palettes.size() == 1);
+	TEST_ASSERT(catalog.palettes[0].name == "Collection");
+	TEST_ASSERT(catalog.palettes[0].tilesets.size() == 1);
+	TEST_ASSERT(catalog.palettes[0].tilesets[0].name == "Dungeon");
+	TEST_ASSERT(catalog.palettes[0].tilesets[0].brushes.size() == 2);
 
 	// 2. Add second tileset to existing palette
 	catalog.setTilesetBrushes("Collection", "Nature", {&b3});
-	assert(catalog.palettes.size() == 1);
-	assert(catalog.palettes[0].tilesets.size() == 2);
-	assert(catalog.palettes[0].tilesets[0].name == "Dungeon");
-	assert(catalog.palettes[0].tilesets[1].name == "Nature");
-	assert(catalog.palettes[0].tilesets[1].brushes.size() == 1);
+	TEST_ASSERT(catalog.palettes.size() == 1);
+	TEST_ASSERT(catalog.palettes[0].tilesets.size() == 2);
+	TEST_ASSERT(catalog.palettes[0].tilesets[0].name == "Dungeon");
+	TEST_ASSERT(catalog.palettes[0].tilesets[1].name == "Nature");
+	TEST_ASSERT(catalog.palettes[0].tilesets[1].brushes.size() == 1);
 
 	// 3. Overwrite "Dungeon" tileset (case-insensitive "collection" / "dungeon") with single brush b3
 	catalog.setTilesetBrushes("collection", "dungeon", {&b3});
-	assert(catalog.palettes.size() == 1);
-	assert(catalog.palettes[0].tilesets.size() == 2);
-	assert(catalog.palettes[0].tilesets[0].brushes.size() == 1);
-	assert(catalog.palettes[0].tilesets[0].brushes[0] == &b3);
+	TEST_ASSERT(catalog.palettes.size() == 1);
+	TEST_ASSERT(catalog.palettes[0].tilesets.size() == 2);
+	TEST_ASSERT(catalog.palettes[0].tilesets[0].brushes.size() == 1);
+	TEST_ASSERT(catalog.palettes[0].tilesets[0].brushes[0] == &b3);
 	// Nature tileset untouched
-	assert(catalog.palettes[0].tilesets[1].brushes.size() == 1);
-	assert(catalog.palettes[0].tilesets[1].brushes[0] == &b3);
+	TEST_ASSERT(catalog.palettes[0].tilesets[1].brushes.size() == 1);
+	TEST_ASSERT(catalog.palettes[0].tilesets[1].brushes[0] == &b3);
 
 	// 4. Overwrite with multiple brushes
 	catalog.setTilesetBrushes("COLLECTION", "DUNGEON", {&b1, &b2, &b3});
-	assert(catalog.palettes[0].tilesets[0].brushes.size() == 3);
+	TEST_ASSERT(catalog.palettes[0].tilesets[0].brushes.size() == 3);
 
 	std::cout << "[PASS] TestPaletteCatalogSetTilesetBrushes passed!\n";
 }
@@ -540,13 +561,13 @@ void TestTargetPaletteXmlAndPaths() {
 
 	using rme::collection::CollectionXmlService;
 	auto p1 = CollectionXmlService::GetTilesetFilePath("Collection", "MySet");
-	assert(p1.generic_string().find("tilesets/collections/MySet.xml") != std::string::npos);
+	TEST_ASSERT(p1.generic_string().find("tilesets/collections/MySet.xml") != std::string::npos);
 
 	auto p2 = CollectionXmlService::GetTilesetFilePath("Terrain", "MyCustomTerrain");
-	assert(p2.generic_string().find("tilesets/terrain/MyCustomTerrain.xml") != std::string::npos);
+	TEST_ASSERT(p2.generic_string().find("tilesets/terrain/MyCustomTerrain.xml") != std::string::npos);
 
 	auto p3 = CollectionXmlService::GetTilesetFilePath("Doodad", "MyDoodad");
-	assert(p3.generic_string().find("tilesets/doodad/MyDoodad.xml") != std::string::npos);
+	TEST_ASSERT(p3.generic_string().find("tilesets/doodad/MyDoodad.xml") != std::string::npos);
 
 	// Test multi-palette include in palettes.xml
 	std::filesystem::path tempPalettesPath = std::filesystem::temp_directory_path() / "test_target_palettes.xml";
@@ -563,13 +584,13 @@ void TestTargetPaletteXmlAndPaths() {
 		collPal.append_attribute("name").set_value("Collection");
 		collPal.append_child("tileset");
 
-		assert(doc.save_file(tempPalettesPath.wstring().c_str(), "    ", pugi::format_default, pugi::encoding_utf8));
+		TEST_ASSERT(doc.save_file(tempPalettesPath.wstring().c_str(), "    ", pugi::format_default, pugi::encoding_utf8));
 	}
 
 	// Add include to Terrain palette
 	{
 		pugi::xml_document doc;
-		assert(doc.load_file(tempPalettesPath.wstring().c_str()));
+		TEST_ASSERT(doc.load_file(tempPalettesPath.wstring().c_str()));
 		pugi::xml_node root = doc.child("palettes");
 
 		pugi::xml_node terrainPal;
@@ -579,19 +600,19 @@ void TestTargetPaletteXmlAndPaths() {
 				break;
 			}
 		}
-		assert(terrainPal);
+		TEST_ASSERT(terrainPal);
 		pugi::xml_node tilesetNode = terrainPal.child("tileset");
-		assert(tilesetNode);
+		TEST_ASSERT(tilesetNode);
 
 		pugi::xml_node newInc = tilesetNode.append_child("include");
 		newInc.append_attribute("file").set_value("tilesets/terrain/MyCustomTerrain.xml");
-		assert(doc.save_file(tempPalettesPath.wstring().c_str(), "    ", pugi::format_default, pugi::encoding_utf8));
+		TEST_ASSERT(doc.save_file(tempPalettesPath.wstring().c_str(), "    ", pugi::format_default, pugi::encoding_utf8));
 	}
 
 	// Verify Terrain palette has 2 includes and Collection is untouched
 	{
 		pugi::xml_document doc;
-		assert(doc.load_file(tempPalettesPath.wstring().c_str()));
+		TEST_ASSERT(doc.load_file(tempPalettesPath.wstring().c_str()));
 		pugi::xml_node root = doc.child("palettes");
 		for (pugi::xml_node pal = root.child("palette"); pal; pal = pal.next_sibling("palette")) {
 			std::string name = pal.attribute("name").as_string();
@@ -600,13 +621,13 @@ void TestTargetPaletteXmlAndPaths() {
 				for (pugi::xml_node inc = pal.child("tileset").child("include"); inc; inc = inc.next_sibling("include")) {
 					count++;
 				}
-				assert(count == 2);
+				TEST_ASSERT(count == 2);
 			} else if (name == "Collection") {
 				int count = 0;
 				for (pugi::xml_node inc = pal.child("tileset").child("include"); inc; inc = inc.next_sibling("include")) {
 					count++;
 				}
-				assert(count == 0);
+				TEST_ASSERT(count == 0);
 			}
 		}
 	}
@@ -628,11 +649,11 @@ void TestMultiFloorSelectionAndHitTesting() {
 		return 0;
 	};
 
-	assert(getFloorTileOffset(7) == 0);
-	assert(getFloorTileOffset(6) == 1);
-	assert(getFloorTileOffset(5) == 2);
-	assert(getFloorTileOffset(8) == 0);
-	assert(getFloorTileOffset(15) == 0);
+	TEST_ASSERT(getFloorTileOffset(7) == 0);
+	TEST_ASSERT(getFloorTileOffset(6) == 1);
+	TEST_ASSERT(getFloorTileOffset(5) == 2);
+	TEST_ASSERT(getFloorTileOffset(8) == 0);
+	TEST_ASSERT(getFloorTileOffset(15) == 0);
 
 	// 1. Verify "Floors Below" bounding box: s_z = MAP_MAX_LAYER, e_z = floor
 	// For floor = 8 (underground)
@@ -640,12 +661,12 @@ void TestMultiFloorSelectionAndHitTesting() {
 		const int floor = 8;
 		const int s_z = MAP_MAX_LAYER;
 		const int e_z = floor;
-		assert(s_z == 15);
-		assert(e_z == 8);
-		assert(s_z >= e_z);
+		TEST_ASSERT(s_z == 15);
+		TEST_ASSERT(e_z == 8);
+		TEST_ASSERT(s_z >= e_z);
 		// Floors above 8 (0..7) are NEVER included
 		for (int z = s_z; z >= e_z; --z) {
-			assert(z >= 8 && z <= 15);
+			TEST_ASSERT(z >= 8 && z <= 15);
 		}
 	}
 
@@ -654,10 +675,10 @@ void TestMultiFloorSelectionAndHitTesting() {
 		const int floor = 7;
 		const int s_z = MAP_MAX_LAYER;
 		const int e_z = floor;
-		assert(s_z == 15);
-		assert(e_z == 7);
+		TEST_ASSERT(s_z == 15);
+		TEST_ASSERT(e_z == 7);
 		for (int z = s_z; z >= e_z; --z) {
-			assert(z >= 7 && z <= 15);
+			TEST_ASSERT(z >= 7 && z <= 15);
 		}
 	}
 
@@ -690,7 +711,7 @@ void TestMultiFloorSelectionAndHitTesting() {
 
 		// Algorithm: check active floor first, if unselected check visible floors below
 		const MockTile* activeTile = findTile(mouse_x, mouse_y, mouse_z);
-		assert(activeTile != nullptr && !activeTile->selected);
+		TEST_ASSERT(activeTile != nullptr && !activeTile->selected);
 
 		const MockTile* resolvedTile = nullptr;
 		for (int z = mouse_z + 1; z <= MAP_MAX_LAYER; ++z) {
@@ -703,10 +724,10 @@ void TestMultiFloorSelectionAndHitTesting() {
 			}
 		}
 
-		assert(resolvedTile != nullptr);
-		assert(resolvedTile->z == 7);
-		assert(resolvedTile->x == 99 && resolvedTile->y == 99);
-		assert(resolvedTile->selected == true);
+		TEST_ASSERT(resolvedTile != nullptr);
+		TEST_ASSERT(resolvedTile->z == 7);
+		TEST_ASSERT(resolvedTile->x == 99 && resolvedTile->y == 99);
+		TEST_ASSERT(resolvedTile->selected == true);
 	}
 
 	std::cout << "[PASS] TestMultiFloorSelectionAndHitTesting passed!\n";
@@ -736,7 +757,7 @@ void TestCreatureNameAndReloadPreservation() {
 
 	// When type is not registered, getName() returns type_name, NOT empty string
 	std::string npcName = "Frodo";
-	assert(getName(npcName) == "Frodo");
+	TEST_ASSERT(getName(npcName) == "Frodo");
 
 	// Test 2: Standard vs non-standard database clearing
 	MockCreatureType standardMonster{ "Demon", true, false, false };
@@ -754,9 +775,9 @@ void TestCreatureNameAndReloadPreservation() {
 		}
 	}
 
-	assert(mock_database.find("demon") == mock_database.end());
-	assert(mock_database.find("frodo") != mock_database.end());
-	assert(mock_database["frodo"]->name == "Frodo");
+	TEST_ASSERT(mock_database.find("demon") == mock_database.end());
+	TEST_ASSERT(mock_database.find("frodo") != mock_database.end());
+	TEST_ASSERT(mock_database["frodo"]->name == "Frodo");
 
 	std::cout << "[PASS] TestCreatureNameAndReloadPreservation passed!\n";
 }

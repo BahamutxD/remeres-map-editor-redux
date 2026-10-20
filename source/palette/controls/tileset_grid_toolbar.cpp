@@ -275,9 +275,12 @@ void TilesetGridToolbar::OnSizeButtonClick(int toolId) {
 	auto* item32 = menu.AppendCheckItem(MENU_SIZE_32, "32x32");
 	auto* item64 = menu.AppendCheckItem(MENU_SIZE_64, "64x64");
 	auto* item128 = menu.AppendCheckItem(MENU_SIZE_128, "128x128");
-	auto* itemList = menu.AppendCheckItem(MENU_SIZE_LIST, "List");
+	wxMenuItem* itemList = nullptr;
+	if (m_actions.list_mode) {
+		itemList = menu.AppendCheckItem(MENU_SIZE_LIST, "List");
+	}
 
-	if (m_isListMode) {
+	if (m_isListMode && itemList) {
 		itemList->Check(true);
 	} else if (m_iconSize == 64) {
 		item64->Check(true);

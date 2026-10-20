@@ -203,7 +203,7 @@ void SelectionController::HandleRelease(const Position& mouse_map_pos, bool shif
 				////
 			} else {
 				// User hasn't moved anything, meaning selection/deselection
-				Tile* tile = editor.map.getTile(mouse_map_pos);
+				Tile* tile = FindSelectedTileUnderCursor(mouse_map_pos);
 				if (tile) {
 					if (tile->spawn && g_settings.getInteger(Config::SHOW_SPAWNS)) {
 						if (!tile->spawn->isSelected()) {
@@ -243,9 +243,17 @@ Tile* SelectionController::FindSelectedTileUnderCursor(const Position& mouse_map
 		return tile;
 	}
 
+	const bool show_all_floors = g_settings.getBoolean(Config::SHOW_ALL_FLOORS);
+	if (!show_all_floors) {
+		return tile;
+	}
+
 	if (!editor.selection.empty()) {
-		// When multi-floor selection or visible floors are active, check visible floors below the active floor
-		for (int z = mouse_map_pos.z + 1; z <= MAP_MAX_LAYER; ++z) {
+		const auto mode = SanitizeFloorVisibilityMode(g_settings.getInteger(Config::FLOOR_VISIBILITY_MODE));
+		const auto range = BuildFloorVisibilityRange(mouse_map_pos.z, show_all_floors, mode);
+		const int max_z = std::max(range.start_floor, range.end_floor);
+
+		for (int z = mouse_map_pos.z + 1; z <= max_z; ++z) {
 			const int z_x = mouse_map_pos.x - MainMapViewMath::GetFloorTileOffset(mouse_map_pos.z) + MainMapViewMath::GetFloorTileOffset(z);
 			const int z_y = mouse_map_pos.y - MainMapViewMath::GetFloorTileOffset(mouse_map_pos.z) + MainMapViewMath::GetFloorTileOffset(z);
 			Tile* lower_tile = editor.map.getTile(z_x, z_y, z);

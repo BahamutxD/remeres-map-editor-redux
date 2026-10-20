@@ -140,7 +140,7 @@ CollectionStagingContent CollectionExtractorService::ExtractFromSelection(Editor
 		std::string lowerName = to_lower_str(b->getName());
 		if (b->is<RAWBrush>() || b->is<EraserBrush>() || b->is<SpawnBrush>() ||
 			b == g_brush_manager.spawn_brush || b == g_brush_manager.eraser ||
-			lowerName == "spawn" || lowerName == "spawn brush" || lowerName.find("spawn") != std::string::npos) {
+			lowerName == "spawn" || lowerName == "spawn brush") {
 			continue;
 		}
 		content.brushes.push_back(b);
