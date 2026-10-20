@@ -374,16 +374,31 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 	};
 
 	// Map items and grounds animate; their runs are tracked so frame changes can be patched in place.
-	auto pushSpriteInstances = [&](GameSprite* spr, const SpritePatterns& pat, int draw_base_x, int draw_base_y, float rf, float gf, float bf, float af, float house_id = 0.0f, float depth = 0.0f, float flags = TILE_INSTANCE_FLAG_TEXTURE, bool upload = false) {
+	auto pushSpriteInstances = [&](GameSprite* spr, const SpritePatterns& pat, int draw_base_x, int draw_base_y, float rf, float gf, float bf, float af, float house_id = 0.0f, float depth = 0.0f, float flags = TILE_INSTANCE_FLAG_TEXTURE, bool upload = false, int map_pos_x = 0, int map_pos_y = 0, int map_pos_z = 0) {
 		const size_t first_instance = bake_buffer_.size();
 		emitSpriteInstances(spr, pat, draw_base_x, draw_base_y, rf, gf, bf, af, house_id, depth, flags, upload);
 		if (!spr->isAnimated()) {
 			return;
 		}
 
-		auto slot = std::ranges::find(chunk.animated_sprites, spr, &AnimatedSpriteFrame::sprite);
+		int tx = 0, ty = 0, tz = 0;
+		if (spr->animation_data && spr->animation_data->is_async) {
+			tx = map_pos_x;
+			ty = map_pos_y;
+			tz = map_pos_z;
+		}
+
+		auto slot = std::ranges::find_if(chunk.animated_sprites, [&](const AnimatedSpriteFrame& f) {
+			return f.sprite == spr && f.tile_x == tx && f.tile_y == ty && f.tile_z == tz;
+		});
 		if (slot == chunk.animated_sprites.end()) {
-			slot = chunk.animated_sprites.insert(slot, AnimatedSpriteFrame { .sprite = spr, .frame = pat.frame });
+			slot = chunk.animated_sprites.insert(slot, AnimatedSpriteFrame {
+				.sprite = spr,
+				.tile_x = tx,
+				.tile_y = ty,
+				.tile_z = tz,
+				.frame = pat.frame
+			});
 		}
 		chunk.animated_runs.push_back(AnimatedSpriteRun {
 			.first_instance = static_cast<uint32_t>(first_instance),
@@ -442,10 +457,10 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 		}
 
 		// The creature's sprite animation determines how often this chunk can change.
-		if (spr->animator) {
-			int step = spr->animator->getFrameStepMs();
+		if (spr->isAnimated()) {
+			int step = spr->getFrameStepMs();
 			if (step <= 0) {
-				step = ITEM_FRAME_DURATION;
+				step = rme::rendering::ITEM_FRAME_DURATION;
 			}
 			creature_step_ms = static_cast<uint16_t>(std::min(step, 65000));
 		}
@@ -604,7 +619,8 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 							-tile_house_id,
 							ground_depth,
 							TILE_INSTANCE_FLAG_TEXTURE,
-							/*upload=*/true);
+							/*upload=*/true,
+							x, y, z);
 					}
 				}
 			}
@@ -660,7 +676,10 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 					static_cast<float>(b) * (1.0f / 255.0f),
 					1.0f,
 					-tile_house_id,
-					border_depth);
+					border_depth,
+					TILE_INSTANCE_FLAG_TEXTURE,
+					false,
+					x, y, z);
 			}
 		}
 	}
@@ -773,7 +792,9 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 						static_cast<float>(a) * (1.0f / 255.0f),
 						item_house_id,
 						item_depth,
-						item_flags);
+						item_flags,
+						false,
+						x, y, z);
 
 					if (ispr->hasElevation()) {
 						elev += ispr->draw_height;
@@ -806,13 +827,13 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 	chunk.item_instance_count = static_cast<uint32_t>(bake_buffer_.size()) - chunk.terrain_instance_count;
 	chunk.instance_count = static_cast<uint32_t>(bake_buffer_.size());
 
-	// getFrameStepMs() is constant per animator, so resolve the shortest animation frame
+	// getFrameStepMs() is constant per animated sprite, so resolve the shortest animation frame
 	// duration once per bake; the frame loop reads this cached value instead of re-walking
 	// every AnimatedSpriteFrame of every visible chunk.
 	uint16_t sprite_step_ms = 0;
 	for (const AnimatedSpriteFrame& entry : chunk.animated_sprites) {
-		if (entry.sprite && entry.sprite->animator) {
-			const int step = entry.sprite->animator->getFrameStepMs();
+		if (entry.sprite && entry.sprite->isAnimated()) {
+			const int step = entry.sprite->getFrameStepMs();
 			if (step > 0 && (sprite_step_ms == 0 || static_cast<uint32_t>(step) < sprite_step_ms)) {
 				sprite_step_ms = static_cast<uint16_t>(step);
 			}
@@ -855,10 +876,10 @@ bool ChunkCacheManager::refreshAnimatedFrames(CachedChunk& chunk, long elapsed_t
 	uint64_t changed_slots = 0;
 	for (size_t slot = 0; slot < chunk.animated_sprites.size(); ++slot) {
 		AnimatedSpriteFrame& entry = chunk.animated_sprites[slot];
-		if (!entry.sprite || !entry.sprite->animator) {
+		if (!entry.sprite || !entry.sprite->isAnimated()) {
 			continue;
 		}
-		const int frame = entry.sprite->animator->getFrame(elapsed_time);
+		const int frame = entry.sprite->getAnimationFrame(elapsed_time, entry.tile_x, entry.tile_y, entry.tile_z);
 		if (frame != entry.frame) {
 			entry.frame = frame;
 			changed_slots |= uint64_t { 1 } << slot;

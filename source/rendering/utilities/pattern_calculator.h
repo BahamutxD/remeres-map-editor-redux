@@ -44,7 +44,7 @@ public:
 		patterns.y = calculatePatternOffset(pos.y, spr->pattern_y);
 		patterns.z = calculatePatternOffset(pos.z, spr->pattern_z);
 
-		patterns.frame = (spr->animator) ? spr->animator->getFrame(elapsed_time) : 0;
+		patterns.frame = spr->isAnimated() ? spr->getAnimationFrame(elapsed_time, pos.x, pos.y, pos.z) : 0;
 
 		if (it.isSplash() || it.isFluidContainer()) {
 			const uint16_t fluid = item ? item->getSubtype() : 0;
