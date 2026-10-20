@@ -299,6 +299,13 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/goto_position_dialog.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/remove_unreachable_dialog.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/spawn_validator_window.h
+    ${CMAKE_CURRENT_LIST_DIR}/editor/operations/collection_extractor_service.h
+    ${CMAKE_CURRENT_LIST_DIR}/io/collection_xml_service.h
+    ${CMAKE_CURRENT_LIST_DIR}/palette/managers/collection_palette_sync.h
+    ${CMAKE_CURRENT_LIST_DIR}/ui/controls/collection_item_grid.h
+    ${CMAKE_CURRENT_LIST_DIR}/ui/controls/collection_brush_grid.h
+    ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/collection_options_panel.h
+    ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/collection_studio_window.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/properties/object_properties_base.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/properties/property_validator.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/properties/property_applier.h
@@ -812,6 +819,13 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/rule_list_control.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/rule_manager.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/visual_similarity_service.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/editor/operations/collection_extractor_service.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/io/collection_xml_service.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/palette/managers/collection_palette_sync.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/ui/controls/collection_item_grid.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/ui/controls/collection_brush_grid.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/collection_options_panel.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/collection_studio_window.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/result_window.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/theme.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/welcome_dialog.cpp

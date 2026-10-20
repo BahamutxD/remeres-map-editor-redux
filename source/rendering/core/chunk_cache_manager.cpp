@@ -855,6 +855,9 @@ bool ChunkCacheManager::refreshAnimatedFrames(CachedChunk& chunk, long elapsed_t
 	uint64_t changed_slots = 0;
 	for (size_t slot = 0; slot < chunk.animated_sprites.size(); ++slot) {
 		AnimatedSpriteFrame& entry = chunk.animated_sprites[slot];
+		if (!entry.sprite || !entry.sprite->animator) {
+			continue;
+		}
 		const int frame = entry.sprite->animator->getFrame(elapsed_time);
 		if (frame != entry.frame) {
 			entry.frame = frame;

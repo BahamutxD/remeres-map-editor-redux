@@ -390,7 +390,7 @@ void Application::Unload() {
 #endif
 
 	g_gui.CloseAllEditors();
-	g_version.UnloadVersion();
+	g_version.UnloadVersion(true);
 	g_hotkeys.SaveHotkeys();
 	g_gui.root->SaveRecentFiles();
 	ClientVersion::saveVersions();
