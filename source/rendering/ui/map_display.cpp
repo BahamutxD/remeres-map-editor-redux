@@ -25,6 +25,7 @@
 #include <chrono>
 #include <wx/wfstream.h>
 #include <spdlog/spdlog.h>
+#include <wx/timer.h>
 
 #include "ui/gui.h"
 #include "editor/editor.h"
@@ -717,7 +718,21 @@ void MapCanvas::OnMousePropertiesRelease(wxMouseEvent& event) {
 	selection_controller->HandlePropertiesRelease(Position(mouse_map_x, mouse_map_y, floor), event.ShiftDown(), event.ControlDown(), event.AltDown());
 
 	popup_menu->Update();
+
+	// Modal popup menus enter a nested Win32 message loop (TrackPopupMenuEx) where wxWidgets
+	// suppresses wxEVT_IDLE. A scoped timer pumps frame refreshes while the menu is open.
+	wxTimer menu_timer;
+	if (IsAnimationEnabled() && drawer && (drawer->HasVisibleAnimation() || drawer->HasIncompleteChunks())) {
+		menu_timer.Bind(wxEVT_TIMER, [this](wxTimerEvent&) {
+			if (IsShownOnScreen() && g_gui.IsRenderingEnabled()) {
+				QueueNativeRefresh(true);
+			}
+		});
+		menu_timer.Start(16);
+	}
+
 	PopupMenu(popup_menu.get());
+	menu_timer.Stop();
 
 	editor.actionQueue->resetTimer();
 	dragging = false;
