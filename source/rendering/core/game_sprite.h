@@ -10,7 +10,6 @@
 #include "rendering/core/sprite_animation.h"
 #include <optional>
 #include "rendering/core/sprite_light.h"
-#include "rendering/core/texture_garbage_collector.h"
 #include "rendering/core/atlas_manager.h"
 #include "rendering/core/render_timer.h"
 #include "rendering/core/normal_image.h"
@@ -83,7 +82,6 @@ public:
 
 	ImageDimensions GetSize() const override;
 
-	void clean(time_t time, int longevity = -1);
 
 	int getDrawHeight() const;
 	[[nodiscard]] const std::pair<int, int>& getDrawOffset() const {
@@ -181,12 +179,10 @@ public:
 	std::vector<uint32_t> sprite_ids;
 	std::vector<NormalImage*> spriteList;
 	std::vector<std::unique_ptr<TemplateImage>> instanced_templates; // Templates that use this sprite
-	bool is_resident = false; // Tracks if this GameSprite is in resident_game_sprites
 
 	friend class GraphicManager;
 	friend class GraphicsAssembler;
 	friend class SpriteIconService;
-	friend class TextureGarbageCollector;
 	friend class TooltipDrawer;
 	friend class SpritePreloader;
 

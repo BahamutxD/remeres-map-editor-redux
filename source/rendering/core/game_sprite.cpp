@@ -59,11 +59,6 @@ void GameSprite::ColorizeTemplatePixels(uint8_t* dest, const uint8_t* mask, size
 	OutfitColorizer::ColorizeTemplatePixels(dest, mask, pixelCount, lookHead, lookBody, lookLegs, lookFeet, destHasAlpha);
 }
 
-void GameSprite::clean(time_t time, int longevity) {
-	for (auto& iter : instanced_templates) {
-		iter->clean(time, longevity);
-	}
-}
 
 int GameSprite::getDrawHeight() const {
 	return draw_height;

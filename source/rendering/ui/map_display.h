@@ -172,12 +172,10 @@ private:
 	void QueueNativeRefresh(bool immediate);
 	void EnsureNanoVG();
 	void DrawOverlays(NVGcontext* vg, const DrawingOptions& options);
-	void PerformGarbageCollection();
 
 	MapWindow* GetMapWindow() const;
 	BaseMap* GetSecondaryMap() const;
 	bool renderer_initialized = false;
-	std::chrono::steady_clock::time_point last_gc_time_{};
 	bool hover_preview_active_ = false;
 };
 

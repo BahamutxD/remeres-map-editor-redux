@@ -41,20 +41,6 @@ TemplateImage::~TemplateImage() {
 	}
 }
 
-void TemplateImage::clean(time_t time, int longevity) {
-	if (longevity <= 0 || !g_graphics.getGCOptions().enabled) {
-		return;
-	}
-	if (isGLLoaded && time - static_cast<time_t>(lastaccess.load(std::memory_order_relaxed)) > longevity) {
-		if (g_graphics.hasAtlasManager()) {
-			g_graphics.getAtlasManager()->removeSprite(texture_id);
-		}
-		isGLLoaded = false;
-		atlas_region = nullptr;
-		generation_id++;
-		g_graphics.collector.NotifyTextureUnloaded();
-	}
-}
 
 namespace {
 	ImageDimensions resolveTemplateDimensions(const TemplateImage* img) {
@@ -195,7 +181,6 @@ const AtlasRegion* TemplateImage::getAtlasRegion(bool allow_upload) {
 			isGLLoaded = false;
 			atlas_region = nullptr;
 		} else {
-			visit();
 			return atlas_region;
 		}
 	}
@@ -207,6 +192,5 @@ const AtlasRegion* TemplateImage::getAtlasRegion(bool allow_upload) {
 		}
 		atlas_region = EnsureAtlasSprite(texture_id);
 	}
-	visit();
 	return atlas_region;
 }

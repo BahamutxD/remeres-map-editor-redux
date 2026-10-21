@@ -166,9 +166,6 @@ void GraphicsAssembler::resetRuntimeState(GraphicManager& manager) {
 	manager.spritefile.clear();
 	manager.sprite_space.clear();
 	manager.image_space.clear();
-	manager.resident_images.clear();
-	manager.resident_game_sprites.clear();
-	manager.collector.Clear();
 	if (manager.atlas_manager_) {
 		manager.atlas_manager_->clear();
 		manager.atlas_manager_.reset();
