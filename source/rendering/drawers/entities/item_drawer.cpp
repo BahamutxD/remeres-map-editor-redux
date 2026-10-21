@@ -147,11 +147,11 @@ void ItemDrawer::BlitItem(SpriteBatch& sprite_batch, SpriteDrawer* sprite_drawer
 	if (cached_patterns && spr == original_spr) {
 		patterns = *cached_patterns;
 	} else {
-		const long elapsed_time = params.ctx ? params.ctx->elapsed_time : -1;
+		const std::optional<int64_t> elapsed_time = params.ctx ? std::optional<int64_t>(params.ctx->elapsed_time) : std::nullopt;
 		patterns = PatternCalculator::Calculate(spr, it, item, tile, pos, elapsed_time);
 	}
 
-	int subtype = patterns.subtype;
+	const int subtype = patterns.subtype.value_or(-1);
 	int pattern_x = patterns.x;
 	int pattern_y = patterns.y;
 	int pattern_z = patterns.z;
@@ -173,7 +173,7 @@ void ItemDrawer::BlitItem(SpriteBatch& sprite_batch, SpriteDrawer* sprite_drawer
 
 	if (is_simple_sprite) {
 		const AtlasRegion* region = nullptr;
-		if (spr->is_simple && subtype == -1 && pattern_x == 0 && pattern_y == 0 && pattern_z == 0 && frame == 0) {
+		if (spr->is_simple && !patterns.subtype.has_value() && pattern_x == 0 && pattern_y == 0 && pattern_z == 0 && frame == 0) {
 			region = spr->getCachedDefaultRegion();
 		}
 		if (!region) {
