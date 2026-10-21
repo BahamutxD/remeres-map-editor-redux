@@ -83,7 +83,6 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/editor/selection_thread.h
     ${CMAKE_CURRENT_LIST_DIR}/ext/pugiconfig.hpp
     ${CMAKE_CURRENT_LIST_DIR}/ext/pugixml.hpp
-    ${CMAKE_CURRENT_LIST_DIR}/game/animation_timer.h
     ${CMAKE_CURRENT_LIST_DIR}/game/complexitem.h
     ${CMAKE_CURRENT_LIST_DIR}/game/creature.h
     ${CMAKE_CURRENT_LIST_DIR}/game/creatures.h
@@ -184,7 +183,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/palette/controls/palette_search_ctrl.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/panels/brush_palette_panel.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/panels/brush_panel.h
-    ${CMAKE_CURRENT_LIST_DIR}/rendering/core/animator.h
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/core/sprite_animation.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/atlas_manager.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/chunk_cache_manager.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/coordinate_mapper.h
@@ -299,6 +298,13 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/goto_position_dialog.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/remove_unreachable_dialog.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/spawn_validator_window.h
+    ${CMAKE_CURRENT_LIST_DIR}/editor/operations/collection_extractor_service.h
+    ${CMAKE_CURRENT_LIST_DIR}/io/collection_xml_service.h
+    ${CMAKE_CURRENT_LIST_DIR}/palette/managers/collection_palette_sync.h
+    ${CMAKE_CURRENT_LIST_DIR}/ui/controls/collection_item_grid.h
+    ${CMAKE_CURRENT_LIST_DIR}/ui/controls/collection_brush_grid.h
+    ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/collection_options_panel.h
+    ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/collection_studio_window.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/properties/object_properties_base.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/properties/property_validator.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/properties/property_applier.h
@@ -529,7 +535,6 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/editor/selection.cpp
     ${CMAKE_CURRENT_LIST_DIR}/editor/selection_thread.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ext/pugixml.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/game/animation_timer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/game/complexitem.cpp
     ${CMAKE_CURRENT_LIST_DIR}/game/creature.cpp
     ${CMAKE_CURRENT_LIST_DIR}/game/creatures.cpp
@@ -616,7 +621,7 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/palette/controls/palette_search_ctrl.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/panels/brush_palette_panel.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/panels/brush_panel.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/rendering/core/animator.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/core/sprite_animation.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/atlas_manager.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/chunk_cache_manager.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/coordinate_mapper.cpp
@@ -812,6 +817,13 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/rule_list_control.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/rule_manager.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/replace_tool/visual_similarity_service.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/editor/operations/collection_extractor_service.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/io/collection_xml_service.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/palette/managers/collection_palette_sync.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/ui/controls/collection_item_grid.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/ui/controls/collection_brush_grid.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/collection_options_panel.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/ui/dialogs/collection_studio_window.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/result_window.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/theme.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/welcome_dialog.cpp

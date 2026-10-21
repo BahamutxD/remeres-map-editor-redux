@@ -355,7 +355,7 @@ bool MapXMLIO::loadSpawns(Map& map, pugi::xml_document& doc) {
 			creatureTile->creature->setDirection(direction);
 			creatureTile->creature->setSpawnTime(spawntime);
 			creatureTile->creature->setWeight(weight);
-			if (isNpc && !type->isNpc) {
+			if (isNpc) {
 				creatureTile->creature->markAsNpcSpawn();
 			}
 

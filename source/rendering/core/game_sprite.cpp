@@ -28,7 +28,6 @@ GameSprite::GameSprite() :
 	pattern_z(0),
 	frames(0),
 	numsprites(0),
-	animator(nullptr),
 	draw_height(0),
 	drawoffset_x(0),
 	drawoffset_y(0),

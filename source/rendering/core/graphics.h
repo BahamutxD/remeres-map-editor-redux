@@ -35,12 +35,10 @@ struct NVGDeleter {
 
 #include "app/client_version.h"
 
-#include "animator.h"
 
 class MapCanvas;
 class GraphicManager;
 class FileReadHandle;
-class Animator;
 class SpriteArchive;
 
 #include "rendering/core/sprite_light.h"

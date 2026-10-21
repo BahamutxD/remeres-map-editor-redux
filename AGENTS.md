@@ -4,6 +4,20 @@
 
 ---
 
+## Tooling & Build Workflow
+
+- **Primary Platform & Target**: **Windows x64** is the primary, canonical build and development target.
+- **Primary Build Tool**: Use `build_ninja.bat` from the repository root (e.g. `cmd /c build_ninja.bat`). It automatically sets up the MSVC toolchain, locates vcpkg dependencies, and drives Ninja to compile `build-ninja/rme.exe` and generate `compile_commands.json`.
+- For incremental builds, run `cmd /c build_ninja.bat`.
+- **Client Data Inspection Tool (`tools/tibia_data.py`)**: Zero-dependency Python 3.9+ CLI tool to inspect, dump, and validate Tibia client assets (`Tibia.dat`, `Tibia.spr`, `items.otb`).
+  - Print file info & signatures: `python tools/tibia_data.py info --dat <Tibia.dat> --spr <Tibia.spr> --otb <items.otb>`
+  - Inspect item by client or server ID: `python tools/tibia_data.py item --client <id> --dat <Tibia.dat>` or `python tools/tibia_data.py item --server <id> --otb <items.otb>`
+  - Export sprite to PNG: `python tools/tibia_data.py sprite <sprite_id> --spr <Tibia.spr> -o sprite.png`
+  - Run tool unit tests: `python tools/test_tibia_data.py`
+  - See `tools/README.md` for full command reference and JSON output options.
+
+---
+
 ## Priority Order
 
 When rules conflict, the higher one wins:
@@ -27,7 +41,6 @@ When rules conflict, the higher one wins:
 ---
 
 ## Existing Code Is Not a Template
-
 Much of this codebase was written or rewritten by coding agents, and parts still carry legacy idioms (raw pointer ownership, manual index loops, printf-style formatting, large controllers, scattered mutable state). Neither legacy code nor recent agent-written code is proof that a pattern is good.
 
 - Do not copy a pattern just because a neighboring file uses it. Follow the Hard rules and the idioms in this file.
@@ -124,12 +137,13 @@ If you could not confirm something (a name, an API signature, runtime behavior),
 
 ## Orientation
 
-C++ source files live exclusively in `source/`. Repo-root folders hold game data, assets, and runtime content:
+Production C++ source files live exclusively in `source/` (with test sources under `tests/`). Repo-root folders hold game data, assets, and runtime content:
 - `brushes/` — XML brush configurations and bordering definitions
 - `data/` — materials, item mappings, menubar configs, and version manifests
 - `extensions/` — editor extension packages
 - `lua_tests/` — integration test scripts for the Lua engine
 - `tests/` — C++ GoogleTest/standalone unit test suites
+- `tools/` — standalone Python client data inspection tools (`tibia_data.py`)
 
 Do not trust file names from memory. **Find things by searching for the symbol**, then read the code. If a folder has its own `agents.md`, read it too; the nearest one wins for that folder.
 
