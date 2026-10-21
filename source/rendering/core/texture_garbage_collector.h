@@ -27,7 +27,7 @@ class GameSprite;
 class Sprite;
 
 struct TextureGCOptions {
-	bool enabled = true;
+	bool enabled = false;
 	int clean_threshold = 1000;
 	int clean_pulse = 60;
 	int longevity = 300;

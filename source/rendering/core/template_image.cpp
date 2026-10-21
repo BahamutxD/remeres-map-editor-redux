@@ -42,7 +42,7 @@ TemplateImage::~TemplateImage() {
 }
 
 void TemplateImage::clean(time_t time, int longevity) {
-	if (longevity <= 0) {
+	if (longevity <= 0 || !g_graphics.getGCOptions().enabled) {
 		return;
 	}
 	if (isGLLoaded && time - static_cast<time_t>(lastaccess.load(std::memory_order_relaxed)) > longevity) {

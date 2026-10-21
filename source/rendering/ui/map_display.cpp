@@ -329,6 +329,10 @@ void MapCanvas::DrawOverlays(NVGcontext* vg, const DrawingOptions& options) {
 }
 
 void MapCanvas::PerformGarbageCollection() {
+	if (!g_graphics.getGCOptions().enabled) {
+		return;
+	}
+
 	// Clean unused textures once every second
 	// Only run GC if this is the active tab to prevent multiple tabs from fighting over resources
 	long current_time = wxGetLocalTime();

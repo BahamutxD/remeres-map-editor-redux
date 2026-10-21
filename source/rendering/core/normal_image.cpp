@@ -39,24 +39,12 @@ void NormalImage::fulfillPreload(std::unique_ptr<uint8_t[]> data) {
 	is_preloading = false;
 }
 
-void NormalImage::clean(time_t time, int longevity) {
-	if (longevity <= 0) {
-		return;
-	}
-	if (isGLLoaded && time - static_cast<time_t>(lastaccess.load(std::memory_order_relaxed)) > longevity) {
-		if (g_graphics.hasAtlasManager()) {
-			g_graphics.getAtlasManager()->removeSprite(id);
-		}
-
-		isGLLoaded = false;
-		atlas_region = nullptr;
-		is_preloading = false;
-
-		// Invalidate any pending preloads for this sprite ID
-		generation_id++;
-
-		g_graphics.collector.NotifyTextureUnloaded();
-	}
+void NormalImage::clean(time_t /*time*/, int /*longevity*/) {
+	// NormalImage sprites are immutable client assets stored in TextureAtlas.
+	// In modern OpenGL MDI chunk caching, cached chunks and UI elements rely on
+	// persistent atlas residency. Sprites must never be evicted mid-session;
+	// the entire atlas is released cleanly via GraphicManager::clear() on version
+	// change or shutdown.
 }
 std::unique_ptr<uint8_t[]> NormalImage::getRGBData() {
 	if (id == 0) {
