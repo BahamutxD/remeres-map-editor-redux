@@ -39,13 +39,6 @@ void NormalImage::fulfillPreload(std::unique_ptr<uint8_t[]> data) {
 	is_preloading = false;
 }
 
-void NormalImage::clean(time_t /*time*/, int /*longevity*/) {
-	// NormalImage sprites are immutable client assets stored in TextureAtlas.
-	// In modern OpenGL MDI chunk caching, cached chunks and UI elements rely on
-	// persistent atlas residency. Sprites must never be evicted mid-session;
-	// the entire atlas is released cleanly via GraphicManager::clear() on version
-	// change or shutdown.
-}
 std::unique_ptr<uint8_t[]> NormalImage::getRGBData() {
 	if (id == 0) {
 		const auto dimensions = getDimensions();
@@ -106,7 +99,6 @@ const AtlasRegion* NormalImage::getAtlasRegion(bool allow_upload) {
 			isGLLoaded = false;
 			atlas_region = nullptr;
 		} else {
-			visit();
 			return atlas_region;
 		}
 	}
@@ -119,6 +111,5 @@ const AtlasRegion* NormalImage::getAtlasRegion(bool allow_upload) {
 		}
 		atlas_region = EnsureAtlasSprite(id);
 	}
-	visit();
 	return atlas_region;
 }

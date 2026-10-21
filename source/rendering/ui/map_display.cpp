@@ -290,19 +290,6 @@ void MapCanvas::DrawOverlays(NVGcontext* vg, const DrawingOptions& options) {
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 }
 
-void MapCanvas::PerformGarbageCollection() {
-	if (!g_graphics.getGCOptions().enabled) {
-		return;
-	}
-
-	// Clean unused textures once every second
-	// Only run GC if this is the active tab to prevent multiple tabs from fighting over resources
-	const auto now = std::chrono::steady_clock::now();
-	if (now - last_gc_time_ >= std::chrono::seconds(1) && g_gui.GetCurrentMapTab() == GetParent()) {
-		g_graphics.garbageCollection();
-		last_gc_time_ = now;
-	}
-}
 
 void MapCanvas::OnPaint(wxPaintEvent& event) {
 	rme::prof::Scope frame_scope(rme::prof::Phase::Frame);
@@ -398,7 +385,6 @@ void MapCanvas::OnPaint(wxPaintEvent& event) {
 }
 
 void MapCanvas::OnIdle(wxIdleEvent& event) {
-	PerformGarbageCollection();
 
 	if (IsShownOnScreen() && g_gui.IsRenderingEnabled()) {
 		auto* top = wxDynamicCast(wxGetTopLevelParent(this), wxTopLevelWindow);
