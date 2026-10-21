@@ -17,7 +17,7 @@ OTB  server item data  items.otb: server id <-> client id, flags, attributes
 
 ## Requirements
 
-- Python 3.8 or newer (tested with 3.14)
+- Python 3.9 or newer (tested with 3.14)
 - No third-party packages
 - A client data folder (e.g. `Tests1098/` in this repository)
 

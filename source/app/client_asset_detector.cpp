@@ -97,32 +97,72 @@ namespace {
 	}
 
 	std::vector<DatProbeCandidate> probeDatCandidates(const wxFileName& dat_path, uint32_t dat_signature, const ClientVersion* client = nullptr) {
-		// 1. Known signature fast-path: match against client or database without brute force
-		if (client && dat_signature != 0 && client->getDatFormatForSignature(dat_signature) != DAT_FORMAT_UNKNOWN) {
-			return { DatProbeCandidate {
-				.format = client->getDatFormatForSignature(dat_signature),
-				.extended = client->isExtended(),
-				.frame_durations = client->hasFrameDurations(),
-				.frame_groups = client->hasFrameGroups(),
-				.warning_count = 0,
-			}};
+		const DatItemParser parser;
+
+		// Helper to validate a candidate against the DAT layout before accepting it
+		auto validateCandidate = [&](const ClientVersion* cv) -> std::optional<DatProbeCandidate> {
+			if (!cv || dat_signature == 0) {
+				return std::nullopt;
+			}
+			const auto fmt = cv->getDatFormatForSignature(dat_signature);
+			if (fmt == DAT_FORMAT_UNKNOWN) {
+				return std::nullopt;
+			}
+			OtbVersion otb {};
+			ClientVersion probe_client(otb, "detector-probe", "");
+			probe_client.setExtended(cv->isExtended());
+			probe_client.setFrameDurations(cv->hasFrameDurations());
+			probe_client.setFrameGroups(cv->hasFrameGroups());
+			probe_client.setClientData(dat_signature, 0, fmt);
+
+			ItemDefinitionLoadInput input;
+			input.dat_path = dat_path;
+			input.client_version = &probe_client;
+			input.max_entries = 50;
+			DatCatalog catalog;
+			wxString error;
+			std::vector<std::string> warnings;
+			if (parser.parseCatalog(input, catalog, error, warnings)) {
+				return DatProbeCandidate {
+					.format = fmt,
+					.extended = cv->isExtended(),
+					.frame_durations = cv->hasFrameDurations(),
+					.frame_groups = cv->hasFrameGroups(),
+					.warning_count = warnings.size(),
+				};
+			}
+			return std::nullopt;
+		};
+
+		// 1. Known signature fast-path: validate matched client version against DAT binary
+		if (client) {
+			if (auto validated = validateCandidate(client)) {
+				return { *validated };
+			}
 		}
 
 		if (dat_signature != 0) {
 			for (const auto* cv : ClientVersion::getAll()) {
-				if (cv && cv->getDatSignature() == dat_signature && cv->getDatFormatForSignature(dat_signature) != DAT_FORMAT_UNKNOWN) {
-					return { DatProbeCandidate {
-						.format = cv->getDatFormatForSignature(dat_signature),
-						.extended = cv->isExtended(),
-						.frame_durations = cv->hasFrameDurations(),
-						.frame_groups = cv->hasFrameGroups(),
-						.warning_count = 0,
-					}};
+				if (cv && cv->getDatSignature() == dat_signature) {
+					if (auto validated = validateCandidate(cv)) {
+						return { *validated };
+					}
 				}
 			}
 		}
 
 		// 2. Sample-based probing for unknown/custom signatures
+		// Inspect item_count header so candidate probing inspects at least one creature entry
+		uint16_t dat_item_count = 0;
+		{
+			FileReadHandle dat_file(nstr(dat_path.GetFullPath()));
+			uint32_t sig = 0;
+			if (dat_file.isOk() && dat_file.getU32(sig)) {
+				dat_file.getU16(dat_item_count);
+			}
+		}
+		const size_t probe_limit = dat_item_count > 0 ? static_cast<size_t>(dat_item_count) + 5 : 50;
+
 		static constexpr std::array formats = {
 			DAT_FORMAT_74,
 			DAT_FORMAT_755,
@@ -134,7 +174,6 @@ namespace {
 			DAT_FORMAT_1057,
 		};
 
-		const DatItemParser parser;
 		std::vector<DatProbeCandidate> successes;
 
 		for (const auto format : formats) {
@@ -164,7 +203,7 @@ namespace {
 						ItemDefinitionLoadInput input;
 						input.dat_path = dat_path;
 						input.client_version = &probe_client;
-						input.max_entries = 50;
+						input.max_entries = probe_limit;
 
 						DatCatalog catalog;
 						wxString error;

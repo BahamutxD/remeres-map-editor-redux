@@ -7,6 +7,7 @@
 #include <vector>
 #include <algorithm>
 #include <memory>
+#include <optional>
 
 namespace NvgUtils {
 
@@ -19,9 +20,11 @@ namespace NvgUtils {
 
 	// Creates a composite RGBA buffer from a GameSprite.
 	// Returns a unique_ptr to the buffer, or nullptr on failure.
-	inline std::unique_ptr<uint8_t[]> CreateCompositeRGBA(GameSprite& gs, int& outW, int& outH) {
+	inline std::unique_ptr<uint8_t[]> CreateCompositeRGBA(GameSprite& gs, int& outW, int& outH, std::optional<bool> is_stackable_opt = std::nullopt) {
 		bool is_stackable = false;
-		if (gs.getId() != 0) {
+		if (is_stackable_opt.has_value()) {
+			is_stackable = *is_stackable_opt;
+		} else if (gs.getId() != 0) {
 			if (const auto sid = g_item_definitions.findByClientId(gs.getId())) {
 				is_stackable = g_item_definitions.get(*sid).hasFlag(ItemFlag::Stackable);
 			}
@@ -121,7 +124,7 @@ namespace NvgUtils {
 		}
 
 		int w, h;
-		auto composite = CreateCompositeRGBA(*gs, w, h);
+		auto composite = CreateCompositeRGBA(*gs, w, h, it.hasFlag(ItemFlag::Stackable));
 		if (!composite) {
 			return 0;
 		}

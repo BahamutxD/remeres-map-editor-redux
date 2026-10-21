@@ -29,7 +29,7 @@ void WallBrushItems::addDoorItem(int alignment, uint16_t id, ::DoorType type, bo
 	item.id = id;
 	item.locked = locked;
 	door_items[alignment].push_back(item);
-	door_type_map[id] = type;
+	door_type_map.try_emplace(id, type);
 }
 
 uint16_t WallBrushItems::getRandomWallId(int alignment) const {

@@ -368,12 +368,13 @@ void LuaScriptManager::collectMapOverlayCommands(const MapViewInfo& view, std::v
 void LuaScriptManager::registerOverlayFunctions(sol::table& ctx, std::shared_ptr<std::vector<MapOverlayCommand>>& out, const MapViewInfo& view) {
 	ctx["__is_rme_overlay_ctx"] = true;
 
-	auto getOptsTable = [ctx](sol::variadic_args va) -> sol::table {
+	const void* ctx_ptr = ctx.pointer();
+	auto getOptsTable = [ctx_ptr](sol::variadic_args va) -> sol::table {
 		for (size_t i = 0; i < va.size(); ++i) {
 			if (va[i].is<sol::table>()) {
 				sol::table t = va[i].as<sol::table>();
 				// Skip the context table itself (when called as ctx:rect(...) instead of ctx.rect(...))
-				if (t.pointer() == ctx.pointer() || t["__is_rme_overlay_ctx"].get_or(false)) {
+				if (t.pointer() == ctx_ptr || t["__is_rme_overlay_ctx"].get_or(false)) {
 					continue;
 				}
 				return t;
