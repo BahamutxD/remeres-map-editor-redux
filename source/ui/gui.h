@@ -269,6 +269,7 @@ public:
 	void SetCurrentMapSecondaryMap(BaseMap* secondary_map);
 	// Refresh the view canvas
 	void RefreshView(bool immediate = false);
+	void ReleaseAllChunkCaches();
 	void SyncCurrentMapCanvasPreviewState();
 	// Fit all/specified current map view to map dimensions
 	void FitViewToMap();
@@ -406,8 +407,10 @@ public:
 		release();
 	}
 	void release() {
-		g_gui.EnableRendering();
-		acquired = false;
+		if (acquired) {
+			acquired = false;
+			g_gui.EnableRendering();
+		}
 	}
 };
 
