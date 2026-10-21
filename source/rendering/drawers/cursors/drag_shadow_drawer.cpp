@@ -123,7 +123,7 @@ void DragShadowDrawer::draw(SpriteBatch& sprite_batch, Editor& editor, const std
 
 							sprite_batch.draw(static_cast<float>(draw_x), static_cast<float>(draw_y),
 							                  32.0f, 32.0f, *white_pixel, 1.0f, 1.0f, 1.0f, 0.85f,
-							                  rme::rendering::INDICATOR_SPAWN_BASE);
+							                  rme::rendering::INDICATOR_SPAWN_BASE, rme::rendering::ZONE_FLAG_IS_INDICATOR);
 						}
 					}
 				}

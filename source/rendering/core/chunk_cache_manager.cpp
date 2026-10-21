@@ -83,8 +83,9 @@ namespace {
 	void writeRegionGeometry(TileInstance& inst, const AtlasRegion& reg, int draw_x, int draw_y) {
 		inst.x = static_cast<float>(draw_x);
 		inst.y = static_cast<float>(draw_y);
-		inst.w = (inst.house_id >= 1000000.0f) ? 32.0f : static_cast<float>(reg.pixel_width);
-		inst.h = (inst.house_id >= 1000000.0f) ? 32.0f : static_cast<float>(reg.pixel_height);
+		const bool is_indicator = (static_cast<int>(inst.flags + 0.5f) & 8) != 0;
+		inst.w = is_indicator ? 32.0f : static_cast<float>(reg.pixel_width);
+		inst.h = is_indicator ? 32.0f : static_cast<float>(reg.pixel_height);
 		inst.sprite_id = static_cast<float>(reg.debug_sprite_id);
 	}
 
@@ -639,9 +640,9 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 							static_cast<float>(g) * (1.0f / 255.0f),
 							static_cast<float>(b) * (1.0f / 255.0f),
 							1.0f,
-							-tile_house_id,
+							tile_house_id,
 							ground_depth,
-							TILE_INSTANCE_FLAG_TEXTURE,
+							TILE_INSTANCE_FLAG_TEXTURE + TILE_INSTANCE_FLAG_IS_GROUND,
 							/*upload=*/true,
 							x, y, z);
 					}
@@ -698,9 +699,9 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 					static_cast<float>(g) * (1.0f / 255.0f),
 					static_cast<float>(b) * (1.0f / 255.0f),
 					1.0f,
-					-tile_house_id,
+					tile_house_id,
 					border_depth,
-					TILE_INSTANCE_FLAG_TEXTURE,
+					TILE_INSTANCE_FLAG_TEXTURE + TILE_INSTANCE_FLAG_IS_GROUND,
 					false,
 					x, y, z);
 			}
@@ -832,10 +833,10 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 				if (tile->isHouseExit()) {
 					const HouseExitList* exits = tile->getHouseExits();
 					const uint32_t exit_house_id = (exits && !exits->empty()) ? exits->front() : 1;
-					pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, rme::rendering::INDICATOR_HOUSE_ENTRY_BASE + static_cast<float>(exit_house_id), indicator_depth);
+					pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, rme::rendering::INDICATOR_HOUSE_ENTRY_BASE + static_cast<float>(exit_house_id), indicator_depth, TILE_INSTANCE_FLAG_INDICATOR);
 				}
 				if (loc->getTownCount() > 0) {
-					pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, rme::rendering::INDICATOR_TOWN_BASE, indicator_depth);
+					pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, rme::rendering::INDICATOR_TOWN_BASE, indicator_depth, TILE_INSTANCE_FLAG_INDICATOR);
 				}
 			}
 

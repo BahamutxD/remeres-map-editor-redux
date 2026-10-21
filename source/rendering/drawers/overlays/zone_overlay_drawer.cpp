@@ -774,7 +774,7 @@ void ZoneOverlayDrawer::drawFloorBadges(SpriteBatch& sprite_batch,
 		sprite_batch.setBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, atlas);
 		for (const auto& b : spawn_badges_) {
 			sprite_batch.draw(b.x, b.y, b.w, b.h, *white_pixel, 1.0f, 1.0f, 1.0f, b.alpha,
-			                  INDICATOR_SPAWN_BASE, 0u, b.depth);
+			                  INDICATOR_SPAWN_BASE, ZONE_FLAG_IS_INDICATOR, b.depth);
 		}
 	}
 }
@@ -813,7 +813,7 @@ void ZoneOverlayDrawer::drawFloorWaypoints(SpriteBatch& sprite_batch,
 			32.0f, 32.0f,
 			*white_pixel,
 			1.0f, 1.0f, 1.0f, 1.0f,
-			INDICATOR_WAYPOINT_BASE, 0u, 0.0f
+			INDICATOR_WAYPOINT_BASE, ZONE_FLAG_IS_INDICATOR, 0.0f
 		);
 	}
 }

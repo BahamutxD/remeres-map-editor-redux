@@ -93,7 +93,7 @@ void TileRenderer::RenderStaticTerrain(SpriteBatch& sprite_batch, const TileLoca
 					rme::collectTileSprites(ground_sprite, patterns.x, patterns.y, patterns.z, patterns.frame);
 				}
 
-				const float ground_house_id = (options.show_houses && is_house_tile) ? -static_cast<float>(tile->getHouseID()) : 0.0f;
+				const float ground_house_id = (options.show_houses && is_house_tile) ? static_cast<float>(tile->getHouseID()) : 0.0f;
 
 				BlitItemParams params(position, tile->ground.get(), options);
 				params.tile = tile;
@@ -103,14 +103,14 @@ void TileRenderer::RenderStaticTerrain(SpriteBatch& sprite_batch, const TileLoca
 				params.green = g;
 				params.blue = b;
 				params.house_id = ground_house_id;
-				params.zone_flags = 0;
+				params.zone_flags = (ground_house_id > 0.0f) ? rme::rendering::ZONE_FLAG_HOUSE_GROUND : 0;
 				params.depth = ground_depth;
 				params.patterns = &patterns;
 				params.view = &view;
 				params.ctx = &ctx;
 				item_drawer->BlitItem(sprite_batch, sprite_drawer, creature_drawer, draw_x, draw_y, params);
 			} else if (!unresolved_invalid_ground) {
-				const float ground_house_id = (options.show_houses && is_house_tile) ? -static_cast<float>(tile->getHouseID()) : 0.0f;
+				const float ground_house_id = (options.show_houses && is_house_tile) ? static_cast<float>(tile->getHouseID()) : 0.0f;
 
 				BlitItemParams params(position, tile->ground.get(), options);
 				params.tile = tile;
@@ -119,7 +119,7 @@ void TileRenderer::RenderStaticTerrain(SpriteBatch& sprite_batch, const TileLoca
 				params.green = g;
 				params.blue = b;
 				params.house_id = ground_house_id;
-				params.zone_flags = 0;
+				params.zone_flags = (ground_house_id > 0.0f) ? rme::rendering::ZONE_FLAG_HOUSE_GROUND : 0;
 				params.depth = ground_depth;
 				params.view = &view;
 				params.ctx = &ctx;
@@ -131,7 +131,7 @@ void TileRenderer::RenderStaticTerrain(SpriteBatch& sprite_batch, const TileLoca
 
 		// Static ground borders (coastlines, grass edges, sand borders, etc.)
 		if (!tile->items.empty()) {
-			const float ground_house_id = (options.show_houses && is_house_tile) ? -static_cast<float>(tile->getHouseID()) : 0.0f;
+			const float ground_house_id = (options.show_houses && is_house_tile) ? static_cast<float>(tile->getHouseID()) : 0.0f;
 
 			BlitItemParams border_params(position, nullptr, options);
 			border_params.tile = tile;
@@ -141,7 +141,7 @@ void TileRenderer::RenderStaticTerrain(SpriteBatch& sprite_batch, const TileLoca
 			border_params.green = g;
 			border_params.blue = b;
 			border_params.house_id = ground_house_id;
-			border_params.zone_flags = 0;
+			border_params.zone_flags = (ground_house_id > 0.0f) ? rme::rendering::ZONE_FLAG_HOUSE_GROUND : 0;
 			border_params.depth = border_depth;
 			for (const auto& item : tile->items) {
 				if (!item || !item->isBorder() || item->isInvalidOTBMItem()) {
@@ -411,7 +411,7 @@ void TileRenderer::RenderDynamicEntities(SpriteBatch& sprite_batch, const TileLo
 				*white_pixel,
 				1.0f, 1.0f, 1.0f, 1.0f,
 				rme::rendering::INDICATOR_INVALID_ZONE_BASE,
-				0u,
+				rme::rendering::ZONE_FLAG_IS_INDICATOR,
 				overlay_depth
 			);
 		}
@@ -451,7 +451,7 @@ void TileRenderer::RenderDynamicEntities(SpriteBatch& sprite_batch, const TileLo
 					*white_pixel,
 					tint, tint, tint, 1.0f,
 					marker_id,
-					0u,
+					rme::rendering::ZONE_FLAG_IS_INDICATOR,
 					overlay_depth
 				);
 			}
