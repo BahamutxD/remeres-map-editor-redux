@@ -30,6 +30,7 @@
 #include "brushes/table/table_brush.h"
 #include "brushes/wall/wall_brush.h"
 #include "brushes/waypoint/waypoint_brush.h"
+#include "brushes/town/town_temple_brush.h"
 #include "brushes/managers/brush_manager.h"
 
 #include "brushes/flag/flag_brush.h"
@@ -95,6 +96,7 @@ void Brushes::init() {
 	addManagedBrush(g_brush_manager.house_brush);
 	addManagedBrush(g_brush_manager.house_exit_brush);
 	addManagedBrush(g_brush_manager.waypoint_brush);
+	addManagedBrush(g_brush_manager.temple_brush);
 
 	addManagedBrush(g_brush_manager.pz_brush, TILESTATE_PROTECTIONZONE);
 	addManagedBrush(g_brush_manager.rook_brush, TILESTATE_NOPVP);
@@ -247,7 +249,7 @@ TerrainBrush::~TerrainBrush() {
 bool TerrainBrush::friendOf(TerrainBrush* other) {
 	const uint32_t borderID = other->getID();
 	const bool found = std::ranges::any_of(friends, [borderID](uint32_t friendId) {
-		return friendId == borderID || friendId == 0xFFFFFFFF;
+		return friendId == borderID || friendId == Brush::WILDCARD_ID;
 	});
 	return found ? !hate_friends : hate_friends;
 }

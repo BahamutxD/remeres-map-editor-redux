@@ -26,6 +26,7 @@
 #include <unordered_map>
 #include <string>
 #include <memory>
+#include <limits>
 #include <string_view>
 
 // Thanks to a million forward declarations, we don't have to include any files!
@@ -54,8 +55,14 @@ class SpawnBrush;
 class HouseBrush;
 class HouseExitBrush;
 class WaypointBrush;
+class TownTempleBrush;
 class FlagBrush;
 class EraserBrush;
+
+enum class BrushCursor {
+	Default,
+	Crosshair,
+};
 
 //=============================================================================
 // Brushes, holds all brushes
@@ -110,6 +117,8 @@ extern Brushes g_brushes;
 
 class Brush {
 public:
+	static constexpr uint32_t WILDCARD_ID = std::numeric_limits<uint32_t>::max();
+
 	Brush();
 	virtual ~Brush();
 
@@ -149,6 +158,10 @@ public:
 
 	virtual bool oneSizeFitsAll() const {
 		return false;
+	}
+
+	virtual BrushCursor getCursor() const {
+		return BrushCursor::Default;
 	}
 
 	virtual int32_t getMaxVariation() const {

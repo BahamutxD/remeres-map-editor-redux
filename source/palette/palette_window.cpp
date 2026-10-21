@@ -13,6 +13,7 @@
 #include "palette/house/house_palette.h"
 #include "palette/palette_waypoints.h"
 #include "palette/palette_zones.h"
+#include "palette/town/town_palette.h"
 #include "brushes/zone/zone_brush.h"
 #include "palette/panels/brush_palette_panel.h"
 #include "rendering/ui/map_display.h"
@@ -30,7 +31,7 @@ namespace {
 }
 
 [[nodiscard]] bool paletteNameMatches(const PalettePanel* panel, std::string_view name) {
-	return panel && nstr(panel->GetName()) == name;
+	return panel && as_lower_str(nstr(panel->GetName())) == as_lower_str(std::string(name));
 }
 
 [[nodiscard]] wxWindow* choicebookPageAt(wxChoicebook* choicebook, int index) {
@@ -78,6 +79,9 @@ PaletteWindow::PaletteWindow(wxWindow* parent, const PaletteCatalog& catalog) :
 		} else if (auto* zonePanel = dynamic_cast<ZonePalettePanel*>(panel)) {
 			zone_palette = zonePanel;
 			g_gui.zone_palette = zone_palette;
+		} else if (auto* townPanel = dynamic_cast<TownPalettePanel*>(panel)) {
+			town_palette = townPanel;
+			g_gui.town_palette = town_palette;
 		}
 		choicebook->AddPage(panel, wxstr(provider.name));
 	}
@@ -100,6 +104,9 @@ PaletteWindow::~PaletteWindow() {
 	}
 	if (g_gui.zone_palette == zone_palette) {
 		g_gui.zone_palette = nullptr;
+	}
+	if (g_gui.town_palette == town_palette) {
+		g_gui.town_palette = nullptr;
 	}
 
 	spdlog::info("PaletteWindow destructor finished");
@@ -174,6 +181,47 @@ void PaletteWindow::InvalidateContents() {
 	for (auto* panel : palette_pages) {
 		panel->OnUpdate();
 	}
+}
+
+void PaletteWindow::ReloadDynamicPages() {
+	if (!choicebook) {
+		return;
+	}
+
+	for (const auto& palette : g_materials.paletteCatalog().dynamicPalettes()) {
+		bool found = false;
+		for (auto* panel : palette_pages) {
+			if (auto* brushPanel = dynamic_cast<BrushPalettePanel*>(panel)) {
+				if (as_lower_str(nstr(brushPanel->GetName())) == as_lower_str(palette.name)) {
+					found = true;
+					break;
+				}
+			}
+		}
+		if (!found) {
+			auto* panel = newd BrushPalettePanel(choicebook, palette);
+			panel->SetListType(dynamicBrushListType());
+			palette_pages.push_back(panel);
+			choicebook->AddPage(panel, panel->GetName());
+		}
+	}
+
+	for (auto* panel : palette_pages) {
+		if (auto* brushPanel = dynamic_cast<BrushPalettePanel*>(panel)) {
+			brushPanel->ReloadPages();
+		}
+	}
+	LoadCurrentContents();
+}
+
+bool PaletteWindow::SelectTilesetInCurrentPalette(std::string_view tilesetName) {
+	if (!choicebook) {
+		return false;
+	}
+	if (auto* panel = dynamic_cast<BrushPalettePanel*>(choicebook->GetCurrentPage())) {
+		return panel->SelectTileset(tilesetName);
+	}
+	return false;
 }
 
 void PaletteWindow::SelectPage(std::string_view paletteName) {

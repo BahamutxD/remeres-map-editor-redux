@@ -49,6 +49,7 @@
 #include "palette/house/house_palette.h"
 #include "palette/palette_zones.h"
 #include "rendering/ui/map_display.h"
+#include "rendering/map_drawer.h"
 #include "app/application.h"
 #include "ui/welcome_dialog.h"
 #include "ui/tool_options_window.h"
@@ -103,6 +104,7 @@ GUI::GUI() :
 	root(nullptr),
 	house_palette(nullptr),
 	zone_palette(nullptr),
+	town_palette(nullptr),
 	tool_options(nullptr),
 	tile_properties_panel(nullptr),
 	pasting(false),
@@ -238,6 +240,7 @@ void GUI::SyncCurrentMapCanvasPreviewState() {
 			|| (map_tab->GetMode() == DRAWING_MODE && GetCurrentBrush() != nullptr)
 			|| map_tab->GetSession()->secondary_map != nullptr;
 		map_tab->GetCanvas()->SetHoverPreviewActive(hover_preview_active);
+		map_tab->GetCanvas()->UpdateCursor();
 	}
 }
 
@@ -326,6 +329,21 @@ void GUI::SetCurrentZoom(double zoom) {
 }
 
 // Search Results moved to SearchManager
+
+void GUI::ReleaseAllChunkCaches() {
+	if (!tabbook) {
+		return;
+	}
+	for (int index = 0; index < tabbook->GetTabCount(); ++index) {
+		if (auto* tab = dynamic_cast<MapTab*>(tabbook->GetTab(index))) {
+			if (auto* canvas = tab->GetCanvas()) {
+				if (canvas->drawer) {
+					canvas->drawer->getChunkCacheManager().invalidateAll();
+				}
+			}
+		}
+	}
+}
 
 void GUI::FitViewToMap() {
 	for (int index = 0; index < tabbook->GetTabCount(); ++index) {
@@ -656,6 +674,11 @@ void GUI::UpdateZonePalette(uint16_t zone_id) {
 		} else {
 			zone_palette->UpdateTileCounts();
 		}
+	}
+}
+void GUI::UpdateHousePalette(uint32_t house_id) {
+	if (house_palette) {
+		house_palette->UpdateHouseSize(house_id);
 	}
 }
 void GUI::RefreshOtherPalettes(PaletteWindow* p) {

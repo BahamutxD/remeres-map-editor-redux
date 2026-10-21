@@ -4,6 +4,7 @@
 #include "app/main.h"
 #include "game/material_database.h"
 #include "brushes/brush.h"
+#include "util/grid_view_options.h"
 
 enum BrushListType {
 	BRUSHLIST_ICONS_32,
@@ -11,16 +12,6 @@ enum BrushListType {
 	BRUSHLIST_ICONS_128,
 	BRUSHLIST_LISTBOX,
 	BRUSHLIST_TEXT_LISTBOX,
-};
-
-enum class TilesetSortKey {
-	ID,
-	Name
-};
-
-enum class TilesetSortDirection {
-	Ascending,
-	Descending
 };
 
 class BrushBoxInterface {
@@ -44,6 +35,7 @@ public:
 	virtual void ClearSort() { }
 	virtual void SetShowLabels(bool show) { }
 	virtual void SetTileSize(int sizePx) { }
+	virtual void SetDisplayMode(TilesetDisplayMode mode) { }
 	virtual void SetFilterQuery(const std::string& query, const std::vector<Brush*>* overrideSource = nullptr) { }
 
 protected:
@@ -65,6 +57,10 @@ public:
 	// Sets the display type (list or icons)
 	void SetListType(BrushListType ltype);
 	void SetListType(wxString ltype);
+	void SetDisplayMode(TilesetDisplayMode mode);
+	[[nodiscard]] bool IsListMode() const {
+		return list_type == BRUSHLIST_LISTBOX || list_type == BRUSHLIST_TEXT_LISTBOX;
+	}
 	void SetSort(TilesetSortKey key, TilesetSortDirection dir);
 	void ClearSort();
 	void SetShowLabels(bool show);

@@ -29,6 +29,7 @@ struct HardcodedPaletteProvider;
 class HousePalette;
 class WaypointPalettePanel;
 class ZonePalettePanel;
+class TownPalettePanel;
 
 class PaletteWindow : public wxPanel {
 public:
@@ -42,6 +43,8 @@ public:
 	void InvalidateContents();
 	// (Re)Loads all currently displayed data, called from InvalidateContents implicitly
 	void LoadCurrentContents();
+	void ReloadDynamicPages();
+	bool SelectTilesetInCurrentPalette(std::string_view tilesetName);
 	// Goes to the selected page and selects any brush there
 	void SelectPage(std::string_view paletteName);
 	// The currently selected brush in this palette
@@ -79,6 +82,7 @@ protected:
 	HousePalette* house_palette;
 	WaypointPalettePanel* waypoint_palette;
 	ZonePalettePanel* zone_palette = nullptr;
+	TownPalettePanel* town_palette = nullptr;
 
 	void updateZonePage(Map* map);
 };

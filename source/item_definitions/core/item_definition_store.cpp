@@ -54,6 +54,10 @@ bool ItemDefinitionView::hasFlag(ItemFlag flag) const {
 	return isValid() && store_->isFlagSet(index_, flag);
 }
 
+uint64_t ItemDefinitionView::flagMask() const {
+	return (isValid() && index_ < store_->flags_.masks.size()) ? store_->flags_.masks[index_] : 0;
+}
+
 int64_t ItemDefinitionView::attribute(ItemAttributeKey key) const {
 	return isValid() ? store_->attributeValue(index_, key) : 0;
 }

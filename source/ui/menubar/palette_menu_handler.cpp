@@ -39,10 +39,16 @@ void SetMenuIcon(wxMenuItem* item, std::string_view icon) {
 	if (name == "Waypoint") {
 		return "Waypoint\tW";
 	}
+	if (name == "Town") {
+		return "Town\tT";
+	}
 	return wxString::FromUTF8(std::string(name).c_str());
 }
 
 [[nodiscard]] std::string_view PaletteIcon(std::string_view name) {
+	if (name == "All items") {
+		return ICON_BOXES_STACKED;
+	}
 	if (name == "House") {
 		return ICON_HOUSE;
 	}
@@ -52,8 +58,12 @@ void SetMenuIcon(wxMenuItem* item, std::string_view icon) {
 	if (name == "Zone") {
 		return ICON_VECTOR_SQUARE;
 	}
+	if (name == "Town") {
+		return ICON_CITY;
+	}
 	return ICON_PALETTE;
 }
+
 
 } // namespace
 
@@ -84,6 +94,14 @@ void PaletteMenuHandler::OnSelectWaypointPalette(wxCommandEvent& event) {
 }
 
 void PaletteMenuHandler::OnSelectCatalogPalette(wxCommandEvent& event) {
+	// Menu selections carry the owning wxMenu (or the item, on some paths) as
+	// their event object. A source-less event is synthetic, so don't let it
+	// reopen palettes; this handler is bound frame-wide for all catalog ids.
+	const wxObject* const source = event.GetEventObject();
+	if (!source || (!wxDynamicCast(source, wxMenu) && !wxDynamicCast(source, wxMenuItem))) {
+		return;
+	}
+
 	const auto it = catalog_menu_ids.find(event.GetId());
 	if (it == catalog_menu_ids.end()) {
 		return;
