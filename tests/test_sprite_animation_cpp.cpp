@@ -161,6 +161,32 @@ void test_spatial_async_desynchronization() {
 	std::cout << "  OK" << std::endl;
 }
 
+void test_sea_border_synchronization() {
+	std::cout << "[Test] Sea border synchronous multi-tile phase lockstep (ID 4627/4638)..." << std::endl;
+	SpriteAnimationData data;
+	data.frame_count = 14;
+	data.start_frame = -1; // Sentinel: default start
+	data.loop_count = 0;   // Infinite forward loop
+	data.is_async = false; // Synchronous in Tibia DAT (animationMode == 1)
+	for (int i = 0; i < 14; ++i) {
+		data.durations.push_back(AnimationDuration { 200, 200 });
+	}
+	data.total_duration_ms = 14 * 200; // 2800ms
+	data.shortest_step_ms = 200;
+
+	// At ANY elapsed_ms, all tiles across the entire shoreline must return the exact same frame!
+	for (int64_t t = 0; t <= 5600; t += 50) {
+		const int expected_frame = static_cast<int>((t % 2800) / 200);
+		for (int x = 50; x <= 60; ++x) {
+			for (int y = 100; y <= 110; ++y) {
+				const int frame = SpriteAnimation::getFrame(data, t, x, y, 7);
+				TEST_CHECK(frame == expected_frame);
+			}
+		}
+	}
+	std::cout << "  OK" << std::endl;
+}
+
 void test_finite_loop_termination() {
 	std::cout << "[Test] Finite loop count termination..." << std::endl;
 
@@ -351,6 +377,7 @@ int main() {
 	test_ping_pong_uniform();
 	test_ping_pong_variable_durations();
 	test_spatial_async_desynchronization();
+	test_sea_border_synchronization();
 	test_finite_loop_termination();
 	test_ping_pong_more_than_32_phases();
 	test_phase_aligned_durations();

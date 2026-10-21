@@ -41,7 +41,8 @@ int SpriteAnimation::getFrame(
 	// Explicit start phase (0..frames-1).
 	// When start_frame is the random sentinel (255 or -1), async spatial phase is applied via
 	// timeline offset (tile_offset), so start_phase stays 0 to prevent applying the spatial offset twice.
-	const int start_phase = (data.start_frame > 0) ? (static_cast<int>(data.start_frame) % frames) : 0;
+	const bool is_random_sentinel = (data.start_frame == -1 || data.start_frame == 255);
+	const int start_phase = (!is_random_sentinel && data.start_frame > 0) ? (static_cast<int>(data.start_frame) % frames) : 0;
 
 	// Ping-pong mode (loop_count == -1)
 	if (data.loop_count == -1) {
