@@ -41,13 +41,6 @@ ImageDimensions GameSprite::GetSize() const {
 	return getCompositePixelSize();
 }
 
-void GameSprite::invalidateCache(const AtlasRegion* region) {
-	if (cached_default_region == region) {
-		cached_default_region = nullptr;
-		cached_generation_id = 0;
-		cached_sprite_id = 0;
-	}
-}
 
 void GameSprite::invalidateMetricCaches() {
 	geometry_cache_dirty = true;
@@ -304,9 +297,17 @@ TemplateImage* GameSprite::getTemplateImage(int sprite_index, const Outfit& outf
 		return it->get();
 	}
 
+	// Cap LRU entries per sprite to prevent unbounded memory growth in extreme sessions
+	constexpr size_t MAX_CACHED_TEMPLATES = 64;
+	if (instanced_templates.size() >= MAX_CACHED_TEMPLATES) {
+		// Dropping the least recently used template triggers TemplateImage::~TemplateImage(),
+		// which cleanly frees its atlas slot via AtlasManager::removeSprite(texture_id).
+		instanced_templates.pop_back();
+	}
+
 	auto img = std::make_unique<TemplateImage>(this, sprite_index, outfit);
 	TemplateImage* ptr = img.get();
-	instanced_templates.push_back(std::move(img));
+	instanced_templates.insert(instanced_templates.begin(), std::move(img));
 	return ptr;
 }
 

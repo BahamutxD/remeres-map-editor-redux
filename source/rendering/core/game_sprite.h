@@ -123,8 +123,6 @@ public:
 
 	static void ColorizeTemplatePixels(uint8_t* dest, const uint8_t* mask, size_t pixelCount, int lookHead, int lookBody, int lookLegs, int lookFeet, bool destHasAlpha);
 
-	// Exposed for NormalImage::clean to invalidate cache
-	void invalidateCache(const AtlasRegion* region);
 
 private:
 	using PlainLayoutCacheKey = ::PlainLayoutCacheKey;

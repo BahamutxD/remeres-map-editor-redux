@@ -13,12 +13,27 @@ namespace {
 	std::atomic<uint32_t> template_id_generator(TEMPLATE_ID_START);
 
 	uint32_t get_next_template_id() {
-		uint32_t id = template_id_generator.fetch_add(1, std::memory_order_relaxed);
-		if (id > TEMPLATE_ID_MAX) {
-			template_id_generator.store(TEMPLATE_ID_START + 1, std::memory_order_relaxed);
-			id = TEMPLATE_ID_START;
+		// Probe up to the full range to ensure any ID returned is not currently mapped
+		for (uint32_t attempt = 0; attempt < (TEMPLATE_ID_MAX - TEMPLATE_ID_START + 1); ++attempt) {
+			uint32_t id = template_id_generator.fetch_add(1, std::memory_order_relaxed);
+			if (id > TEMPLATE_ID_MAX) {
+				template_id_generator.store(TEMPLATE_ID_START + 1, std::memory_order_relaxed);
+				id = TEMPLATE_ID_START;
+			}
+			if (!g_graphics.hasAtlasManager() || !g_graphics.getAtlasManager()->hasSprite(id)) {
+				return id;
+			}
 		}
-		return id;
+
+		// Fallback: If all slots are mapped, safely evict the colliding mapping first
+		uint32_t fallback_id = template_id_generator.fetch_add(1, std::memory_order_relaxed);
+		if (fallback_id > TEMPLATE_ID_MAX) {
+			fallback_id = TEMPLATE_ID_START;
+		}
+		if (g_graphics.hasAtlasManager()) {
+			g_graphics.getAtlasManager()->removeSprite(fallback_id);
+		}
+		return fallback_id;
 	}
 }
 
