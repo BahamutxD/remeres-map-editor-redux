@@ -83,8 +83,9 @@ namespace {
 	void writeRegionGeometry(TileInstance& inst, const AtlasRegion& reg, int draw_x, int draw_y) {
 		inst.x = static_cast<float>(draw_x);
 		inst.y = static_cast<float>(draw_y);
-		inst.w = (inst.house_id >= 1000000.0f) ? 32.0f : static_cast<float>(reg.pixel_width);
-		inst.h = (inst.house_id >= 1000000.0f) ? 32.0f : static_cast<float>(reg.pixel_height);
+		const bool is_indicator = GetTileIndicatorType(inst.flags) != 0;
+		inst.w = is_indicator ? 32.0f : static_cast<float>(reg.pixel_width);
+		inst.h = is_indicator ? 32.0f : static_cast<float>(reg.pixel_height);
 		inst.sprite_id = static_cast<float>(reg.debug_sprite_id);
 	}
 
@@ -94,25 +95,26 @@ namespace {
 	// blocks the render thread.
 	template <typename Visitor>
 	void forEachSpriteRegion(GameSprite* spr, const SpritePatterns& pat, int draw_base_x, int draw_base_y, bool allow_upload, Visitor&& visit) {
+		const int raw_subtype = pat.subtype.value_or(-1);
 		if (spr->width == 1 && spr->height == 1 && spr->layers == 1) {
 			const AtlasRegion* reg = nullptr;
-			if (spr->is_simple && pat.subtype == -1 && pat.x == 0 && pat.y == 0 && pat.z == 0 && pat.frame == 0) {
+			if (spr->is_simple && !pat.subtype.has_value() && pat.x == 0 && pat.y == 0 && pat.z == 0 && pat.frame == 0) {
 				reg = spr->getCachedDefaultRegion();
 			}
 			if (!reg) {
-				reg = spr->getAtlasRegion(0, 0, 0, pat.subtype, pat.x, pat.y, pat.z, pat.frame, allow_upload);
+				reg = spr->getAtlasRegion(0, 0, 0, raw_subtype, pat.x, pat.y, pat.z, pat.frame, allow_upload);
 			}
 			visit(reg, draw_base_x, draw_base_y);
 			return;
 		}
 
-		const auto composite_metrics = spr->getPlainLayoutMetrics(pat.subtype, pat.x, pat.y, pat.z, pat.frame);
+		const auto composite_metrics = spr->getPlainLayoutMetrics(raw_subtype, pat.x, pat.y, pat.z, pat.frame);
 		int x_offset = 0;
 		for (int cx = 0; cx < composite_metrics.num_columns; ++cx) {
 			int y_offset = 0;
 			for (int cy = 0; cy < composite_metrics.num_rows; ++cy) {
 				for (int cf = 0; cf < spr->layers; ++cf) {
-					visit(spr->getAtlasRegion(cx, cy, cf, pat.subtype, pat.x, pat.y, pat.z, pat.frame, allow_upload), draw_base_x - x_offset, draw_base_y - y_offset);
+					visit(spr->getAtlasRegion(cx, cy, cf, raw_subtype, pat.x, pat.y, pat.z, pat.frame, allow_upload), draw_base_x - x_offset, draw_base_y - y_offset);
 				}
 				y_offset += composite_metrics.row_heights[cy];
 			}
@@ -432,7 +434,7 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 			.pattern_x = static_cast<int16_t>(pat.x),
 			.pattern_y = static_cast<int16_t>(pat.y),
 			.pattern_z = static_cast<int16_t>(pat.z),
-			.subtype = static_cast<int16_t>(pat.subtype),
+			.subtype = static_cast<int16_t>(pat.subtype.value_or(-1)),
 		});
 	};
 
@@ -459,7 +461,7 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 					const auto [draw_offset_x, draw_offset_y] = ispr->getDrawOffset();
 					const int item_x = screenx - draw_offset_x;
 					const int item_y = screeny - draw_offset_y;
-					const SpritePatterns pat { .x = 0, .y = 0, .z = 0, .frame = 0, .subtype = -1 };
+					const SpritePatterns pat { .x = 0, .y = 0, .z = 0, .frame = 0, .subtype = std::nullopt };
 					emitSpriteInstances(ispr, pat, item_x, item_y, rf, gf, bf, af, 0.0f, depth);
 				}
 			}
@@ -608,7 +610,7 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 				if (tech_type != rme::rendering::TileIndicatorType::None) {
 					const AtlasRegion* white_pixel = ctx.atlas.getWhitePixel();
 					if (white_pixel) {
-						pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, rme::rendering::TechnicalItemRegistry::GetMarkerId(tech_type), ground_depth);
+						pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, ground_depth, MakeTileIndicatorFlag(static_cast<uint8_t>(tech_type)));
 					}
 				} else if (git && !git.isMetaItem()) {
 					GameSprite* gspr = ctx.gfx.getGameSprite(git.clientId());
@@ -639,9 +641,9 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 							static_cast<float>(g) * (1.0f / 255.0f),
 							static_cast<float>(b) * (1.0f / 255.0f),
 							1.0f,
-							-tile_house_id,
+							tile_house_id,
 							ground_depth,
-							TILE_INSTANCE_FLAG_TEXTURE,
+							TILE_INSTANCE_FLAG_TEXTURE + TILE_INSTANCE_FLAG_IS_GROUND,
 							/*upload=*/true,
 							x, y, z);
 					}
@@ -667,7 +669,7 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 				if (tech_type != rme::rendering::TileIndicatorType::None) {
 					const AtlasRegion* white_pixel = ctx.atlas.getWhitePixel();
 					if (white_pixel) {
-						pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, rme::rendering::TechnicalItemRegistry::GetMarkerId(tech_type), border_depth);
+						pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, border_depth, MakeTileIndicatorFlag(static_cast<uint8_t>(tech_type)));
 					}
 					continue;
 				}
@@ -698,9 +700,9 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 					static_cast<float>(g) * (1.0f / 255.0f),
 					static_cast<float>(b) * (1.0f / 255.0f),
 					1.0f,
-					-tile_house_id,
+					tile_house_id,
 					border_depth,
-					TILE_INSTANCE_FLAG_TEXTURE,
+					TILE_INSTANCE_FLAG_TEXTURE + TILE_INSTANCE_FLAG_IS_GROUND,
 					false,
 					x, y, z);
 			}
@@ -768,7 +770,7 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 					if (tech_type != rme::rendering::TileIndicatorType::None) {
 						const AtlasRegion* white_pixel = ctx.atlas.getWhitePixel();
 						if (white_pixel) {
-							pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, rme::rendering::TechnicalItemRegistry::GetMarkerId(tech_type), item_depth);
+							pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, item_depth, MakeTileIndicatorFlag(static_cast<uint8_t>(tech_type)));
 						}
 						continue;
 					}
@@ -832,10 +834,10 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 				if (tile->isHouseExit()) {
 					const HouseExitList* exits = tile->getHouseExits();
 					const uint32_t exit_house_id = (exits && !exits->empty()) ? exits->front() : 1;
-					pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, rme::rendering::INDICATOR_HOUSE_ENTRY_BASE + static_cast<float>(exit_house_id), indicator_depth);
+					pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, indicator_depth, MakeTileIndicatorFlag(static_cast<uint8_t>(rme::rendering::TileIndicatorType::HouseEntry)));
 				}
 				if (loc->getTownCount() > 0) {
-					pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, rme::rendering::INDICATOR_TOWN_BASE, indicator_depth);
+					pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, indicator_depth, MakeTileIndicatorFlag(static_cast<uint8_t>(rme::rendering::TileIndicatorType::TownTemple)));
 				}
 			}
 
@@ -927,7 +929,7 @@ bool ChunkCacheManager::refreshAnimatedFrames(CachedChunk& chunk, long elapsed_t
 			.y = run.pattern_y,
 			.z = run.pattern_z,
 			.frame = chunk.animated_sprites[run.sprite_slot].frame,
-			.subtype = run.subtype,
+			.subtype = run.subtype >= 0 ? std::optional<int>(run.subtype) : std::nullopt,
 		};
 		if (!spr->isSimpleAndLoaded()) {
 			rme::collectTileSprites(spr, pat.x, pat.y, pat.z, pat.frame);
