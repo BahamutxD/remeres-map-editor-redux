@@ -1,3 +1,4 @@
+#include <wx/toplevel.h>
 //////////////////////////////////////////////////////////////////////
 // This file is part of Remere's Map Editor
 //////////////////////////////////////////////////////////////////////
@@ -24,6 +25,7 @@
 #include <chrono>
 #include <wx/wfstream.h>
 #include <spdlog/spdlog.h>
+#include <wx/timer.h>
 
 #include "ui/gui.h"
 #include "editor/editor.h"
@@ -50,7 +52,6 @@
 #include "ui/browse_tile_window.h"
 #include "ui/dialog_helper.h"
 #include "ui/map_tab.h"
-#include "game/animation_timer.h"
 #include "rendering/core/sprite_preloader.h"
 #include "util/phase_profiler.h"
 #include <chrono>
@@ -81,8 +82,6 @@
 #include "brushes/carpet/carpet_brush.h"
 #include "brushes/table/table_brush.h"
 
-bool MapCanvas::processed[] = { 0 };
-
 MapCanvas::MapCanvas(wxWindow* parent, Editor& editor, int* attriblist) :
 	wxGLCanvas(parent, GLContextManager::CanvasAttributes(), wxID_ANY, wxDefaultPosition, wxDefaultSize, wxWANTS_CHARS),
 	editor(editor),
@@ -107,8 +106,9 @@ MapCanvas::MapCanvas(wxWindow* parent, Editor& editor, int* attriblist) :
 	last_click_x(-1),
 	last_click_y(-1),
 	last_mmb_click_x(-1),
-	last_mmb_click_y(-1),
-	m_last_gc_time(0) {
+	last_mmb_click_y(-1) {
+	SetExtraStyle(wxWS_EX_PROCESS_IDLE);
+
 	// Enable the phase profiler when RME_PROFILE is set (see util/phase_profiler.h).
 	rme::prof::configureFromEnv();
 
@@ -120,7 +120,6 @@ MapCanvas::MapCanvas(wxWindow* parent, Editor& editor, int* attriblist) :
 	}
 
 	popup_menu = std::make_unique<MapPopupMenu>(editor);
-	animation_timer = std::make_unique<AnimationTimer>(this);
 	drawer = std::make_unique<MapDrawer>(editor);
 	selection_controller = std::make_unique<SelectionController>(this, editor);
 	drawing_controller = std::make_unique<DrawingController>(this, editor);
@@ -171,25 +170,12 @@ bool MapCanvas::IsAnimationEnabled() const {
 	return g_settings.getBoolean(Config::SHOW_PREVIEW);
 }
 
-int MapCanvas::GetAnimationRefreshIntervalMs() const noexcept {
-	// Repaint only as often as the fastest animation on screen can actually change: a view
-	// whose animations step every 500 ms has nothing new to show at 60 Hz, and the sprite
-	// frames are derived from the wall clock, so repainting at the animation's own pace draws
-	// exactly the same images. The old far-zoom cap was different - it throttled a view that
-	// did have work to do (see below). When nothing animates, RequestAnimationRepaint returns
-	// before this is used.
-	const uint32_t step = drawer->VisibleAnimationStepMs();
-	if (step == 0) {
-		return 1000 / 60;
-	}
-	return static_cast<int>(std::clamp<uint32_t>(step, 1000 / 60, 1000));
-}
-
 void MapCanvas::QueueNativeRefresh(bool immediate) {
 	wxGLCanvas::Refresh();
-	if (immediate || refresh_watch.Time() > g_settings.getInteger(Config::HARD_REFRESH_RATE)) {
-		refresh_watch.Start();
+	if (immediate) {
 		wxGLCanvas::Update();
+	} else {
+		wxWakeUpIdle();
 	}
 }
 
@@ -199,30 +185,6 @@ void MapCanvas::RequestLocalRefresh(bool immediate) {
 
 void MapCanvas::RequestSharedMapRefresh(bool immediate) {
 	g_gui.RefreshView(immediate);
-}
-
-void MapCanvas::RequestAnimationRepaint() {
-	if (!IsAnimationEnabled()) {
-		return;
-	}
-
-	// Nothing that animates is on screen (no sprite frame runs, no creatures inside the
-	// animation LOD range), so an idle editor should not keep redrawing the map at 60 Hz.
-	// Any real change (input, edit, bake, option change) repaints through its own path.
-	// Chunks that are still waiting for sprites are an exception: they need the repaint to
-	// re-bake, otherwise the hole they left would stay on screen until the next input.
-	if (!drawer->HasVisibleAnimation() && !drawer->HasIncompleteChunks()) {
-		return;
-	}
-
-	const auto now = std::chrono::steady_clock::now();
-	const auto refresh_interval = std::chrono::milliseconds(GetAnimationRefreshIntervalMs());
-	if (last_animation_refresh_time_ != std::chrono::steady_clock::time_point{} && now - last_animation_refresh_time_ < refresh_interval) {
-		return;
-	}
-
-	last_animation_refresh_time_ = now;
-	RequestLocalRefresh();
 }
 
 void MapCanvas::SetHoverPreviewActive(bool active) {
@@ -331,10 +293,10 @@ void MapCanvas::DrawOverlays(NVGcontext* vg, const DrawingOptions& options) {
 void MapCanvas::PerformGarbageCollection() {
 	// Clean unused textures once every second
 	// Only run GC if this is the active tab to prevent multiple tabs from fighting over resources
-	long current_time = wxGetLocalTime();
-	if (current_time - m_last_gc_time >= 1 && g_gui.GetCurrentMapTab() == GetParent()) {
-		g_gui.gfx.garbageCollection();
-		m_last_gc_time = current_time;
+	const auto now = std::chrono::steady_clock::now();
+	if (now - last_gc_time_ >= std::chrono::seconds(1) && g_gui.GetCurrentMapTab() == GetParent()) {
+		g_graphics.garbageCollection();
+		last_gc_time_ = now;
 	}
 }
 
@@ -364,15 +326,6 @@ void MapCanvas::OnPaint(wxPaintEvent& event) {
 		options.boundbox_selection = selection_controller->IsBoundboxSelection();
 		options.is_drawing_mode = g_gui.IsDrawingMode();
 		options.is_drawing = drawing_controller->IsDrawing();
-
-		if (options.show_preview) {
-			animation_timer->Start();
-			g_gui.gfx.resumeAnimation();
-		} else {
-			animation_timer->Stop();
-			g_gui.gfx.pauseAnimation();
-			last_animation_refresh_time_ = {};
-		}
 
 		ViewportParameters vp;
 		MouseToMap(&vp.mouse_map_x, &vp.mouse_map_y);
@@ -430,18 +383,34 @@ void MapCanvas::OnPaint(wxPaintEvent& event) {
 		SwapBuffers();
 	}
 
+	// Frame rate safety clamp when VSync is disabled in driver settings
+	fps_counter.LimitFPS(240);
+
 	// Close the frame scope explicitly so its sample is folded into the profiler window
 	// that this frame belongs to; endFrame() runs before the scope's destructor.
 	frame_scope.end();
 	rme::prof::endFrame();
 	fps_counter.Update();
-	if (g_settings.getBoolean(Config::SHOW_FPS_COUNTER) && fps_counter.HasChanged()) {
-		MapStatusUpdater::UpdateFPS(fps_counter.GetStatusString());
-	}
 }
 
 void MapCanvas::OnIdle(wxIdleEvent& event) {
 	PerformGarbageCollection();
+
+	if (IsShownOnScreen() && g_gui.IsRenderingEnabled()) {
+		auto* top = wxDynamicCast(wxGetTopLevelParent(this), wxTopLevelWindow);
+		const bool is_iconized = top && top->IsIconized();
+		if (!is_iconized && IsAnimationEnabled()) {
+			if (drawer && (drawer->HasVisibleAnimation() || drawer->HasIncompleteChunks())) {
+				QueueNativeRefresh(true);
+				event.RequestMore(true);
+			}
+		}
+	}
+
+	if (g_settings.getBoolean(Config::SHOW_FPS_COUNTER) && fps_counter.ConsumeChanged()) {
+		MapStatusUpdater::UpdateFPS(fps_counter.GetStatusString());
+	}
+
 	event.Skip();
 }
 
@@ -749,7 +718,21 @@ void MapCanvas::OnMousePropertiesRelease(wxMouseEvent& event) {
 	selection_controller->HandlePropertiesRelease(Position(mouse_map_x, mouse_map_y, floor), event.ShiftDown(), event.ControlDown(), event.AltDown());
 
 	popup_menu->Update();
+
+	// Modal popup menus enter a nested Win32 message loop (TrackPopupMenuEx) where wxWidgets
+	// suppresses wxEVT_IDLE. A scoped timer pumps frame refreshes while the menu is open.
+	wxTimer menu_timer;
+	if (IsAnimationEnabled() && drawer && (drawer->HasVisibleAnimation() || drawer->HasIncompleteChunks())) {
+		menu_timer.Bind(wxEVT_TIMER, [this](wxTimerEvent&) {
+			if (IsShownOnScreen() && g_gui.IsRenderingEnabled()) {
+				QueueNativeRefresh(true);
+			}
+		});
+		menu_timer.Start(16);
+	}
+
 	PopupMenu(popup_menu.get());
+	menu_timer.Stop();
 
 	editor.actionQueue->resetTimer();
 	dragging = false;

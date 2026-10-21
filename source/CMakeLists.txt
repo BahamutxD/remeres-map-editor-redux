@@ -83,7 +83,6 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/editor/selection_thread.h
     ${CMAKE_CURRENT_LIST_DIR}/ext/pugiconfig.hpp
     ${CMAKE_CURRENT_LIST_DIR}/ext/pugixml.hpp
-    ${CMAKE_CURRENT_LIST_DIR}/game/animation_timer.h
     ${CMAKE_CURRENT_LIST_DIR}/game/complexitem.h
     ${CMAKE_CURRENT_LIST_DIR}/game/creature.h
     ${CMAKE_CURRENT_LIST_DIR}/game/creatures.h
@@ -184,7 +183,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/palette/controls/palette_search_ctrl.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/panels/brush_palette_panel.h
     ${CMAKE_CURRENT_LIST_DIR}/palette/panels/brush_panel.h
-    ${CMAKE_CURRENT_LIST_DIR}/rendering/core/animator.h
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/core/sprite_animation.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/atlas_manager.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/chunk_cache_manager.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/coordinate_mapper.h
@@ -536,7 +535,6 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/editor/selection.cpp
     ${CMAKE_CURRENT_LIST_DIR}/editor/selection_thread.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ext/pugixml.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/game/animation_timer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/game/complexitem.cpp
     ${CMAKE_CURRENT_LIST_DIR}/game/creature.cpp
     ${CMAKE_CURRENT_LIST_DIR}/game/creatures.cpp
@@ -623,7 +621,7 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/palette/controls/palette_search_ctrl.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/panels/brush_palette_panel.cpp
     ${CMAKE_CURRENT_LIST_DIR}/palette/panels/brush_panel.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/rendering/core/animator.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/core/sprite_animation.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/atlas_manager.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/chunk_cache_manager.cpp
     ${CMAKE_CURRENT_LIST_DIR}/rendering/core/coordinate_mapper.cpp

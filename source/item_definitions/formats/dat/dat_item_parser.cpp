@@ -252,11 +252,16 @@ namespace {
 
 		auto animation = DatAnimationInfo {};
 		if (catalog.has_frame_durations) {
-			uint8_t async = 0;
-			if (!file.getByte(async) || !file.get32(animation.loop_count) || !file.getSByte(animation.start_frame)) {
+			uint8_t animation_mode = 0;
+			int8_t start = 0;
+			if (!file.getByte(animation_mode) || !file.get32(animation.loop_count) || !file.getSByte(start)) {
 				return false;
 			}
-			animation.asynchronous = async == 1;
+			// In Tibia DAT format (ObjectBuilder / OTClient metadata standard):
+			// animationMode 0 = Asynchronous (per-tile independent phase / random timing, e.g. torches, fire fields)
+			// animationMode 1 = Synchronous (global clock synchronized across map, e.g. sea shore water waves, fluids)
+			animation.asynchronous = (animation_mode == 0);
+			animation.start_frame = static_cast<int16_t>(start);
 			animation.frame_durations.reserve(frames);
 			for (uint8_t frame_index = 0; frame_index < frames; ++frame_index) {
 				DatAnimationFrameDuration duration;

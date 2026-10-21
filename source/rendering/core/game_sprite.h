@@ -7,7 +7,8 @@
 
 #include "game/outfit.h"
 #include "util/common.h"
-#include "rendering/core/animator.h"
+#include "rendering/core/sprite_animation.h"
+#include <optional>
 #include "rendering/core/sprite_light.h"
 #include "rendering/core/texture_garbage_collector.h"
 #include "rendering/core/atlas_manager.h"
@@ -104,7 +105,16 @@ public:
 	}
 
 	[[nodiscard]] bool isAnimated() const noexcept {
-		return frames > 1 && animator != nullptr;
+		return frames > 1 && animation_data.has_value();
+	}
+	[[nodiscard]] uint16_t getFrameStepMs() const noexcept {
+		return animation_data ? animation_data->shortest_step_ms : 0;
+	}
+	[[nodiscard]] int getAnimationFrame(int64_t elapsed_ms, int tile_x = 0, int tile_y = 0, int tile_z = 0) const noexcept {
+		if (!animation_data) {
+			return 0;
+		}
+		return rme::rendering::SpriteAnimation::getFrame(*animation_data, elapsed_ms, tile_x, tile_y, tile_z);
 	}
 	[[nodiscard]] bool hasElevation() const noexcept {
 		return draw_height > 0;
@@ -157,7 +167,7 @@ public:
 	uint32_t getDebugImageId(size_t index = 0) const;
 	ImageDimensions getCompositePixelSize() const;
 
-	std::unique_ptr<Animator> animator;
+	std::optional<rme::rendering::SpriteAnimationData> animation_data;
 
 	uint16_t draw_height;
 	uint16_t drawoffset_x;
