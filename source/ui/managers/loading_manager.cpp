@@ -4,6 +4,8 @@
 
 #include "app/main.h"
 #include "ui/managers/loading_manager.h"
+#include <algorithm>
+#include <format>
 
 #include "ui/gui.h"
 #include "editor/editor.h"
@@ -52,7 +54,7 @@ void LoadingManager::CreateInfoBar(wxString message, const wxString& title) {
 	infoDialog->SetSizerAndFit(sizer);
 	infoDialog->CentreOnParent();
 
-	infoDisabler = new wxWindowDisabler(infoDialog);
+	infoDisabler = std::make_unique<wxWindowDisabler>(infoDialog);
 	infoDialog->Show(true);
 	infoDialog->Update();
 }
@@ -104,7 +106,7 @@ bool LoadingManager::SetLoadDone(int32_t done, const wxString& newMessage) {
 	}
 
 	int32_t newProgress = progressFrom + static_cast<int32_t>((done / 100.f) * (progressTo - progressFrom));
-	newProgress = std::max<int32_t>(0, std::min<int32_t>(100, newProgress));
+	newProgress = std::clamp(newProgress, 0, 100);
 
 	bool skip = false;
 	if (progressBar) {
@@ -112,7 +114,7 @@ bool LoadingManager::SetLoadDone(int32_t done, const wxString& newMessage) {
 		// only covers the (unused here) Skip button.
 		const bool still_running = progressBar->Update(
 			newProgress,
-			wxString::Format("%s (%d%%)", progressText, newProgress),
+			wxstr(std::format("{} ({}%)", progressText.ToStdString(), newProgress)),
 			&skip
 		);
 		currentProgress = newProgress;
@@ -157,7 +159,7 @@ void LoadingManager::SetLoadText(const wxString& message) {
 
 	const int32_t visible = std::max<int32_t>(0, currentProgress);
 	bool skip = false;
-	if (!progressBar->Update(visible, wxString::Format("%s (%d%%)", progressText, visible), &skip) || skip) {
+	if (!progressBar->Update(visible, wxstr(std::format("{} ({}%)", progressText.ToStdString(), visible)), &skip) || skip) {
 		cancelled = true;
 	}
 }
@@ -169,7 +171,7 @@ bool LoadingManager::PollCancellation() {
 
 	const int32_t visible = std::max<int32_t>(0, currentProgress);
 	bool skip = false;
-	if (!progressBar->Update(visible, wxString::Format("%s (%d%%)", progressText, visible), &skip) || skip) {
+	if (!progressBar->Update(visible, wxstr(std::format("{} ({}%)", progressText.ToStdString(), visible)), &skip) || skip) {
 		cancelled = true;
 	}
 	return cancelled;
@@ -190,17 +192,14 @@ void LoadingManager::DestroyLoadBar() {
 		}
 	}
 
+	infoDisabler.reset();
+
 	if (infoDialog) {
 		infoDialog->Show(false);
 		infoDialog->Destroy();
 		infoDialog = nullptr;
 		infoText = nullptr;
 		currentProgress = -1;
-	}
-
-	if (infoDisabler) {
-		delete infoDisabler;
-		infoDisabler = nullptr;
 	}
 
 	// Cancellation belongs to the dialog being closed; later operations that

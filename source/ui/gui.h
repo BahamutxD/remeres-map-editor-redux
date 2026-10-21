@@ -452,6 +452,9 @@ public:
 	void SetLoadScale(int32_t from, int32_t to) {
 		g_loading.SetLoadScale(from, to);
 	}
+
+	ScopedLoadingBar(const ScopedLoadingBar&) = delete;
+	ScopedLoadingBar& operator=(const ScopedLoadingBar&) = delete;
 };
 
 /**

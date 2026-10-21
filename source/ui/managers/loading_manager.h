@@ -9,6 +9,7 @@
 #include <wx/progdlg.h>
 #include <wx/stattext.h>
 #include <wx/utils.h>
+#include <memory>
 
 class LoadingManager {
 public:
@@ -82,7 +83,7 @@ private:
 	// Informational sibling of the progress bar (no gauge, no cancel button).
 	wxDialog* infoDialog;
 	wxStaticText* infoText;
-	wxWindowDisabler* infoDisabler;
+	std::unique_ptr<wxWindowDisabler> infoDisabler;
 	bool cancelled;
 	// Whether the current bar offers an Abort button; without it there is
 	// nothing to poll and repeated values can skip the repaint.

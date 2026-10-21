@@ -109,54 +109,56 @@ bool EditorPersistence::saveMap(Editor& editor, FileName filename, bool showdial
 	std::string backup_zone;
 	std::string backup_waypoint;
 
+	auto createBackup = [](const std::string& sourcePath, const std::string& backupPath) {
+		std::error_code ec;
+		std::filesystem::remove(backupPath, ec);
+		std::filesystem::rename(sourcePath, backupPath, ec);
+		if (ec) {
+			spdlog::warn("EditorPersistence: Failed to create backup '{}' -> '{}': {}", sourcePath, backupPath, ec.message());
+		}
+	};
+
 	if (converter.FileExists()) {
 		backup_otbm = map_path + nstr(converter.GetName()) + ".otbm~";
-		std::remove(backup_otbm.c_str());
-		std::rename(savefile.c_str(), backup_otbm.c_str());
+		createBackup(savefile, backup_otbm);
 	}
 
 	converter.SetFullName(wxstr(editor.map.getHouseFilename()));
 	if (converter.FileExists()) {
 		backup_house = map_path + nstr(converter.GetName()) + ".xml~";
-		std::remove(backup_house.c_str());
-		std::rename((map_path + editor.map.getHouseFilename()).c_str(), backup_house.c_str());
+		createBackup(map_path + editor.map.getHouseFilename(), backup_house);
 	}
 
 	if (editor.map.getVersion().otbm == MAP_OTBM_5) {
 		converter.SetFullName(wxstr(editor.map.getMonsterFilename()));
 		if (converter.FileExists()) {
 			backup_monster = map_path + nstr(converter.GetName()) + ".xml~";
-			std::remove(backup_monster.c_str());
-			std::rename((map_path + editor.map.getMonsterFilename()).c_str(), backup_monster.c_str());
+			createBackup(map_path + editor.map.getMonsterFilename(), backup_monster);
 		}
 
 		converter.SetFullName(wxstr(editor.map.getNpcFilename()));
 		if (converter.FileExists()) {
 			backup_npc = map_path + nstr(converter.GetName()) + ".xml~";
-			std::remove(backup_npc.c_str());
-			std::rename((map_path + editor.map.getNpcFilename()).c_str(), backup_npc.c_str());
+			createBackup(map_path + editor.map.getNpcFilename(), backup_npc);
 		}
 
 		converter.SetFullName(wxstr(editor.map.getZoneFilename()));
 		if (converter.FileExists()) {
 			backup_zone = map_path + nstr(converter.GetName()) + ".xml~";
-			std::remove(backup_zone.c_str());
-			std::rename((map_path + editor.map.getZoneFilename()).c_str(), backup_zone.c_str());
+			createBackup(map_path + editor.map.getZoneFilename(), backup_zone);
 		}
 	} else {
 		converter.SetFullName(wxstr(editor.map.getSpawnFilename()));
 		if (converter.FileExists()) {
 			backup_spawn = map_path + nstr(converter.GetName()) + ".xml~";
-			std::remove(backup_spawn.c_str());
-			std::rename((map_path + editor.map.getSpawnFilename()).c_str(), backup_spawn.c_str());
+			createBackup(map_path + editor.map.getSpawnFilename(), backup_spawn);
 		}
 	}
 
 	converter.SetFullName(wxstr(editor.map.getWaypointFilename()));
 	if (converter.FileExists()) {
 		backup_waypoint = map_path + nstr(converter.GetName()) + ".xml~";
-		std::remove(backup_waypoint.c_str());
-		std::rename((map_path + editor.map.getWaypointFilename()).c_str(), backup_waypoint.c_str());
+		createBackup(map_path + editor.map.getWaypointFilename(), backup_waypoint);
 	}
 
 	// Save the map
@@ -178,10 +180,6 @@ bool EditorPersistence::saveMap(Editor& editor, FileName filename, bool showdial
 		bool success = mapsaver.saveMap(editor.map, fn);
 		const bool cancelled = showdialog && g_gui.WasLoadCancelled();
 		bool keep_recovery_info = false;
-
-		if (showdialog) {
-			g_gui.DestroyLoadBar();
-		}
 
 		// Check for errors...
 		if (!success) {

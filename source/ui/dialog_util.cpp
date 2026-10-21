@@ -16,28 +16,30 @@
 #include <wx/filedlg.h>
 #include <wx/stattext.h>
 
-#include <memory>
+#include <format>
+#include <span>
+#include <string_view>
 
 namespace {
 // The dialogs receive lines that may still contain embedded newlines; split
 // them so every entry is one line the user can select and copy.
-std::vector<wxString> SplitDialogItems(std::vector<std::string> items) {
+std::vector<wxString> SplitDialogItems(std::span<const std::string> items) {
 	std::vector<wxString> lines;
-	for (size_t i = 0; i < items.size();) {
-		wxString str = items[i];
-		if (const size_t pos = str.find('\n'); pos != wxString::npos) {
-			wxString line = str.substr(0, pos);
-			if (line.EndsWith("\r")) {
+	for (std::string_view item : items) {
+		while (!item.empty()) {
+			const size_t pos = item.find('\n');
+			std::string_view line = (pos == std::string_view::npos) ? item : item.substr(0, pos);
+			if (line.ends_with('\r')) {
 				// CRLF input would otherwise keep a stray carriage return that
 				// the join re-adds, producing "\r\r\n" in copied/exported text.
-				line.RemoveLast();
+				line.remove_suffix(1);
 			}
-			lines.push_back(line);
-			items[i] = str.substr(pos + 1).ToStdString();
-			continue;
+			lines.push_back(wxstr(line));
+			if (pos == std::string_view::npos) {
+				break;
+			}
+			item.remove_prefix(pos + 1);
 		}
-		lines.push_back(str);
-		++i;
 	}
 	return lines;
 }
@@ -71,8 +73,8 @@ void DialogUtil::ListDialog(wxWindow* parent, wxString title, const std::vector<
 		return;
 	}
 
-	auto lines = std::make_shared<std::vector<wxString>>(SplitDialogItems(param_items));
-	if (lines->empty()) {
+	const std::vector<wxString> lines = SplitDialogItems(param_items);
+	if (lines.empty()) {
 		return;
 	}
 
@@ -83,7 +85,7 @@ void DialogUtil::ListDialog(wxWindow* parent, wxString title, const std::vector<
 	wxListBox* item_list = newd wxListBox(dlg, wxID_ANY, wxDefaultPosition, wxDefaultSize, 0, nullptr, wxLB_EXTENDED);
 	item_list->SetMinSize(dlg->FromDIP(wxSize(500, 300)));
 
-	for (const wxString& line : *lines) {
+	for (const wxString& line : lines) {
 		item_list->Append(line);
 	}
 	sizer->Add(item_list, 1, wxEXPAND);
@@ -118,7 +120,7 @@ void DialogUtil::ListDialog(wxWindow* parent, wxString title, const std::vector<
 			feedback->SetLabel("Could not put the text in the clipboard.");
 			return;
 		}
-		feedback->SetLabel(wxString::Format("Copied %zu line(s) to the clipboard.", picked.size()));
+		feedback->SetLabel(wxstr(std::format("Copied {} line(s) to the clipboard.", picked.size())));
 	};
 
 	wxSizer* action_sizer = newd wxBoxSizer(wxHORIZONTAL);
@@ -132,14 +134,14 @@ void DialogUtil::ListDialog(wxWindow* parent, wxString title, const std::vector<
 
 	wxButton* copy_all = newd wxButton(dlg, wxID_ANY, "Copy all");
 	copy_all->SetBitmap(IMAGE_MANAGER.GetBitmapBundle(ICON_COPY));
-	copy_all->Bind(wxEVT_BUTTON, [copy_lines, lines](wxCommandEvent&) {
-		copy_lines(*lines);
+	copy_all->Bind(wxEVT_BUTTON, [copy_lines, &lines](wxCommandEvent&) {
+		copy_lines(lines);
 	});
 	action_sizer->Add(copy_all, wxSizerFlags(1).Expand().Border(wxRIGHT, 4));
 
 	wxButton* export_button = newd wxButton(dlg, wxID_ANY, "Export...");
 	export_button->SetBitmap(IMAGE_MANAGER.GetBitmapBundle(ICON_SAVE));
-	export_button->Bind(wxEVT_BUTTON, [dlg, lines, title, feedback](wxCommandEvent&) {
+	export_button->Bind(wxEVT_BUTTON, [dlg, &lines, title, feedback](wxCommandEvent&) {
 		wxFileDialog save_dlg(dlg, "Export list", wxEmptyString, title + ".txt", "Text file (*.txt)|*.txt|All files (*.*)|*.*", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
 		if (save_dlg.ShowModal() != wxID_OK) {
 			return;
@@ -153,12 +155,12 @@ void DialogUtil::ListDialog(wxWindow* parent, wxString title, const std::vector<
 			return;
 		}
 
-		const wxScopedCharBuffer utf8 = JoinDialogItems(*lines).utf8_str();
-		if (file.Write(utf8.data(), utf8.length()) != utf8.length() || !file.Commit()) {
+		const wxScopedCharBuffer utf8 = JoinDialogItems(lines).utf8_str();
+		if (!file.Write(utf8.data(), utf8.length()) || !file.Commit()) {
 			feedback->SetLabel("The file could not be written; the previous file is untouched.");
 			return;
 		}
-		feedback->SetLabel(wxString::Format("Exported %zu line(s).", lines->size()));
+		feedback->SetLabel(wxstr(std::format("Exported {} line(s).", lines.size())));
 	});
 	action_sizer->Add(export_button, wxSizerFlags(1).Expand().Border(wxRIGHT, 4));
 
@@ -168,11 +170,11 @@ void DialogUtil::ListDialog(wxWindow* parent, wxString title, const std::vector<
 
 	sizer->Add(action_sizer, 0, wxEXPAND | wxALL, dlg->FromDIP(4));
 
-	dlg->Bind(wxEVT_CHAR_HOOK, [copy_lines, selected_lines, lines](wxKeyEvent& event) {
+	dlg->Bind(wxEVT_CHAR_HOOK, [copy_lines, selected_lines, &lines](wxKeyEvent& event) {
 		if (event.GetKeyCode() == 'C' && event.ControlDown()) {
 			std::vector<wxString> picked = selected_lines();
 			if (picked.empty()) {
-				picked = *lines;
+				picked = lines;
 			}
 			copy_lines(picked);
 			return;
