@@ -497,10 +497,14 @@ bool DatItemParser::parseCatalog(const ItemDefinitionLoadInput& input, DatCatalo
 		return false;
 	}
 
-	catalog.entries.clear();
-	catalog.entries.resize(static_cast<size_t>(catalog.lastEntryId()) + 1);
+	const uint32_t last_id = (input.max_entries > 0)
+		? std::min(catalog.lastEntryId(), 100u + static_cast<uint32_t>(input.max_entries))
+		: catalog.lastEntryId();
 
-	for (uint32_t client_id = 100; client_id <= catalog.lastEntryId(); ++client_id) {
+	catalog.entries.clear();
+	catalog.entries.resize(static_cast<size_t>(last_id) + 1);
+
+	for (uint32_t client_id = 100; client_id <= last_id; ++client_id) {
 		auto& entry = catalog.entries[client_id];
 		entry = {};
 		entry.client_id = client_id;

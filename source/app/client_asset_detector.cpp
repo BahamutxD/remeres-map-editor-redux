@@ -96,7 +96,33 @@ namespace {
 		return signature;
 	}
 
-	std::vector<DatProbeCandidate> probeDatCandidates(const wxFileName& dat_path, uint32_t dat_signature) {
+	std::vector<DatProbeCandidate> probeDatCandidates(const wxFileName& dat_path, uint32_t dat_signature, const ClientVersion* client = nullptr) {
+		// 1. Known signature fast-path: match against client or database without brute force
+		if (client && dat_signature != 0 && client->getDatFormatForSignature(dat_signature) != DAT_FORMAT_UNKNOWN) {
+			return { DatProbeCandidate {
+				.format = client->getDatFormatForSignature(dat_signature),
+				.extended = client->isExtended(),
+				.frame_durations = client->hasFrameDurations(),
+				.frame_groups = client->hasFrameGroups(),
+				.warning_count = 0,
+			}};
+		}
+
+		if (dat_signature != 0) {
+			for (const auto* cv : ClientVersion::getAll()) {
+				if (cv && cv->getDatSignature() == dat_signature && cv->getDatFormatForSignature(dat_signature) != DAT_FORMAT_UNKNOWN) {
+					return { DatProbeCandidate {
+						.format = cv->getDatFormatForSignature(dat_signature),
+						.extended = cv->isExtended(),
+						.frame_durations = cv->hasFrameDurations(),
+						.frame_groups = cv->hasFrameGroups(),
+						.warning_count = 0,
+					}};
+				}
+			}
+		}
+
+		// 2. Sample-based probing for unknown/custom signatures
 		static constexpr std::array formats = {
 			DAT_FORMAT_74,
 			DAT_FORMAT_755,
@@ -113,11 +139,21 @@ namespace {
 
 		for (const auto format : formats) {
 			for (const bool extended : { false, true }) {
-				const std::array frame_duration_options = { false, true };
-				const std::array frame_group_options = { false, true };
+				const std::array<bool, 2> frame_duration_options = (format < DAT_FORMAT_1050)
+					? std::array<bool, 2>{ false, false }
+					: std::array<bool, 2>{ false, true };
+				const size_t duration_count = (format < DAT_FORMAT_1050) ? 1 : 2;
 
-				for (const bool frame_durations : frame_duration_options) {
-					for (const bool frame_groups : frame_group_options) {
+				const std::array<bool, 2> frame_group_options = (format < DAT_FORMAT_1057)
+					? std::array<bool, 2>{ false, false }
+					: std::array<bool, 2>{ false, true };
+				const size_t group_count = (format < DAT_FORMAT_1057) ? 1 : 2;
+
+				for (size_t di = 0; di < duration_count; ++di) {
+					const bool frame_durations = frame_duration_options[di];
+					for (size_t gi = 0; gi < group_count; ++gi) {
+						const bool frame_groups = frame_group_options[gi];
+
 						OtbVersion otb {};
 						ClientVersion probe_client(otb, "detector-probe", "");
 						probe_client.setExtended(extended);
@@ -128,6 +164,7 @@ namespace {
 						ItemDefinitionLoadInput input;
 						input.dat_path = dat_path;
 						input.client_version = &probe_client;
+						input.max_entries = 50;
 
 						DatCatalog catalog;
 						wxString error;
@@ -355,7 +392,7 @@ void ClientAssetDetector::internalDetectSprDat(const ClientVersion& client, Clie
 	}
 
 	if (result.dat_signature.has_value()) {
-		const auto dat_candidates = probeDatCandidates(dat_file.path, *result.dat_signature);
+		const auto dat_candidates = probeDatCandidates(dat_file.path, *result.dat_signature, &client);
 		if (dat_candidates.empty()) {
 			const auto message = "Client asset detection could not derive DAT feature flags from the DAT binary.";
 			spdlog::warn("{} DAT={:X}", message, *result.dat_signature);
