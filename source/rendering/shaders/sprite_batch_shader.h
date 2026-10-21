@@ -83,7 +83,7 @@ uniform int uBlockingBlendMode;
 )") + std::string(HIGHLIGHT_ITEMS_SHADER_GLSL) + std::string(INDICATOR_SHADER_GLSL) + std::string(HOUSE_SHADER_GLSL) + std::string(PATHING_SHADER_GLSL) + std::string(ZONE_SHADER_GLSL) + R"(
 
 void main() {
-    if ((vZoneFlags & (1u << 25)) != 0u) {
+    if ((vZoneFlags & (1u << 25)) != 0u || vHouseId >= 1000000.0) {
         if (evaluateTileIndicator(vQuadCoord, vHouseId,
                                   uShowHouses, uShowSpawns, uShowTowns,
                                   uShowWaypoints, uShowTechItems,

@@ -89,7 +89,7 @@ uniform int uBlockingBlendMode;
 
 void main() {
 	int flagBits = int(vFlags + 0.5);
-	if ((flagBits & 8) != 0) {
+	if ((flagBits & 8) != 0 || vHouseId >= 1000000.0) {
 		if (evaluateTileIndicator(vQuadCoord, vHouseId,
 		                          uShowHouses, 0, uShowTowns,
 		                          uShowWaypoints, uShowTechItems,

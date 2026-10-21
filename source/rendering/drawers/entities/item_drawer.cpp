@@ -19,6 +19,7 @@
 #include "rendering/core/graphics.h"
 #include "rendering/core/render_frame_context.h"
 #include "rendering/indicators/technical_item_registry.h"
+#include "rendering/indicators/zone_flags.h"
 
 namespace {
 	GameSprite* resolveSprite(const ItemDefinitionView& definition, const RenderFrameContext* ctx) {
@@ -115,7 +116,7 @@ void ItemDrawer::BlitItem(SpriteBatch& sprite_batch, SpriteDrawer* sprite_drawer
 					*white_pixel,
 					rf, gf, bf, af,
 					rme::rendering::TechnicalItemRegistry::GetMarkerId(invalid_type),
-					0u,
+					rme::rendering::ZONE_FLAG_IS_INDICATOR,
 					params.depth
 				);
 			}
@@ -131,7 +132,7 @@ void ItemDrawer::BlitItem(SpriteBatch& sprite_batch, SpriteDrawer* sprite_drawer
 		if (tech_type != rme::rendering::TileIndicatorType::None) {
 			const AtlasRegion* white_pixel = atlas ? atlas->getWhitePixel() : nullptr;
 			if (white_pixel) {
-				sprite_batch.draw(static_cast<float>(draw_x), static_cast<float>(draw_y), 32.0f, 32.0f, *white_pixel, 1.0f, 1.0f, 1.0f, static_cast<float>(alpha) / 255.0f, rme::rendering::TechnicalItemRegistry::GetMarkerId(tech_type), 0u, params.depth);
+				sprite_batch.draw(static_cast<float>(draw_x), static_cast<float>(draw_y), 32.0f, 32.0f, *white_pixel, 1.0f, 1.0f, 1.0f, static_cast<float>(alpha) / 255.0f, rme::rendering::TechnicalItemRegistry::GetMarkerId(tech_type), rme::rendering::ZONE_FLAG_IS_INDICATOR, params.depth);
 			}
 			return;
 		}
@@ -274,7 +275,7 @@ void ItemDrawer::DrawRawBrush(SpriteBatch& sprite_batch, SpriteDrawer* sprite_dr
 	if (tech_type != rme::rendering::TileIndicatorType::None) {
 		const AtlasRegion* white_pixel = ctx->atlas.getWhitePixel();
 		if (white_pixel) {
-			sprite_batch.draw(static_cast<float>(screenx), static_cast<float>(screeny), 32.0f, 32.0f, *white_pixel, 1.0f, 1.0f, 1.0f, static_cast<float>(alpha) / 255.0f, rme::rendering::TechnicalItemRegistry::GetMarkerId(tech_type));
+			sprite_batch.draw(static_cast<float>(screenx), static_cast<float>(screeny), 32.0f, 32.0f, *white_pixel, 1.0f, 1.0f, 1.0f, static_cast<float>(alpha) / 255.0f, rme::rendering::TechnicalItemRegistry::GetMarkerId(tech_type), rme::rendering::ZONE_FLAG_IS_INDICATOR);
 		}
 		return;
 	}

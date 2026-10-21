@@ -83,7 +83,7 @@ namespace {
 	void writeRegionGeometry(TileInstance& inst, const AtlasRegion& reg, int draw_x, int draw_y) {
 		inst.x = static_cast<float>(draw_x);
 		inst.y = static_cast<float>(draw_y);
-		const bool is_indicator = (static_cast<int>(inst.flags + 0.5f) & 8) != 0;
+		const bool is_indicator = (static_cast<int>(inst.flags + 0.5f) & 8) != 0 || inst.house_id >= 1000000.0f;
 		inst.w = is_indicator ? 32.0f : static_cast<float>(reg.pixel_width);
 		inst.h = is_indicator ? 32.0f : static_cast<float>(reg.pixel_height);
 		inst.sprite_id = static_cast<float>(reg.debug_sprite_id);
@@ -609,7 +609,7 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 				if (tech_type != rme::rendering::TileIndicatorType::None) {
 					const AtlasRegion* white_pixel = ctx.atlas.getWhitePixel();
 					if (white_pixel) {
-						pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, rme::rendering::TechnicalItemRegistry::GetMarkerId(tech_type), ground_depth);
+						pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, rme::rendering::TechnicalItemRegistry::GetMarkerId(tech_type), ground_depth, TILE_INSTANCE_FLAG_INDICATOR);
 					}
 				} else if (git && !git.isMetaItem()) {
 					GameSprite* gspr = ctx.gfx.getGameSprite(git.clientId());
@@ -668,7 +668,7 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 				if (tech_type != rme::rendering::TileIndicatorType::None) {
 					const AtlasRegion* white_pixel = ctx.atlas.getWhitePixel();
 					if (white_pixel) {
-						pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, rme::rendering::TechnicalItemRegistry::GetMarkerId(tech_type), border_depth);
+						pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, rme::rendering::TechnicalItemRegistry::GetMarkerId(tech_type), border_depth, TILE_INSTANCE_FLAG_INDICATOR);
 					}
 					continue;
 				}
@@ -769,7 +769,7 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 					if (tech_type != rme::rendering::TileIndicatorType::None) {
 						const AtlasRegion* white_pixel = ctx.atlas.getWhitePixel();
 						if (white_pixel) {
-							pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, rme::rendering::TechnicalItemRegistry::GetMarkerId(tech_type), item_depth);
+							pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, rme::rendering::TechnicalItemRegistry::GetMarkerId(tech_type), item_depth, TILE_INSTANCE_FLAG_INDICATOR);
 						}
 						continue;
 					}
