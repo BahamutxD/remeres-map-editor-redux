@@ -323,6 +323,7 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 	// step of the creature animation it baked (0 when it holds none).
 	uint16_t creature_step_ms = 0;
 	bake_buffer_.clear();
+	scratch_sync_slots_.clear();
 	chunk.clearDynamicTiles();
 	chunk.animated_sprites.clear();
 	chunk.animated_runs.clear();
@@ -374,7 +375,6 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 		});
 	};
 
-	std::unordered_map<GameSprite*, uint32_t> sync_slots;
 	// Map items and grounds animate; their runs are tracked so frame changes can be patched in place.
 	auto pushSpriteInstances = [&](GameSprite* spr, const SpritePatterns& pat, int draw_base_x, int draw_base_y, float rf, float gf, float bf, float af, float house_id = 0.0f, float depth = 0.0f, float flags = TILE_INSTANCE_FLAG_TEXTURE, bool upload = false, int map_pos_x = 0, int map_pos_y = 0, int map_pos_z = 0) {
 		const size_t first_instance = bake_buffer_.size();
@@ -386,8 +386,10 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 		const bool is_async = (spr->animation_data && spr->animation_data->is_async);
 		uint32_t slot_idx = 0;
 		if (!is_async) {
-			auto it = sync_slots.find(spr);
-			if (it != sync_slots.end()) {
+			auto it = std::ranges::find_if(scratch_sync_slots_, [spr](const auto& pair) {
+				return pair.first == spr;
+			});
+			if (it != scratch_sync_slots_.end()) {
 				slot_idx = it->second;
 			} else {
 				slot_idx = static_cast<uint32_t>(chunk.animated_sprites.size());
@@ -398,7 +400,7 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 					.tile_z = 0,
 					.frame = pat.frame
 				});
-				sync_slots[spr] = slot_idx;
+				scratch_sync_slots_.emplace_back(spr, slot_idx);
 			}
 		} else {
 			const int tx = map_pos_x;

@@ -11,6 +11,7 @@
 #include "rendering/core/tile_instance.h"
 #include "map/spatial_change_tracker.h"
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 class Map;
@@ -362,6 +363,7 @@ private:
 	std::unordered_map<ChunkCoord, CachedChunk, ChunkCoordHash> cached_chunks_;
 	std::vector<TileInstance> bake_buffer_;
 	std::vector<uint8_t> scratch_changed_slots_;
+	std::vector<std::pair<GameSprite*, uint32_t>> scratch_sync_slots_;
 	uint64_t current_frame_ = 0;
 
 	std::vector<CachedChunk*> active_visible_chunks_;
