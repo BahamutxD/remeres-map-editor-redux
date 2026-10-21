@@ -110,15 +110,7 @@ void ItemDrawer::BlitItem(SpriteBatch& sprite_batch, SpriteDrawer* sprite_drawer
 				const float bf = static_cast<float>(blue) / 255.0f;
 				const float af = static_cast<float>(alpha) / 255.0f;
 				const auto invalid_type = (item && item->isGroundTile()) ? rme::rendering::TileIndicatorType::InvalidGround : rme::rendering::TileIndicatorType::InvalidItem;
-				sprite_batch.draw(
-					static_cast<float>(draw_x), static_cast<float>(draw_y),
-					32.0f, 32.0f,
-					*white_pixel,
-					rf, gf, bf, af,
-					rme::rendering::TechnicalItemRegistry::GetMarkerId(invalid_type),
-					rme::rendering::ZONE_FLAG_IS_INDICATOR,
-					params.depth
-				);
+				sprite_batch.draw(static_cast<float>(draw_x), static_cast<float>(draw_y), 32.0f, 32.0f, *white_pixel, rf, gf, bf, af, 0.0f, rme::rendering::MakeIndicatorZoneFlag(static_cast<uint8_t>(invalid_type)), params.depth);
 			}
 		}
 		return;
@@ -132,7 +124,7 @@ void ItemDrawer::BlitItem(SpriteBatch& sprite_batch, SpriteDrawer* sprite_drawer
 		if (tech_type != rme::rendering::TileIndicatorType::None) {
 			const AtlasRegion* white_pixel = atlas ? atlas->getWhitePixel() : nullptr;
 			if (white_pixel) {
-				sprite_batch.draw(static_cast<float>(draw_x), static_cast<float>(draw_y), 32.0f, 32.0f, *white_pixel, 1.0f, 1.0f, 1.0f, static_cast<float>(alpha) / 255.0f, rme::rendering::TechnicalItemRegistry::GetMarkerId(tech_type), rme::rendering::ZONE_FLAG_IS_INDICATOR, params.depth);
+				sprite_batch.draw(static_cast<float>(draw_x), static_cast<float>(draw_y), 32.0f, 32.0f, *white_pixel, 1.0f, 1.0f, 1.0f, static_cast<float>(alpha) / 255.0f, 0.0f, rme::rendering::MakeIndicatorZoneFlag(static_cast<uint8_t>(tech_type)), params.depth);
 			}
 			return;
 		}
@@ -275,7 +267,7 @@ void ItemDrawer::DrawRawBrush(SpriteBatch& sprite_batch, SpriteDrawer* sprite_dr
 	if (tech_type != rme::rendering::TileIndicatorType::None) {
 		const AtlasRegion* white_pixel = ctx->atlas.getWhitePixel();
 		if (white_pixel) {
-			sprite_batch.draw(static_cast<float>(screenx), static_cast<float>(screeny), 32.0f, 32.0f, *white_pixel, 1.0f, 1.0f, 1.0f, static_cast<float>(alpha) / 255.0f, rme::rendering::TechnicalItemRegistry::GetMarkerId(tech_type), rme::rendering::ZONE_FLAG_IS_INDICATOR);
+			sprite_batch.draw(static_cast<float>(screenx), static_cast<float>(screeny), 32.0f, 32.0f, *white_pixel, 1.0f, 1.0f, 1.0f, static_cast<float>(alpha) / 255.0f, 0.0f, rme::rendering::MakeIndicatorZoneFlag(static_cast<uint8_t>(tech_type)));
 		}
 		return;
 	}

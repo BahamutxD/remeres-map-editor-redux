@@ -83,7 +83,7 @@ namespace {
 	void writeRegionGeometry(TileInstance& inst, const AtlasRegion& reg, int draw_x, int draw_y) {
 		inst.x = static_cast<float>(draw_x);
 		inst.y = static_cast<float>(draw_y);
-		const bool is_indicator = (static_cast<int>(inst.flags + 0.5f) & 8) != 0 || inst.house_id >= 1000000.0f;
+		const bool is_indicator = GetTileIndicatorType(inst.flags) != 0;
 		inst.w = is_indicator ? 32.0f : static_cast<float>(reg.pixel_width);
 		inst.h = is_indicator ? 32.0f : static_cast<float>(reg.pixel_height);
 		inst.sprite_id = static_cast<float>(reg.debug_sprite_id);
@@ -609,7 +609,7 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 				if (tech_type != rme::rendering::TileIndicatorType::None) {
 					const AtlasRegion* white_pixel = ctx.atlas.getWhitePixel();
 					if (white_pixel) {
-						pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, rme::rendering::TechnicalItemRegistry::GetMarkerId(tech_type), ground_depth, TILE_INSTANCE_FLAG_INDICATOR);
+						pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, ground_depth, MakeTileIndicatorFlag(static_cast<uint8_t>(tech_type)));
 					}
 				} else if (git && !git.isMetaItem()) {
 					GameSprite* gspr = ctx.gfx.getGameSprite(git.clientId());
@@ -668,7 +668,7 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 				if (tech_type != rme::rendering::TileIndicatorType::None) {
 					const AtlasRegion* white_pixel = ctx.atlas.getWhitePixel();
 					if (white_pixel) {
-						pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, rme::rendering::TechnicalItemRegistry::GetMarkerId(tech_type), border_depth, TILE_INSTANCE_FLAG_INDICATOR);
+						pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, border_depth, MakeTileIndicatorFlag(static_cast<uint8_t>(tech_type)));
 					}
 					continue;
 				}
@@ -769,7 +769,7 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 					if (tech_type != rme::rendering::TileIndicatorType::None) {
 						const AtlasRegion* white_pixel = ctx.atlas.getWhitePixel();
 						if (white_pixel) {
-							pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, rme::rendering::TechnicalItemRegistry::GetMarkerId(tech_type), item_depth, TILE_INSTANCE_FLAG_INDICATOR);
+							pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, item_depth, MakeTileIndicatorFlag(static_cast<uint8_t>(tech_type)));
 						}
 						continue;
 					}
@@ -833,10 +833,10 @@ void ChunkCacheManager::bakeChunk(CachedChunk& chunk, const Map& map, const Rend
 				if (tile->isHouseExit()) {
 					const HouseExitList* exits = tile->getHouseExits();
 					const uint32_t exit_house_id = (exits && !exits->empty()) ? exits->front() : 1;
-					pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, rme::rendering::INDICATOR_HOUSE_ENTRY_BASE + static_cast<float>(exit_house_id), indicator_depth, TILE_INSTANCE_FLAG_INDICATOR);
+					pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, indicator_depth, MakeTileIndicatorFlag(static_cast<uint8_t>(rme::rendering::TileIndicatorType::HouseEntry)));
 				}
 				if (loc->getTownCount() > 0) {
-					pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, rme::rendering::INDICATOR_TOWN_BASE, indicator_depth, TILE_INSTANCE_FLAG_INDICATOR);
+					pushRegionInstance(white_pixel, x * 32, y * 32, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, indicator_depth, MakeTileIndicatorFlag(static_cast<uint8_t>(rme::rendering::TileIndicatorType::TownTemple)));
 				}
 			}
 

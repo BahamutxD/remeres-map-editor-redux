@@ -410,8 +410,7 @@ void TileRenderer::RenderDynamicEntities(SpriteBatch& sprite_batch, const TileLo
 				32.0f, 32.0f,
 				*white_pixel,
 				1.0f, 1.0f, 1.0f, 1.0f,
-				rme::rendering::INDICATOR_INVALID_ZONE_BASE,
-				rme::rendering::ZONE_FLAG_IS_INDICATOR,
+				0.0f, rme::rendering::MakeIndicatorZoneFlag(static_cast<uint8_t>(rme::rendering::TileIndicatorType::InvalidZone)),
 				overlay_depth
 			);
 		}
@@ -444,14 +443,12 @@ void TileRenderer::RenderDynamicEntities(SpriteBatch& sprite_batch, const TileLo
 				}
 
 				const float tint = has_selected_invalid_item ? 0.5f : 1.0f;
-				const float marker_id = rme::rendering::TechnicalItemRegistry::GetMarkerId(invalid_indicator);
 				sprite_batch.draw(
 					static_cast<float>(draw_x), static_cast<float>(draw_y),
 					32.0f, 32.0f,
 					*white_pixel,
 					tint, tint, tint, 1.0f,
-					marker_id,
-					rme::rendering::ZONE_FLAG_IS_INDICATOR,
+					0.0f, rme::rendering::MakeIndicatorZoneFlag(static_cast<uint8_t>(invalid_indicator)),
 					overlay_depth
 				);
 			}
