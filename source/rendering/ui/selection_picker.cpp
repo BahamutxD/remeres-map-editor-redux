@@ -12,6 +12,7 @@
 #include "rendering/core/game_sprite.h"
 #include "rendering/core/graphics.h"
 #include "rendering/core/image.h"
+#include "rendering/ui/selection_geometry.h"
 #include "rendering/utilities/pattern_calculator.h"
 #include "ui/gui.h"
 
@@ -68,30 +69,21 @@ namespace {
 
 	template <typename IndexProvider>
 	PixelTestResult HitTestSpriteParts(const GameSprite& sprite, const SpriteLayoutMetrics& metrics, int base_x, int base_y, int pixel_x, int pixel_y, IndexProvider&& index_provider) {
+		const std::optional<SelectionSpritePart> part = FindSelectionSpritePart(pixel_x, pixel_y, base_x, base_y, metrics);
+		if (!part.has_value()) {
+			return PixelTestResult::Miss;
+		}
+
 		bool unavailable = false;
-		int x_offset = 0;
-		for (int cx = 0; cx < metrics.num_columns; ++cx) {
-			int y_offset = 0;
-			for (int cy = 0; cy < metrics.num_rows; ++cy) {
-				const int part_x = base_x - x_offset;
-				const int part_y = base_y - y_offset;
-				if (BoxHit(pixel_x, pixel_y, part_x, part_y, metrics.column_widths[cx], metrics.row_heights[cy])) {
-					const int local_x = pixel_x - part_x;
-					const int local_y = pixel_y - part_y;
-					const int layers = std::max<int>(1, sprite.layers);
-					for (int layer = 0; layer < layers; ++layer) {
-						const PixelTestResult result = SampleSpriteAlpha(sprite, index_provider(cx, cy, layer), local_x, local_y);
-						if (result == PixelTestResult::Hit) {
-							return PixelTestResult::Hit;
-						}
-						if (result == PixelTestResult::Unknown) {
-							unavailable = true;
-						}
-					}
-				}
-				y_offset += metrics.row_heights[cy];
+		const int layers = std::max<int>(1, sprite.layers);
+		for (int layer = 0; layer < layers; ++layer) {
+			const PixelTestResult result = SampleSpriteAlpha(sprite, index_provider(part->column, part->row, layer), part->local_x, part->local_y);
+			if (result == PixelTestResult::Hit) {
+				return PixelTestResult::Hit;
 			}
-			x_offset += metrics.column_widths[cx];
+			if (result == PixelTestResult::Unknown) {
+				unavailable = true;
+			}
 		}
 		return unavailable ? PixelTestResult::Unknown : PixelTestResult::Miss;
 	}
@@ -316,18 +308,16 @@ namespace {
 			};
 		}
 
-		if (g_settings.getBoolean(Config::SHOW_ITEMS)) {
-			for (auto it = tile.items.rbegin(); it != tile.items.rend(); ++it) {
-				Item* item = it->get();
-				if (!item || !item->isBorder() || item->isMetaItem()) {
-					continue;
-				}
-				if (IsItemHiddenBySettings(*item) || IsItemInvalidAndHidden(*item)) {
-					continue;
-				}
-				if (HitTestItem(*item, tile, tile_pos, pixel_x, pixel_y, 0) == PixelTestResult::Hit) {
-					return MakeItemHit(&tile, item);
-				}
+		for (auto it = tile.items.rbegin(); it != tile.items.rend(); ++it) {
+			Item* item = it->get();
+			if (!item || !item->isBorder() || item->isMetaItem()) {
+				continue;
+			}
+			if (IsItemHiddenBySettings(*item) || IsItemInvalidAndHidden(*item)) {
+				continue;
+			}
+			if (HitTestItem(*item, tile, tile_pos, pixel_x, pixel_y, 0) == PixelTestResult::Hit) {
+				return MakeItemHit(&tile, item);
 			}
 		}
 

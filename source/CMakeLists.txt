@@ -281,6 +281,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/rendering/ui/popup_action_handler.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/ui/screenshot_controller.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/ui/selection_controller.h
+    ${CMAKE_CURRENT_LIST_DIR}/rendering/ui/selection_geometry.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/ui/selection_picker.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/ui/tooltip_drawer.h
     ${CMAKE_CURRENT_LIST_DIR}/rendering/ui/zoom_controller.h
