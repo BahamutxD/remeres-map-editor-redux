@@ -2,6 +2,13 @@
 
 Related analysis: [selection-analysis.md](selection-analysis.md).
 
+> **Implementation status:** implemented on branch `feature/pixel-perfect-selection`.
+> The setting/menu, sub-tile coordinate plumbing, standard/pixel picker (items,
+> multi-tile items, borders, ground, creatures), selection-controller integration,
+> and geometry tests are in place. The application builds successfully with
+> `build_ninja.bat`; the standalone geometry test passes. Runtime/manual testing on
+> a real map and client data is still required.
+
 ## 1. Goal
 
 Add a user-selectable picking method to Redux:
@@ -259,7 +266,7 @@ Use a named constant:
 constexpr int kPixelSelectionSearchRange = 4;
 ```
 
-This matches the ImGui feature and covers the common 1x1–4x4 item footprint. `MAX_SPRITE_PARTS` is 16 in Redux, but scanning 16x16 tiles per click is unnecessary. Document the limitation. If a real map needs larger items, raise the constant or compute a per-item bounding box; do not make it a user setting.
+This matches the ImGui feature (up to 5x5 candidate tile positions, including the clicked tile) and covers the common 1x1-4x4 item footprint. `MAX_SPRITE_PARTS` is 16 in Redux, but scanning 16x16 tiles per click is unnecessary. Document the limitation. If a real map needs larger items, raise the constant or compute a per-item bounding box; do not make it a user setting.
 
 Loop order must be **front-to-back**, i.e. descending `dy` and descending `dx`, because a storage tile with larger `x + y` is drawn later (in front) on the isometric plane:
 
@@ -396,10 +403,10 @@ NormalImage* image = (index < sprite->spriteList.size() &&
 auto rgba = image ? image->getRGBAData() : nullptr;
 ```
 
-Choose one threshold:
-
-- **Recommendation:** use `alpha > 0` for consistency with the renderer, or `alpha > 32` to match the ImGui fast path and avoid selecting on antialiased fringe pixels.
-- If exact ImGui parity is more important than Redux consistency, use `> 32` for 1x1 sprites and `> 10` for composite sprites, and document it.
+Implemented threshold: `alpha > 32`, used for both simple and composite sprites.
+This matches the ImGui fast path and avoids selecting antialiased fringe pixels. If
+players report that very faint sprite edges are not selectable, lower the constant
+in one place (`kPixelSelectionAlphaThreshold`) and verify on real sprites.
 
 Do not read the OpenGL atlas; that would require a GPU readback and stall the frame. Always read from the CPU sprite archive.
 
@@ -415,7 +422,7 @@ The visual highlight already covers all sprite parts because `ItemDrawer` draws 
 
 ### 5.7 Creature hit test
 
-Creature hit testing is more complex than items because of outfits, directions, addons, mounts, and animation frames. Implement it in a second milestone, with a standard fallback in milestone 1.
+Creature hit testing is more complex than items because of outfits, directions, addons, mounts, and animation frames. It is implemented in `SelectionPicker` with a 32x32 fallback when outfit/sprite data is unavailable.
 
 When implemented:
 
@@ -724,12 +731,28 @@ Create a test map (not committed unless the team wants it under `tests/`) with:
 
 ### 9.3 Automated tests
 
-- Add a pure test for `ScreenToMapPixel`:
-  - known scroll/zoom/scale values;
-  - round-trip `MapToScreen(tile) + pixel` for zoom 0.5, 1.0, 2.0;
-  - negative/edge coordinates.
-- If a standalone test target exists, add a test for composite part rectangles using synthetic `SpriteLayoutMetrics` (no client data needed).
-- Alpha/outfit hit testing is best verified manually because it needs a real client data set. If the team wants automated coverage, build a tiny fake `GameSprite`/`NormalImage` fixture; do not load a full client in a unit test.
+The repository has standalone test sources under `tests/`, compiled manually rather than through the main CMake target.
+
+Implemented: `tests/test_pixel_perfect_selection.cpp`
+
+It covers:
+
+- `MainMapViewMath::GetFloorTileOffset`;
+- `ScreenToMapPixel` at zoom 0.5, 1.0, and 2.0;
+- content-scale conversion (1.25);
+- scroll offsets and floor offsets;
+- consistency between `ScreenToMap` and `ScreenToMapPixel` over a grid of samples;
+- composite sprite part selection (`FindSelectionSpritePart`) for 1x1, 2x2, variable-width, negative-origin, and out-of-bounds coordinates.
+
+Build and run it with the MSVC environment:
+
+```bat
+call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat"
+cl /nologo /std:c++20 /EHsc /MD /I source tests\test_pixel_perfect_selection.cpp source\rendering\core\map_view_math.cpp /Fe:build-ninja\test_pixel_perfect_selection.exe
+build-ninja\test_pixel_perfect_selection.exe
+```
+
+Alpha/outfit hit testing is still best verified manually with a real client data set; the automated test covers the geometry that maps a click to a sprite part and local pixel.
 
 ### 9.4 Build / verification commands
 
@@ -771,7 +794,7 @@ The plan's full sublayer order is the correct target. If implementation time is 
 
 ### 10.4 Multi-tile range
 
-The 4-tile scan is a deliberate parity choice, but Redux allows up to `MAX_SPRITE_PARTS` (16) parts. If a user has a 5x5 item, its far corner will not be pickable. Options:
+The radius-4 scan is a deliberate parity choice, but Redux allows up to `MAX_SPRITE_PARTS` (16) parts. If a user has an item larger than the scan range, its far corner will not be pickable. Options:
 
 - keep 4 and document;
 - compute the maximum item footprint at data load and use that (more work);
@@ -785,12 +808,7 @@ The ImGui editor ignores spawns in pixel mode. Redux currently prioritizes spawn
 
 ### 10.6 Creature hit testing
 
-Outfits, mounts, addons, directions, and animation frames make creature hit testing significantly more code than item hit testing. It is also the least important for map editing (creatures are usually selected by clicking their tile). Recommended phasing:
-
-- **Milestone 1:** items + ground + multi-tile + borders; creatures use the standard tile pick.
-- **Milestone 2:** creature outfit alpha test.
-
-The user-visible feature is still useful after milestone 1, and milestone 2 does not change the selection model.
+Outfits, mounts, addons, directions, and animation frames make creature hit testing significantly more code than item hit testing. The implementation now covers body addons and mounts and falls back to a 32x32 box if the outfit sprite or its alpha data is unavailable. The fallback is intentional: a creature must remain selectable even when a client format does not expose the expected outfit sprites.
 
 ### 10.7 Selected-tile drag semantics
 
@@ -834,10 +852,10 @@ Suggested atomic commits:
    - new `SelectionPicker`, sprite alpha test, multi-tile, borders, ground.
 5. `feat(selection): use pixel picker in selection controller`
    - wire click/right-click/release; fix selected-tile drag gate.
-6. `feat(selection): add creature pixel hit testing` (optional milestone 2)
-   - outfit/addon/mount alpha tests.
-7. `test(selection): add coordinate and picker tests`
-   - pure math tests; manual map checklist.
+6. Creature pixel hit testing is included in `selection_picker.cpp`
+   - body/addon/mount alpha tests with a 32x32 fallback.
+7. `test(selection): add geometry tests for pixel-perfect picking`
+   - coordinate, scroll/zoom/scale, and composite-part tests; manual map checklist for alpha/outfits.
 
 Keep the setting/menu commit separate from behavior so the feature can be disabled by leaving the default `false`.
 
@@ -852,7 +870,7 @@ Keep the setting/menu commit separate from behavior so the feature can be disabl
   - transparent item edges;
   - borders and ground;
   - stacked/elevated items;
-  - creatures (milestone 2) or documented fallback.
+  - creatures, including body addons and mounts (with a documented fallback).
 - [ ] Clicking a different item on an already-selected tile selects that item.
 - [ ] Ctrl+click toggles the exact picked entity.
 - [ ] Right-click context selection uses the exact picked entity.

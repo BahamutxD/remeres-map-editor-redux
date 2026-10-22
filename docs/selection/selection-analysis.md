@@ -164,7 +164,7 @@ Undo/redo stores selection snapshots in history entries; the map content and sel
 
 `PixelPerfectSelectionStrategy::selectAt(map, pos, pixel_offset)`:
 
-1. It scans a **4x4 region of tiles** from `(pos.x + 4, pos.y + 4)` down to `(pos.x, pos.y)`, same z.
+1. It scans a **search radius of 4 tiles** from `(pos.x + 4, pos.y + 4)` down to `(pos.x, pos.y)`, same z. That is up to 5x5 candidate tile positions (including the clicked tile).
 2. For each candidate tile, it computes the click offset relative to that tile:
    ```cpp
    candidate_offset = pixel_offset - glm::vec2(dx * 32, dy * 32);
