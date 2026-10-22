@@ -420,6 +420,15 @@ void MapCanvas::ScreenToMap(int screen_x, int screen_y, int custom_floor, int* m
 
 	CoordinateMapper::ScreenToMap(screen_x, screen_y, start_x, start_y, zoom, custom_floor, GetContentScaleFactor(), map_x, map_y);
 }
+
+MainMapPixelPosition MapCanvas::ScreenToMapPixel(int screen_x, int screen_y) const {
+	int start_x = 0, start_y = 0;
+	if (auto mw = GetMapWindow()) {
+		mw->GetViewStart(&start_x, &start_y);
+	}
+
+	return CoordinateMapper::ScreenToMapPixel(screen_x, screen_y, start_x, start_y, zoom, floor, GetContentScaleFactor());
+}
 #if 0
 
 *map_y = int(start_y + (screen_y * zoom)) / TILE_SIZE;

@@ -21,6 +21,7 @@
 #include "editor/action.h"
 #include "map/tile.h"
 #include "game/creature.h"
+#include "rendering/core/map_view_math.h"
 #include "rendering/utilities/fps_counter.h"
 
 #include "ui/map_popup_menu.h"
@@ -86,6 +87,7 @@ public:
 
 	virtual void ScreenToMap(int screen_x, int screen_y, int* map_x, int* map_y);
 	virtual void ScreenToMap(int screen_x, int screen_y, int custom_floor, int* map_x, int* map_y);
+	MainMapPixelPosition ScreenToMapPixel(int screen_x, int screen_y) const;
 	void MouseToMap(int* map_x, int* map_y) {
 		ScreenToMap(cursor_x, cursor_y, map_x, map_y);
 	}
