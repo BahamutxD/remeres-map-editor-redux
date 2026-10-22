@@ -359,6 +359,10 @@ void MainMenuBar::OnSelectionTypeChange(wxCommandEvent& event) {
 	viewSettingsHandler->OnSelectionTypeChange(event);
 }
 
+void MainMenuBar::OnSelectionMethodChange(wxCommandEvent& event) {
+	viewSettingsHandler->OnSelectionMethodChange(event);
+}
+
 void MainMenuBar::OnCopy(wxCommandEvent& WXUNUSED(event)) {
 	g_gui.DoCopy();
 }
