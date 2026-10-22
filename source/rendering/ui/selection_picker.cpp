@@ -53,14 +53,14 @@ namespace {
 			return PixelTestResult::Unknown;
 		}
 
-		const ImageDimensions dimensions = image->getDimensions();
-		if (pixel_x < 0 || pixel_y < 0 || pixel_x >= dimensions.width || pixel_y >= dimensions.height) {
-			return PixelTestResult::Miss;
-		}
-
 		std::unique_ptr<uint8_t[]> rgba = image->getRGBAData();
 		if (!rgba) {
 			return PixelTestResult::Unknown;
+		}
+
+		const ImageDimensions dimensions = image->getDimensions();
+		if (pixel_x < 0 || pixel_y < 0 || pixel_x >= dimensions.width || pixel_y >= dimensions.height) {
+			return PixelTestResult::Miss;
 		}
 
 		const size_t offset = (static_cast<size_t>(pixel_y) * dimensions.width + static_cast<size_t>(pixel_x)) * 4;

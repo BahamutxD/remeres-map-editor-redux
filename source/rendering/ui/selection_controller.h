@@ -46,6 +46,7 @@ public:
 	void Reset() {
 		dragging = false;
 		boundbox_selection = false;
+		last_click_pixel = {};
 	}
 
 private:
