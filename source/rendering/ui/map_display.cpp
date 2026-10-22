@@ -600,15 +600,16 @@ void MapCanvas::OnMouseActionClick(wxMouseEvent& event) {
 		map_window->ResumeMinimapTrackingToCurrentView();
 	}
 
-	int mouse_map_x, mouse_map_y;
-	ScreenToMap(event.GetX(), event.GetY(), &mouse_map_x, &mouse_map_y);
+	const MainMapPixelPosition click = ScreenToMapPixel(event.GetX(), event.GetY());
+	const int mouse_map_x = click.map_x;
+	const int mouse_map_y = click.map_y;
 
 	if (event.ControlDown() && event.AltDown()) {
 		Tile* tile = editor.map.getTile(mouse_map_x, mouse_map_y, floor);
 		BrushSelector::SelectSmartBrush(editor, tile);
 	} else if (g_gui.IsSelectionMode()) {
 		if (selection_controller) {
-			selection_controller->HandleClick(Position(mouse_map_x, mouse_map_y, floor), event.ShiftDown(), event.ControlDown(), event.AltDown());
+			selection_controller->HandleClick(Position(mouse_map_x, mouse_map_y, floor), SelectionPixelOffset { .x = click.pixel_x, .y = click.pixel_y }, event.ShiftDown(), event.ControlDown(), event.AltDown());
 		}
 	} else if (g_gui.GetCurrentBrush()) { // Drawing mode
 		if (drawing_controller) {
@@ -681,8 +682,9 @@ void MapCanvas::OnMousePropertiesClick(wxMouseEvent& event) {
 		map_window->ResumeMinimapTrackingToCurrentView();
 	}
 
-	int mouse_map_x, mouse_map_y;
-	ScreenToMap(event.GetX(), event.GetY(), &mouse_map_x, &mouse_map_y);
+	const MainMapPixelPosition click = ScreenToMapPixel(event.GetX(), event.GetY());
+	const int mouse_map_x = click.map_x;
+	const int mouse_map_y = click.map_y;
 
 	if (g_gui.IsDrawingMode()) {
 		g_gui.SetSelectionMode();
@@ -702,7 +704,7 @@ void MapCanvas::OnMousePropertiesClick(wxMouseEvent& event) {
 	last_click_map_y = mouse_map_y;
 	last_click_map_z = floor;
 
-	selection_controller->HandlePropertiesClick(Position(mouse_map_x, mouse_map_y, floor), event.ShiftDown(), event.ControlDown(), event.AltDown());
+	selection_controller->HandlePropertiesClick(Position(mouse_map_x, mouse_map_y, floor), SelectionPixelOffset { .x = click.pixel_x, .y = click.pixel_y }, event.ShiftDown(), event.ControlDown(), event.AltDown());
 	RequestLocalRefresh();
 }
 
