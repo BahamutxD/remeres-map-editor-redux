@@ -8,6 +8,7 @@
 #include "game/creatures.h"
 #include "game/item.h"
 #include "item_definitions/core/item_definition_store.h"
+#include "map/tile.h"
 
 // These two symbols live in application.cpp, which is intentionally excluded
 // from the test link so its main() does not conflict with the test entry point.
@@ -57,6 +58,8 @@ int main() {
 		assert(brush.getDirection() == WEST);
 	}
 
+	g_item_definitions.clear();
+
 	{
 		TestWallBrush wall;
 		wall.items.addWallItem(0, 1000, 100);
@@ -64,11 +67,34 @@ int main() {
 		wall.items.addWallItem(0, 1002, 100);
 		wall.items.addWallItem(1, 2000, 100);
 
-		assert(wall.findAlignmentForItem(1000) == WALL_NORTH);
+		for (ServerItemId id : { 1000, 1001, 1002, 2000 }) {
+			ResolvedItemDefinitionRow row;
+			row.server_id = id;
+			row.client_id = id;
+			row.flags = flagMask(ItemFlag::IsWall);
+			row.border_alignment = static_cast<BorderType>(0);
+			g_item_definitions.append(std::move(row));
+
+			ItemEditorData editor_data;
+			editor_data.brush = &wall;
+			g_item_definitions.setEditorData(id, editor_data);
+		}
+
+		assert(wall.findAlignmentForItem(1000) == static_cast<BorderType>(0));
 		assert(wall.findNextWallVariant(1000) == 1001);
 		assert(wall.findNextWallVariant(1001) == 1002);
 		assert(wall.findNextWallVariant(1002) == 1000);
 		assert(!wall.findNextWallVariant(9999).has_value());
+
+		Tile tile(0, 0, 0);
+		tile.addItem(std::make_unique<Item>(1000, 0));
+		bool special = true;
+		wall.draw(nullptr, &tile, &special);
+		assert(tile.items.front()->getID() == 1001);
+		wall.draw(nullptr, &tile, &special);
+		assert(tile.items.front()->getID() == 1002);
+		wall.draw(nullptr, &tile, &special);
+		assert(tile.items.front()->getID() == 1000);
 
 		TestWallBrush windows;
 		windows.items.addWallItem(0, 3000, 100);
@@ -79,7 +105,6 @@ int main() {
 		assert(wall.findNextWallVariant(3001) == 1000);
 	}
 
-	g_item_definitions.clear();
 	addRotatable(100, 101);
 	addRotatable(101, 102);
 	addRotatable(102, 103);
