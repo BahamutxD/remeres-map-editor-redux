@@ -31,6 +31,22 @@
 #include <ranges>
 #include <algorithm>
 
+namespace {
+
+	bool HasSelectedEntity(const Tile* tile) {
+		if (!tile) {
+			return false;
+		}
+		return (tile->ground && tile->ground->isSelected()) ||
+			(tile->spawn && tile->spawn->isSelected()) ||
+			(tile->creature && tile->creature->isSelected()) ||
+			std::ranges::any_of(tile->items, [](const auto& item) {
+				return item->isSelected();
+			});
+	}
+
+} // namespace
+
 Selection::Selection(Editor& editor) :
 	busy(false),
 	deferred(false),
@@ -91,6 +107,7 @@ void Selection::add(Tile* tile, Item* item) {
 	ASSERT(item);
 
 	if (item->isSelected()) {
+		addInternal(tile);
 		return;
 	}
 
@@ -106,6 +123,9 @@ void Selection::add(Tile* tile, Item* item) {
 			}
 		}
 
+		// Keep the selected-tile cache in sync even though the tile change is deferred to the action.
+		// Selection::clear() relies on this list to deselect the previous click.
+		addInternal(tile);
 		subsession->addChange(std::make_unique<Change>(std::move(new_tile)));
 	} else {
 		item->select();
@@ -124,6 +144,7 @@ void Selection::add(Tile* tile, Spawn* spawn) {
 	ASSERT(spawn);
 
 	if (spawn->isSelected()) {
+		addInternal(tile);
 		return;
 	}
 
@@ -133,6 +154,7 @@ void Selection::add(Tile* tile, Spawn* spawn) {
 		std::unique_ptr<Tile> new_tile = TileOperations::deepCopy(tile, editor.map);
 		spawn->deselect();
 
+		addInternal(tile);
 		subsession->addChange(std::make_unique<Change>(std::move(new_tile)));
 	} else {
 		spawn->select();
@@ -146,6 +168,7 @@ void Selection::add(Tile* tile, Creature* creature) {
 	ASSERT(creature);
 
 	if (creature->isSelected()) {
+		addInternal(tile);
 		return;
 	}
 
@@ -155,6 +178,7 @@ void Selection::add(Tile* tile, Creature* creature) {
 		std::unique_ptr<Tile> new_tile = TileOperations::deepCopy(tile, editor.map);
 		creature->deselect();
 
+		addInternal(tile);
 		subsession->addChange(std::make_unique<Change>(std::move(new_tile)));
 	} else {
 		creature->select();
@@ -170,6 +194,7 @@ void Selection::add(Tile* tile) {
 		std::unique_ptr<Tile> new_tile = TileOperations::deepCopy(tile, editor.map);
 		TileOperations::select(new_tile.get());
 
+		addInternal(tile);
 		subsession->addChange(std::make_unique<Change>(std::move(new_tile)));
 	} else {
 		TileOperations::select(tile);
@@ -190,6 +215,13 @@ void Selection::remove(Tile* tile, Item* item) {
 		}
 		if (item->isBorder() && g_settings.getInteger(Config::BORDER_IS_GROUND)) {
 			TileOperations::deselectGround(new_tile.get());
+		}
+		// The cache must reflect the tile's post-action state, not the live tile that still has
+		// the entity selected until the deferred action is committed.
+		if (HasSelectedEntity(new_tile.get())) {
+			addInternal(tile);
+		} else {
+			removeInternal(tile);
 		}
 
 		subsession->addChange(std::make_unique<Change>(std::move(new_tile)));
@@ -217,6 +249,11 @@ void Selection::remove(Tile* tile, Spawn* spawn) {
 		if (tmp) {
 			spawn->select();
 		}
+		if (HasSelectedEntity(new_tile.get())) {
+			addInternal(tile);
+		} else {
+			removeInternal(tile);
+		}
 
 		subsession->addChange(std::make_unique<Change>(std::move(new_tile)));
 	} else {
@@ -239,6 +276,11 @@ void Selection::remove(Tile* tile, Creature* creature) {
 		if (tmp) {
 			creature->select();
 		}
+		if (HasSelectedEntity(new_tile.get())) {
+			addInternal(tile);
+		} else {
+			removeInternal(tile);
+		}
 
 		subsession->addChange(std::make_unique<Change>(std::move(new_tile)));
 	} else {
@@ -256,6 +298,7 @@ void Selection::remove(Tile* tile) {
 		std::unique_ptr<Tile> new_tile = TileOperations::deepCopy(tile, editor.map);
 		TileOperations::deselect(new_tile.get());
 
+		removeInternal(tile);
 		subsession->addChange(std::make_unique<Change>(std::move(new_tile)));
 	} else {
 		TileOperations::deselect(tile);
@@ -456,6 +499,9 @@ void Selection::join(std::unique_ptr<SelectionThread> thread) {
 	thread->Wait();
 
 	ASSERT(session);
+	for (Tile* tile : thread->selection.tiles) {
+		addInternal(tile);
+	}
 	session->addAction(std::move(thread->result));
 	thread->selection.subsession = nullptr;
 }
