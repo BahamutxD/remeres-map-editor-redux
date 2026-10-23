@@ -827,7 +827,13 @@ The floor-scope menu affects **box selection**, not click picking. Pixel-perfect
 
 `Selection::add(tile, item)` has a special case: if `BORDER_IS_GROUND` is on and the picked item is a border, it selects the ground group instead. Pixel mode should not bypass that. Verify both settings during testing.
 
-### 10.10 Static and animated item passes
+### 10.10 Selection-hit pointer lifetime
+
+A `SelectionHit` holds raw `Tile*` and `Item*` pointers into the live map. Selection actions are committed by swapping the tile with a deep copy (`BaseMap::swapTile`), so **every pointer in a hit becomes dangling once `Selection::clear()` is committed**. This is especially visible on a single tile: clearing the previous item swaps the very tile the click was picked from.
+
+`SelectionController::ApplyHit` must clear first and then re-run the picker before selecting the clicked entity. Do not keep using a hit across `Selection::commit()`.
+
+### 10.11 Static and animated item passes
 
 Redux renders static items in one pass (`RenderStaticItems`) and animated items in a second pass (`RenderAnimatedItems`), each with its own elevation accumulator. The first implementation can treat all items in one ordered pass because animated selectable items are normally 1x1 (water is ground, not a common item). If a map has a tall animated item, picking may disagree by one elevation step. Document this simplification or add the two-pass split later; do not silently claim exact parity for that case.
 
