@@ -30,7 +30,6 @@ class Tile;
  */
 class PopupActionHandler {
 public:
-	static bool HasRotatableSelection(Editor& editor);
 	static void RotateItem(Editor& editor, bool backwards = false);
 	static void RotateItemAt(Editor& editor, const Position& pos, bool backwards = false);
 	static void GotoDestination(Editor& editor);

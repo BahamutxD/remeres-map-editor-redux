@@ -193,13 +193,12 @@ void KeyboardHandler::HandleRotationOrVariation(MapCanvas* canvas, int keycode) 
 	const bool backwards = (keycode == 'z' || keycode == 'Z');
 	const bool clockwise = !backwards;
 
-	if (SelectionOperations::rotateSelectionWalls(canvas->editor, clockwise)) {
+	if (SelectionOperations::rotateSelection(canvas->editor, clockwise)) {
 		canvas->RequestLocalRefresh();
 		return;
 	}
 
-	if (PopupActionHandler::HasRotatableSelection(canvas->editor)) {
-		PopupActionHandler::RotateItemAt(canvas->editor, canvas->GetCursorPosition(), backwards);
+	if (!canvas->editor.selection.empty()) {
 		canvas->RequestLocalRefresh();
 		return;
 	}

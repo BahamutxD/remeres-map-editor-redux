@@ -13,6 +13,8 @@
 #include "map/tile_operations.h"
 #include "brushes/ground/ground_brush.h"
 #include "brushes/wall/wall_brush.h"
+#include "brushes/door/door_brush.h"
+#include "game/creature.h"
 #include "game/item.h"
 #include "app/settings.h"
 #include "ui/gui.h"
@@ -86,12 +88,12 @@ void SelectionOperations::randomizeSelection(Editor& editor) {
 	editor.addAction(std::move(action));
 }
 
-bool SelectionOperations::rotateSelectionWalls(Editor& editor, bool clockwise) {
+bool SelectionOperations::rotateSelection(Editor& editor, bool clockwise) {
 	if (editor.selection.empty()) {
 		return false;
 	}
 
-	std::unique_ptr<Action> action = editor.actionQueue->createAction(ACTION_ROTATE_WALL);
+	std::unique_ptr<Action> action = editor.actionQueue->createAction(ACTION_ROTATE);
 	bool changed = false;
 
 	for (Tile* tile : editor.selection) {
@@ -101,23 +103,41 @@ bool SelectionOperations::rotateSelectionWalls(Editor& editor, bool clockwise) {
 
 		std::unique_ptr<Tile> new_tile = TileOperations::deepCopy(tile, editor.map);
 		bool tile_changed = false;
+
 		for (const auto& item : new_tile->items) {
-			if (!item || !item->isSelected() || !item->isWall() || item->isBrushDoor()) {
+			if (!item || !item->isSelected()) {
 				continue;
 			}
 
-			WallBrush* wall_brush = item->getWallBrush();
-			if (!wall_brush) {
-				continue;
+			const ServerItemId old_id = item->getID();
+			if (item->isBrushDoor()) {
+				DoorBrush::switchDoor(item.get());
+			} else if (item->isWall()) {
+				if (WallBrush* wall_brush = item->getWallBrush()) {
+					if (const auto rotated_id = wall_brush->findRotatedWallVariant(old_id, clockwise)) {
+						item->setID(*rotated_id);
+					}
+				}
+			} else if (item->isRoteable()) {
+				if (clockwise) {
+					item->doRotate();
+				} else {
+					item->doRotateBackwards();
+				}
 			}
 
-			const auto rotated_id = wall_brush->findRotatedWallVariant(item->getID(), clockwise);
-			if (!rotated_id.has_value()) {
-				continue;
+			if (item->getID() != old_id) {
+				tile_changed = true;
 			}
+		}
 
-			item->setID(*rotated_id);
-			tile_changed = true;
+		if (new_tile->creature && new_tile->creature->isSelected()) {
+			const Direction old_direction = new_tile->creature->getDirection();
+			const Direction new_direction = static_cast<Direction>((static_cast<int>(old_direction) + (clockwise ? 1 : 3)) % 4);
+			if (new_direction != old_direction) {
+				new_tile->creature->setDirection(new_direction);
+				tile_changed = true;
+			}
 		}
 
 		if (tile_changed) {
