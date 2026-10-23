@@ -167,6 +167,8 @@ public:
 	virtual int32_t getMaxVariation() const {
 		return 0;
 	}
+	virtual void setVariation(int32_t /*variation*/) {
+	}
 
 	template <typename T>
 	T* as() {

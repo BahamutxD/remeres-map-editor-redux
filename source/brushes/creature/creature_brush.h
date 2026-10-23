@@ -19,6 +19,7 @@
 #define RME_CREATURE_BRUSH_H
 
 #include "brushes/brush.h"
+#include "game/creature.h"
 
 class Sprite;
 
@@ -53,9 +54,22 @@ public:
 		return true;
 	}
 
+	int32_t getMaxVariation() const override {
+		return 4;
+	}
+	void setVariation(int32_t variation) override;
+	int32_t getVariation() const;
+	Direction getDirection() const {
+		return current_direction;
+	}
+	void setDirection(Direction direction) {
+		current_direction = direction;
+	}
+
 protected:
 	CreatureType* creature_type;
 	mutable std::unique_ptr<Sprite> creature_sprite_wrapper;
+	Direction current_direction = SOUTH;
 };
 
 #endif

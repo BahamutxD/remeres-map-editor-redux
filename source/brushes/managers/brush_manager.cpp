@@ -8,6 +8,7 @@
 #include "brushes/brush.h"
 #include "brushes/managers/doodad_preview_manager.h"
 #include "brushes/spawn/spawn_brush.h"
+#include "brushes/creature/creature_brush.h"
 #include "ui/managers/status_manager.h"
 #include "palette/managers/palette_manager.h"
 #include "palette/palette_window.h"
@@ -20,6 +21,18 @@
 #include "rendering/core/light_defaults.h"
 #include <algorithm>
 #include <array>
+
+namespace {
+
+	int32_t NormalizeVariation(const Brush* brush, int32_t variation) {
+		const int32_t max_variation = brush ? brush->getMaxVariation() : 0;
+		if (max_variation <= 1) {
+			return 0;
+		}
+		return std::clamp<int32_t>(variation, 0, max_variation - 1);
+	}
+
+}
 
 BrushManager g_brush_manager;
 
@@ -109,7 +122,8 @@ void BrushManager::SelectBrushInternal(Brush* brush) {
 
 	g_status.SetStatusText("Selected brush: " + wxstr(brush->getName()));
 
-	brush_variation = std::min(brush_variation, brush->getMaxVariation());
+	brush_variation = NormalizeVariation(brush, brush_variation);
+	brush->setVariation(brush_variation);
 	// If we are switching away from a doodad brush, we need to clear the secondary map
 	// Or if the new brush isn't a doodad brush
 	MapTab* mapTab = g_gui.GetCurrentMapTab();
@@ -270,9 +284,18 @@ void BrushManager::SetBrushAspectRatioLocked(bool locked) {
 }
 
 void BrushManager::SetBrushVariation(int nz) {
-	if (nz != brush_variation && current_brush && current_brush->is<DoodadBrush>()) {
-		brush_variation = nz;
+	if (!current_brush) {
+		brush_variation = 0;
+		return;
+	}
+
+	brush_variation = NormalizeVariation(current_brush, nz);
+	current_brush->setVariation(brush_variation);
+
+	if (current_brush->is<DoodadBrush>()) {
 		UpdateDoodadPreview();
+	} else if (current_brush->is<CreatureBrush>()) {
+		g_gui.RefreshView();
 	}
 }
 
