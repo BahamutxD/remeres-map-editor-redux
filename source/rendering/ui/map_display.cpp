@@ -555,10 +555,9 @@ void MapCanvas::OnMouseLeftClick(wxMouseEvent& event) {
 }
 
 void MapCanvas::OnMouseLeftDoubleClick(wxMouseEvent& event) {
-	int mouse_map_x, mouse_map_y;
-	ScreenToMap(event.GetX(), event.GetY(), &mouse_map_x, &mouse_map_y);
+	const MainMapPixelPosition click = ScreenToMapPixel(event.GetX(), event.GetY());
 	if (selection_controller) {
-		selection_controller->HandleDoubleClick(Position(mouse_map_x, mouse_map_y, floor));
+		selection_controller->HandleDoubleClick(Position(click.map_x, click.map_y, floor));
 	}
 }
 

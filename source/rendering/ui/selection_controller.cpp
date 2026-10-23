@@ -122,6 +122,11 @@ void SelectionController::HandleClick(const Position& mouse_map_pos, const Selec
 				if (pixel_mode) {
 					const SelectionHit hit = PickAt(mouse_map_pos, pixel_offset);
 					if (!hit.HasEntity()) {
+						if (Tile* lower_tile = FindSelectedTileUnderCursor(mouse_map_pos); lower_tile && lower_tile != editor.map.getTile(mouse_map_pos)) {
+							dragging = true;
+							drag_start_pos = Position(lower_tile->getX(), lower_tile->getY(), lower_tile->getZ());
+							return;
+						}
 						ClearSelection();
 					} else {
 						if (!IsHitSelected(hit)) {
@@ -400,6 +405,14 @@ void SelectionController::HandlePropertiesClick(const Position& mouse_map_pos, c
 			editor.selection.updateSelectionCount();
 		}
 	} else if (!tile) {
+		if (pixel_mode) {
+			if (Tile* lower_tile = FindSelectedTileUnderCursor(mouse_map_pos); lower_tile && lower_tile != editor.map.getTile(mouse_map_pos)) {
+				canvas->last_click_map_x = lower_tile->getX();
+				canvas->last_click_map_y = lower_tile->getY();
+				canvas->last_click_map_z = lower_tile->getZ();
+				return;
+			}
+		}
 		editor.selection.start(); // Start selection session
 		editor.selection.clear(); // Clear out selection
 		editor.selection.finish(); // End selection session
@@ -470,7 +483,13 @@ void SelectionController::HandlePropertiesRelease(const Position& mouse_map_pos,
 
 void SelectionController::HandleDoubleClick(const Position& mouse_map_pos) {
 	if (g_settings.getInteger(Config::DOUBLECLICK_PROPERTIES)) {
-		Tile* tile = FindSelectedTileUnderCursor(mouse_map_pos);
+		Tile* tile = nullptr;
+		if (editor.selection.size() == 1) {
+			tile = editor.selection.getSelectedTile();
+		}
+		if (!tile) {
+			tile = FindSelectedTileUnderCursor(mouse_map_pos);
+		}
 		if (tile) {
 			DialogHelper::OpenProperties(editor, tile);
 		}
