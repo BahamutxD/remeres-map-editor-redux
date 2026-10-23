@@ -4,6 +4,7 @@
 #include "app/application.h"
 #include "app/main.h"
 #include "brushes/creature/creature_brush.h"
+#include "brushes/door/door_brush.h"
 #include "brushes/wall/wall_brush.h"
 #include "game/creatures.h"
 #include "game/item.h"
@@ -122,6 +123,38 @@ int main() {
 		assert(rotated.findRotatedWallVariant(4001, false) == 4021);
 		assert(!rotated.findRotatedWallVariant(4030, false).has_value()); // no NW target
 		assert(rotated.findRotatedWallVariant(4010, true) == 4040);
+	}
+
+	{
+		TestWallBrush wall;
+		wall.items.addDoorItem(WALL_HORIZONTAL, 5000, WALL_DOOR_NORMAL, false);
+		wall.items.addDoorItem(WALL_HORIZONTAL, 5001, WALL_DOOR_NORMAL, false);
+
+		for (const auto& [id, open] : { std::pair<ServerItemId, bool> { 5000, false }, { 5001, true } }) {
+			ResolvedItemDefinitionRow row;
+			row.server_id = id;
+			row.client_id = id;
+			row.flags = flagMask(ItemFlag::IsWall) | flagMask(ItemFlag::IsBrushDoor);
+			row.border_alignment = WALL_HORIZONTAL;
+			if (open) {
+				row.flags |= flagMask(ItemFlag::IsOpen);
+			}
+			g_item_definitions.append(std::move(row));
+
+			ItemEditorData editor_data;
+			editor_data.brush = &wall;
+			g_item_definitions.setEditorData(id, editor_data);
+		}
+
+		Tile tile(0, 0, 0);
+		tile.addItem(std::make_unique<Item>(5000, 0));
+
+		DoorBrush door(WALL_DOOR_NORMAL);
+		bool alt = true;
+		door.draw(nullptr, &tile, &alt);
+		assert(tile.items.front()->getID() == 5001);
+		door.draw(nullptr, &tile, &alt);
+		assert(tile.items.front()->getID() == 5000);
 	}
 
 	addRotatable(100, 101);
