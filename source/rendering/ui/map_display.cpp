@@ -67,6 +67,7 @@
 #include "rendering/ui/navigation_controller.h"
 #include "rendering/ui/selection_controller.h"
 #include "rendering/ui/drawing_controller.h"
+#include "editor/operations/selection_operations.h"
 #include "rendering/ui/map_menu_handler.h"
 #include "ui/managers/gl_context_manager.h"
 
@@ -606,6 +607,8 @@ void MapCanvas::OnMouseActionClick(wxMouseEvent& event) {
 	if (event.ControlDown() && event.AltDown()) {
 		Tile* tile = editor.map.getTile(mouse_map_x, mouse_map_y, floor);
 		BrushSelector::SelectSmartBrush(editor, tile);
+	} else if (event.AltDown() && SelectionOperations::rotateWallOrDoorAt(editor, Position(mouse_map_x, mouse_map_y, floor))) {
+		RequestLocalRefresh();
 	} else if (g_gui.IsSelectionMode()) {
 		if (selection_controller) {
 			selection_controller->HandleClick(Position(mouse_map_x, mouse_map_y, floor), SelectionPixelOffset { .x = click.pixel_x, .y = click.pixel_y }, event.ShiftDown(), event.ControlDown(), event.AltDown());
