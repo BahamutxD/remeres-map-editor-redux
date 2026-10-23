@@ -744,10 +744,9 @@ It covers:
 - consistency between `ScreenToMap` and `ScreenToMapPixel` over a grid of samples;
 - composite sprite part selection (`FindSelectionSpritePart`) for 1x1, 2x2, variable-width, negative-origin, and out-of-bounds coordinates.
 
-Build and run it with the MSVC environment:
+Build and run it from an **x64 Native Tools Command Prompt for Visual Studio**:
 
 ```bat
-call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat"
 cl /nologo /std:c++20 /EHsc /MD /I source tests\test_pixel_perfect_selection.cpp source\rendering\core\map_view_math.cpp /Fe:build-ninja\test_pixel_perfect_selection.exe
 build-ninja\test_pixel_perfect_selection.exe
 ```

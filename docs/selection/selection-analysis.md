@@ -1,6 +1,6 @@
 # Selection and Pixel-Perfect Selection: ImGui Editor vs RME Redux
 
-Status: research/documentation only. No production code was changed for this document.
+Status: research/documentation snapshot of the pre-implementation code. The feature has since been implemented on `feature/pixel-perfect-selection`; see [pixel-perfect-selection-plan.md](pixel-perfect-selection-plan.md) for the implemented state and verification notes.
 
 Repositories inspected:
 
