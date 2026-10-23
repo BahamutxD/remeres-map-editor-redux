@@ -191,8 +191,8 @@ namespace {
 				if (mount_result == PixelTestResult::Unknown) {
 					unavailable = true;
 				}
+				body_pattern_z = body->pattern_z > 1 ? 1 : 0;
 			}
-			body_pattern_z = body->pattern_z > 1 ? 1 : 0;
 		}
 
 		const int addon_count = std::max<int>(1, body->pattern_y);
