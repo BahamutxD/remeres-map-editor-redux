@@ -48,7 +48,6 @@ void SelectionThread::Wait() {
 
 void SelectionThread::Work() {
 	selection.start(Selection::SUBTHREAD);
-	selection.beginBulk();
 	for (int z = start.z; z >= end.z; --z) {
 		for (int x = start.x; x <= end.x; ++x) {
 			for (int y = start.y; y <= end.y; ++y) {
@@ -67,7 +66,6 @@ void SelectionThread::Work() {
 			++end.y;
 		}
 	}
-	selection.endBulk();
 	// Access wrapper to get subsession
 	// Since SelectionThread is friend of Selection, we can access private members of selection instance
 	result = std::move(selection.subsession);

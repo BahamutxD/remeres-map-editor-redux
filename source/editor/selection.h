@@ -130,13 +130,10 @@ public:
 
 private:
 	void flush();
-	void beginBulk();
-	void endBulk();
 	void recalculateBounds() const;
 
 	bool busy;
 	bool deferred;
-	bool bulk;
 	bool selectionChanged;
 	Editor& editor;
 	std::unique_ptr<BatchAction> session;
@@ -148,7 +145,6 @@ private:
 	std::vector<Tile*> tiles;
 	std::vector<Tile*> pending_adds;
 	std::vector<Tile*> pending_removes;
-	std::vector<Tile*> bulk_adds;
 	std::vector<SelectionListener> listeners;
 
 	mutable std::atomic<bool> bounds_dirty;
