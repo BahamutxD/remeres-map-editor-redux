@@ -7,6 +7,9 @@
 
 #include "brushes/brush.h"
 #include "brushes/wall/wall_brush_items.h"
+#include "item_definitions/core/item_definition_types.h"
+
+#include <optional>
 
 //=============================================================================
 // Wallbrush, for drawing walls
@@ -36,6 +39,8 @@ public:
 	// If the specified wall item is part of this wall
 	bool hasWall(Item* item);
 	::DoorType getDoorTypeFromID(uint16_t id);
+	std::optional<BorderType> findAlignmentForItem(ServerItemId item_id) const;
+	std::optional<ServerItemId> findNextWallVariant(ServerItemId item_id) const;
 
 	void getRelatedItems(std::vector<uint16_t>& items) override;
 
