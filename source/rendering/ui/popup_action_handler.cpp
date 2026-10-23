@@ -82,7 +82,14 @@ void PopupActionHandler::RotateItemAt(Editor& editor, const Position& pos, bool 
 		Tile* selected_tile = editor.selection.getSelectedTile();
 		if (selected_tile) {
 			for (Item* item : TileOperations::getSelectedItems(selected_tile)) {
-				if (item && item->isRoteable()) {
+				if (!item) {
+					continue;
+				}
+				if (item->isBrushDoor()) {
+					SwitchDoor(editor);
+					return;
+				}
+				if (item->isRoteable()) {
 					RotateItem(editor, backwards);
 					return;
 				}
@@ -147,21 +154,29 @@ void PopupActionHandler::GotoDestination(Editor& editor) {
 }
 
 void PopupActionHandler::SwitchDoor(Editor& editor) {
-	Tile* tile = editor.selection.getSelectedTile();
+	if (editor.selection.size() != 1) {
+		return;
+	}
 
-	std::unique_ptr<Action> action = editor.actionQueue->createAction(ACTION_SWITCHDOOR);
+	Tile* tile = editor.selection.getSelectedTile();
+	if (!tile) {
+		return;
+	}
 
 	std::unique_ptr<Tile> new_tile(TileOperations::deepCopy(tile, editor.map));
+	Item* door = nullptr;
+	for (Item* item : TileOperations::getSelectedItems(new_tile.get())) {
+		if (item && item->isBrushDoor()) {
+			door = item;
+			break;
+		}
+	}
+	if (!door) {
+		return;
+	}
 
-	ItemVector selected_items = TileOperations::getSelectedItems(new_tile.get());
-	ASSERT(!selected_items.empty());
-
-	DoorBrush::switchDoor(selected_items.front());
-
-	action->addChange(std::make_unique<Change>(std::move(new_tile)));
-
-	editor.actionQueue->addAction(std::move(action));
-	g_gui.RefreshView();
+	DoorBrush::switchDoor(door);
+	CommitTileChange(editor, std::move(new_tile), ACTION_SWITCHDOOR);
 }
 
 void PopupActionHandler::BrowseTile(Editor& editor, int cursor_x, int cursor_y) {
