@@ -7,6 +7,7 @@
 #include "brushes/wall/wall_brush.h"
 #include "brushes/wall/wall_brush_loader.h"
 #include "brushes/wall/wall_border_calculator.h"
+#include "brushes/door/door_brush.h"
 
 #include "ui/gui.h"
 #include "item_definitions/core/item_definition_store.h"
@@ -47,8 +48,7 @@ void WallBrush::draw(BaseMap* map, Tile* tile, void* parameter) {
 				continue;
 			}
 			if (item->isBrushDoor()) {
-				// Wall variant cycling does not alter doors. Door alt-click is
-				// handled by DoorBrush; Z/X can open or close a door.
+				DoorBrush::switchDoor(item.get());
 				return;
 			}
 			if (!wall_item && item->isWall()) {
