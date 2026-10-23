@@ -106,10 +106,32 @@ namespace {
 		CHECK(shifted.pixel_y == 0);
 	}
 
+	void TestNegativeCoordinatesFloorDivision() {
+		const MainMapViewport viewport = MakeViewport(1.0, 1.0, GROUND_LAYER, 0, 0);
+
+		const MainMapPixelPosition neg_one = MainMapViewMath::ScreenToMapPixel(-1, -1, viewport);
+		CHECK(neg_one.map_x == -1);
+		CHECK(neg_one.map_y == -1);
+		CHECK(neg_one.pixel_x == 31);
+		CHECK(neg_one.pixel_y == 31);
+
+		const MainMapPixelPosition neg_thirty_two = MainMapViewMath::ScreenToMapPixel(-32, -32, viewport);
+		CHECK(neg_thirty_two.map_x == -1);
+		CHECK(neg_thirty_two.map_y == -1);
+		CHECK(neg_thirty_two.pixel_x == 0);
+		CHECK(neg_thirty_two.pixel_y == 0);
+
+		const MainMapPixelPosition neg_thirty_three = MainMapViewMath::ScreenToMapPixel(-33, -33, viewport);
+		CHECK(neg_thirty_three.map_x == -2);
+		CHECK(neg_thirty_three.map_y == -2);
+		CHECK(neg_thirty_three.pixel_x == 31);
+		CHECK(neg_thirty_three.pixel_y == 31);
+	}
+
 	void TestScreenToMapUsesSameTile() {
 		const MainMapViewport viewport = MakeViewport(1.5, 1.25, 6, 120, 44);
-		for (int screen_x = 0; screen_x < 200; screen_x += 7) {
-			for (int screen_y = 0; screen_y < 200; screen_y += 11) {
+		for (int screen_x = -50; screen_x < 200; screen_x += 7) {
+			for (int screen_y = -50; screen_y < 200; screen_y += 11) {
 				int map_x = 0;
 				int map_y = 0;
 				MainMapViewMath::ScreenToMap(screen_x, screen_y, viewport, &map_x, &map_y);
@@ -225,6 +247,7 @@ int main() {
 	TestScreenToMapPixelAtOtherZooms();
 	TestContentScale();
 	TestScrollAndFloorOffset();
+	TestNegativeCoordinatesFloorDivision();
 	TestScreenToMapUsesSameTile();
 	TestSelectionSpriteParts();
 	TestSelectionSpritePartsWithNegativeOrigin();

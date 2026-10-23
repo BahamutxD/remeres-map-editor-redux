@@ -47,16 +47,25 @@ MainMapPixelPosition MainMapViewMath::ScreenToMapPixel(int screen_x, int screen_
 		? (viewport.view_scroll_y + scaled_y)
 		: static_cast<int>(viewport.view_scroll_y + (scaled_y * viewport.zoom));
 
-	const int tile_x = raw_x / TILE_SIZE;
-	const int tile_y = raw_y / TILE_SIZE;
-	const int pixel_x = raw_x - tile_x * TILE_SIZE;
-	const int pixel_y = raw_y - tile_y * TILE_SIZE;
+	int tile_x = raw_x / TILE_SIZE;
+	int tile_y = raw_y / TILE_SIZE;
+	int pixel_x = raw_x - tile_x * TILE_SIZE;
+	int pixel_y = raw_y - tile_y * TILE_SIZE;
+
+	if (pixel_x < 0) {
+		pixel_x += TILE_SIZE;
+		--tile_x;
+	}
+	if (pixel_y < 0) {
+		pixel_y += TILE_SIZE;
+		--tile_y;
+	}
 
 	return {
 		.map_x = tile_x + GetFloorTileOffset(viewport.floor),
 		.map_y = tile_y + GetFloorTileOffset(viewport.floor),
-		.pixel_x = pixel_x < 0 ? pixel_x + TILE_SIZE : pixel_x,
-		.pixel_y = pixel_y < 0 ? pixel_y + TILE_SIZE : pixel_y,
+		.pixel_x = pixel_x,
+		.pixel_y = pixel_y,
 	};
 }
 
