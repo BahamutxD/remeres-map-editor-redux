@@ -186,6 +186,9 @@ void DoorBrush::draw(BaseMap* map, Tile* tile, void* parameter) {
 		bool close_match = false;
 		bool perfect_match = false;
 		bool open = parameter ? *static_cast<bool*>(parameter) : (item->isBrushDoor() && item->isOpen());
+		if (parameter && *static_cast<bool*>(parameter) && item->isBrushDoor()) {
+			open = !item->isOpen();
+		}
 		bool prefLocked = g_gui.HasDoorLocked();
 
 		WallBrush* test_brush = wb;
