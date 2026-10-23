@@ -41,6 +41,8 @@ void addRotatable(ServerItemId id, ServerItemId rotate_to) {
 } // namespace
 
 int main() {
+	WallBrush::init();
+
 	{
 		CreatureType type;
 		CreatureBrush brush(&type);
@@ -103,6 +105,23 @@ int main() {
 
 		assert(wall.findNextWallVariant(1002) == 3000);
 		assert(wall.findNextWallVariant(3001) == 1000);
+	}
+
+	{
+		TestWallBrush rotated;
+		rotated.items.addWallItem(WALL_SOUTH_END, 4000, 100);
+		rotated.items.addWallItem(WALL_SOUTH_END, 4001, 100);
+		rotated.items.addWallItem(WALL_WEST_END, 4010, 100);
+		rotated.items.addWallItem(WALL_WEST_END, 4011, 100);
+		rotated.items.addWallItem(WALL_EAST_END, 4020, 100);
+		rotated.items.addWallItem(WALL_EAST_END, 4021, 100);
+		rotated.items.addWallItem(WALL_NORTHEAST_DIAGONAL, 4030, 100);
+		rotated.items.addWallItem(WALL_NORTH_END, 4040, 100);
+
+		assert(rotated.findRotatedWallVariant(4001, true) == 4011);
+		assert(rotated.findRotatedWallVariant(4001, false) == 4021);
+		assert(!rotated.findRotatedWallVariant(4030, false).has_value()); // no NW target
+		assert(rotated.findRotatedWallVariant(4010, true) == 4040);
 	}
 
 	addRotatable(100, 101);
