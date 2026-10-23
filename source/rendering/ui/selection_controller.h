@@ -53,7 +53,7 @@ private:
 	[[nodiscard]] Tile* FindSelectedTileUnderCursor(const Position& mouse_map_pos) const;
 	[[nodiscard]] SelectionHit PickAt(const Position& mouse_map_pos, const SelectionPixelOffset& pixel_offset) const;
 	[[nodiscard]] bool IsHitSelected(const SelectionHit& hit) const;
-	void ApplyHit(const SelectionHit& hit, bool toggle);
+	void ApplyHit(const Position& mouse_map_pos, const SelectionPixelOffset& pixel_offset, const SelectionHit& hit, bool toggle);
 	void ClearSelection();
 	void ExecuteBoundboxSelection(const Position& start_pos, const Position& end_pos, int floor);
 

@@ -80,7 +80,7 @@ void SelectionController::HandleClick(const Position& mouse_map_pos, const Selec
 				if (pixel_mode) {
 					const SelectionHit hit = PickAt(mouse_map_pos, pixel_offset);
 					if (hit.HasEntity()) {
-						ApplyHit(hit, true);
+						ApplyHit(mouse_map_pos, pixel_offset, hit, true);
 					}
 				} else {
 					Tile* tile = FindSelectedTileUnderCursor(mouse_map_pos);
@@ -125,7 +125,7 @@ void SelectionController::HandleClick(const Position& mouse_map_pos, const Selec
 						ClearSelection();
 					} else {
 						if (!IsHitSelected(hit)) {
-							ApplyHit(hit, false);
+							ApplyHit(mouse_map_pos, pixel_offset, hit, false);
 						}
 						dragging = true;
 						drag_start_pos = mouse_map_pos;
@@ -229,7 +229,7 @@ void SelectionController::HandleRelease(const Position& mouse_map_pos, bool shif
 				if (pixel_mode) {
 					const SelectionHit hit = PickAt(mouse_map_pos, last_click_pixel);
 					if (hit.HasEntity() && !IsHitSelected(hit)) {
-						ApplyHit(hit, false);
+						ApplyHit(mouse_map_pos, last_click_pixel, hit, false);
 					}
 				} else {
 					// User hasn't moved anything, meaning selection/deselection
@@ -316,44 +316,49 @@ bool SelectionController::IsHitSelected(const SelectionHit& hit) const {
 	return false;
 }
 
-void SelectionController::ApplyHit(const SelectionHit& hit, bool toggle) {
+void SelectionController::ApplyHit(const Position& mouse_map_pos, const SelectionPixelOffset& pixel_offset, const SelectionHit& hit, bool toggle) {
 	if (!hit.tile) {
 		return;
 	}
 
 	editor.selection.start();
+	SelectionHit effective_hit = hit;
 	if (!toggle) {
 		editor.selection.clear();
 		editor.selection.commit();
+		// Clearing swaps the tile at this position with a deep copy. The hit returned by the
+		// picker points into the old tile and is dangling after the commit, so pick again from
+		// the live map before selecting.
+		effective_hit = PickAt(mouse_map_pos, pixel_offset);
 	}
 
-	const bool selected = IsHitSelected(hit);
-	switch (hit.kind) {
+	const bool selected = IsHitSelected(effective_hit);
+	switch (effective_hit.kind) {
 		case SelectionHitKind::Ground:
 		case SelectionHitKind::Item:
-			if (hit.item) {
+			if (effective_hit.item) {
 				if (toggle && selected) {
-					editor.selection.remove(hit.tile, hit.item);
+					editor.selection.remove(effective_hit.tile, effective_hit.item);
 				} else {
-					editor.selection.add(hit.tile, hit.item);
+					editor.selection.add(effective_hit.tile, effective_hit.item);
 				}
 			}
 			break;
 		case SelectionHitKind::Creature:
-			if (hit.creature) {
+			if (effective_hit.creature) {
 				if (toggle && selected) {
-					editor.selection.remove(hit.tile, hit.creature);
+					editor.selection.remove(effective_hit.tile, effective_hit.creature);
 				} else {
-					editor.selection.add(hit.tile, hit.creature);
+					editor.selection.add(effective_hit.tile, effective_hit.creature);
 				}
 			}
 			break;
 		case SelectionHitKind::Spawn:
-			if (hit.spawn) {
+			if (effective_hit.spawn) {
 				if (toggle && selected) {
-					editor.selection.remove(hit.tile, hit.spawn);
+					editor.selection.remove(effective_hit.tile, effective_hit.spawn);
 				} else {
-					editor.selection.add(hit.tile, hit.spawn);
+					editor.selection.add(effective_hit.tile, effective_hit.spawn);
 				}
 			}
 			break;
@@ -405,10 +410,11 @@ void SelectionController::HandlePropertiesClick(const Position& mouse_map_pos, c
 		canvas->last_click_map_y = tile->getY();
 		canvas->last_click_map_z = tile->getZ();
 	} else if (pixel_mode) {
-		ApplyHit(hit, false);
-		canvas->last_click_map_x = tile->getX();
-		canvas->last_click_map_y = tile->getY();
-		canvas->last_click_map_z = tile->getZ();
+		const Position storage_position = tile->getPosition();
+		ApplyHit(mouse_map_pos, pixel_offset, hit, false);
+		canvas->last_click_map_x = storage_position.x;
+		canvas->last_click_map_y = storage_position.y;
+		canvas->last_click_map_z = storage_position.z;
 	} else {
 		editor.selection.start(); // Start a selection session
 		editor.selection.clear();
