@@ -36,6 +36,7 @@
 #include "brushes/border/optional_border_brush.h"
 #include "rendering/indicators/technical_item_registry.h"
 #include "rendering/indicators/zone_flags.h"
+#include "item_definitions/core/item_definition_types.h"
 
 namespace {
 
@@ -163,6 +164,28 @@ void BrushOverlayDrawer::draw(
 		} else {
 			sprite_batch.drawRect(rx, ry, rw, rh, col, atlas);
 		}
+	};
+
+	auto drawLookPreview = [&](int screen_x, int screen_y) {
+		if (brush->is<RAWBrush>() || brush->is<CreatureBrush>() || brush->is<DoorBrush>()) {
+			return;
+		}
+		if (!(brush->is<TerrainBrush>() || brush->is<TableBrush>() || brush->is<CarpetBrush>() ||
+			  brush->is<DoodadBrush>() || brush->is<OptionalBorderBrush>())) {
+			return;
+		}
+
+		const int look_id = brush->getLookID();
+		if (look_id <= 0) {
+			return;
+		}
+
+		const auto server_id = ctx.item_definitions.findByClientId(static_cast<ClientItemId>(look_id));
+		if (!server_id.has_value()) {
+			return;
+		}
+
+		item_drawer->DrawRawBrush(sprite_batch, sprite_drawer, screen_x, screen_y, *server_id, 160, 160, 160, 160, &ctx);
 	};
 
 	if (drag_state.is_dragging_draw) {
@@ -431,6 +454,10 @@ void BrushOverlayDrawer::draw(
 				float h = static_cast<float>(end_sy - start_sy - 2 * TILE_SIZE);
 				drawBrushRect(static_cast<float>(start_sx), static_cast<float>(start_sy + TILE_SIZE), static_cast<float>(TILE_SIZE), h, brushColor);
 			}
+
+			const int cursor_x = view.mouse_map_x * TILE_SIZE - view.view_scroll_x - view.getFloorAdjustment();
+			const int cursor_y = view.mouse_map_y * TILE_SIZE - view.view_scroll_y - view.getFloorAdjustment();
+			drawLookPreview(cursor_x, cursor_y);
 		} else if (brush->is<DoorBrush>()) {
 			int cx = (view.mouse_map_x) * TILE_SIZE - view.view_scroll_x - view.getFloorAdjustment();
 			int cy = (view.mouse_map_y) * TILE_SIZE - view.view_scroll_y - view.getFloorAdjustment();
@@ -512,12 +539,18 @@ void BrushOverlayDrawer::draw(
 						}
 						drawBrushRect(static_cast<float>(cx), static_cast<float>(cy), static_cast<float>(TILE_SIZE), static_cast<float>(TILE_SIZE), c);
 					}
+
+					drawLookPreview(cx, cy);
 				}
 			}
 
 			if (cursor_blend_mode == 1) {
 				sprite_batch.setBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, atlas);
 			}
+		} else {
+			const int cursor_x = view.mouse_map_x * TILE_SIZE - view.view_scroll_x - view.getFloorAdjustment();
+			const int cursor_y = view.mouse_map_y * TILE_SIZE - view.view_scroll_y - view.getFloorAdjustment();
+			drawLookPreview(cursor_x, cursor_y);
 		}
 	}
 }
