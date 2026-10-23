@@ -368,12 +368,19 @@ void GUI::FillDoodadPreviewBuffer() {
 	SyncCurrentMapCanvasPreviewState();
 }
 
+void GUI::FocusCurrentMapCanvas() {
+	if (MapTab* map_tab = GetCurrentMapTab()) {
+		map_tab->GetCanvas()->SetFocus();
+	}
+}
+
 void GUI::SelectBrush() {
 	g_brush_manager.SelectBrush();
 	if (tool_options) {
 		tool_options->SetActiveBrush(GetCurrentBrush());
 	}
 	SyncCurrentMapCanvasPreviewState();
+	FocusCurrentMapCanvas();
 	emitBrushChangeIfNeeded(*this);
 }
 bool GUI::SelectBrush(const Brush* brush) {
@@ -382,6 +389,7 @@ bool GUI::SelectBrush(const Brush* brush) {
 		tool_options->SetActiveBrush(GetCurrentBrush());
 	}
 	SyncCurrentMapCanvasPreviewState();
+	FocusCurrentMapCanvas();
 	emitBrushChangeIfNeeded(*this);
 	return changed;
 }
@@ -391,6 +399,7 @@ void GUI::SelectPreviousBrush() {
 		tool_options->SetActiveBrush(GetCurrentBrush());
 	}
 	SyncCurrentMapCanvasPreviewState();
+	FocusCurrentMapCanvas();
 	emitBrushChangeIfNeeded(*this);
 }
 void GUI::SelectBrushInternal(Brush* brush) {
@@ -399,6 +408,7 @@ void GUI::SelectBrushInternal(Brush* brush) {
 		tool_options->SetActiveBrush(GetCurrentBrush());
 	}
 	SyncCurrentMapCanvasPreviewState();
+	FocusCurrentMapCanvas();
 	emitBrushChangeIfNeeded(*this);
 }
 Brush* GUI::GetCurrentBrush() const {

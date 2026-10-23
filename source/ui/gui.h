@@ -282,6 +282,7 @@ public:
 	void RefreshView(bool immediate = false);
 	void ReleaseAllChunkCaches();
 	void SyncCurrentMapCanvasPreviewState();
+	void FocusCurrentMapCanvas();
 	// Fit all/specified current map view to map dimensions
 	void FitViewToMap();
 	void FitViewToMap(MapTab* mt);
