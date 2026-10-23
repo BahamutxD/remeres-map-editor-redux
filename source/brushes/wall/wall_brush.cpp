@@ -190,6 +190,80 @@ std::optional<ServerItemId> WallBrush::findNextWallVariant(ServerItemId item_id)
 	return *next;
 }
 
+std::optional<ServerItemId> WallBrush::findRotatedWallVariant(ServerItemId item_id, bool clockwise) const {
+	const auto source_alignment = findAlignmentForItem(item_id);
+	if (!source_alignment.has_value()) {
+		return std::nullopt;
+	}
+
+	int source_mask = -1;
+	for (int i = 0; i < 16; ++i) {
+		if (full_border_types[i] == static_cast<uint32_t>(*source_alignment)) {
+			source_mask = i;
+			break;
+		}
+	}
+	if (source_mask < 0) {
+		return std::nullopt;
+	}
+
+	constexpr int north = 1;
+	constexpr int west = 2;
+	constexpr int east = 4;
+	constexpr int south = 8;
+	int rotated_mask = 0;
+	if (source_mask & north) {
+		rotated_mask |= clockwise ? east : west;
+	}
+	if (source_mask & west) {
+		rotated_mask |= clockwise ? north : south;
+	}
+	if (source_mask & east) {
+		rotated_mask |= clockwise ? south : north;
+	}
+	if (source_mask & south) {
+		rotated_mask |= clockwise ? west : east;
+	}
+
+	if (rotated_mask == source_mask) {
+		return std::nullopt;
+	}
+
+	const int target_alignment = static_cast<int>(full_border_types[rotated_mask]);
+	if (target_alignment == static_cast<int>(*source_alignment)) {
+		return std::nullopt;
+	}
+
+	size_t variant_index = 0;
+	const WallBrush* source_brush = this;
+	do {
+		const auto& node = source_brush->items.getWallNode(static_cast<int>(*source_alignment));
+		const auto current = std::find_if(node.items.begin(), node.items.end(), [item_id](const auto& wall) {
+			return wall.id == item_id;
+		});
+		if (current != node.items.end()) {
+			variant_index = static_cast<size_t>(std::distance(node.items.begin(), current));
+			break;
+		}
+		source_brush = source_brush->redirect_to;
+	} while (source_brush != this && source_brush != nullptr);
+
+	const WallBrush* target_brush = this;
+	do {
+		const auto& node = target_brush->items.getWallNode(target_alignment);
+		if (!node.items.empty()) {
+			const size_t index = std::min(variant_index, node.items.size() - 1);
+			const auto target_id = node.items[index].id;
+			if (target_id != 0 && target_id != item_id) {
+				return target_id;
+			}
+		}
+		target_brush = target_brush->redirect_to;
+	} while (target_brush != this && target_brush != nullptr);
+
+	return std::nullopt;
+}
+
 //=============================================================================
 // Wall Decoration brush
 

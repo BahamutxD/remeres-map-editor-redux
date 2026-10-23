@@ -12,6 +12,8 @@
 #include "map/map.h"
 #include "map/tile_operations.h"
 #include "brushes/ground/ground_brush.h"
+#include "brushes/wall/wall_brush.h"
+#include "game/item.h"
 #include "app/settings.h"
 #include "ui/gui.h"
 
@@ -82,6 +84,55 @@ void SelectionOperations::randomizeSelection(Editor& editor) {
 		}
 	}
 	editor.addAction(std::move(action));
+}
+
+bool SelectionOperations::rotateSelectionWalls(Editor& editor, bool clockwise) {
+	if (editor.selection.empty()) {
+		return false;
+	}
+
+	std::unique_ptr<Action> action = editor.actionQueue->createAction(ACTION_ROTATE_WALL);
+	bool changed = false;
+
+	for (Tile* tile : editor.selection) {
+		if (!tile) {
+			continue;
+		}
+
+		std::unique_ptr<Tile> new_tile = TileOperations::deepCopy(tile, editor.map);
+		bool tile_changed = false;
+		for (const auto& item : new_tile->items) {
+			if (!item || !item->isSelected() || !item->isWall() || item->isBrushDoor()) {
+				continue;
+			}
+
+			WallBrush* wall_brush = item->getWallBrush();
+			if (!wall_brush) {
+				continue;
+			}
+
+			const auto rotated_id = wall_brush->findRotatedWallVariant(item->getID(), clockwise);
+			if (!rotated_id.has_value()) {
+				continue;
+			}
+
+			item->setID(*rotated_id);
+			tile_changed = true;
+		}
+
+		if (tile_changed) {
+			action->addChange(std::make_unique<Change>(std::move(new_tile)));
+			changed = true;
+		}
+	}
+
+	if (!changed) {
+		return false;
+	}
+
+	editor.addAction(std::move(action));
+	g_gui.RefreshView();
+	return true;
 }
 
 void SelectionOperations::moveSelection(Editor& editor, Position offset) {

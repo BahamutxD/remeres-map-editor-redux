@@ -24,6 +24,7 @@
 #include "ui/gui.h"
 #include "editor/hotkey_manager.h"
 #include "editor/editor.h"
+#include "editor/operations/selection_operations.h"
 #include "brushes/brush.h"
 #include "brushes/town/town_temple_brush.h"
 #include "rendering/ui/popup_action_handler.h"
@@ -190,6 +191,18 @@ void KeyboardHandler::HandleBrushVariation(MapCanvas* canvas, int keycode) {
 
 void KeyboardHandler::HandleRotationOrVariation(MapCanvas* canvas, int keycode) {
 	const bool backwards = (keycode == 'z' || keycode == 'Z');
+	const bool clockwise = !backwards;
+
+	if (SelectionOperations::rotateSelectionWalls(canvas->editor, clockwise)) {
+		canvas->RequestLocalRefresh();
+		return;
+	}
+
+	if (PopupActionHandler::HasRotatableSelection(canvas->editor)) {
+		PopupActionHandler::RotateItemAt(canvas->editor, canvas->GetCursorPosition(), backwards);
+		canvas->RequestLocalRefresh();
+		return;
+	}
 
 	if (g_gui.IsDrawingMode()) {
 		Brush* brush = g_gui.GetCurrentBrush();

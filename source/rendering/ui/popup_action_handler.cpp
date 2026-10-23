@@ -49,6 +49,24 @@ namespace {
 
 }
 
+bool PopupActionHandler::HasRotatableSelection(Editor& editor) {
+	if (editor.selection.size() != 1) {
+		return false;
+	}
+
+	Tile* tile = editor.selection.getSelectedTile();
+	if (!tile) {
+		return false;
+	}
+
+	for (Item* item : TileOperations::getSelectedItems(tile)) {
+		if (item && (item->isRoteable() || item->isBrushDoor())) {
+			return true;
+		}
+	}
+	return false;
+}
+
 void PopupActionHandler::RotateItem(Editor& editor, bool backwards) {
 	if (editor.selection.size() != 1) {
 		return;
