@@ -198,7 +198,6 @@ public:
 
 	void EnableItem(MenuBar::ActionID id, bool enable);
 	void CheckItem(MenuBar::ActionID id, bool check);
-	void SetItemLabel(MenuBar::ActionID id, const wxString& label);
 	bool IsItemChecked(MenuBar::ActionID id) const;
 
 	// Handlers
