@@ -333,8 +333,9 @@ public:
 		return getDefinition().hasFlag(ItemFlag::IsHangable);
 	}
 	bool isRoteable() const {
-		const auto definition = getDefinition();
-		return definition.hasFlag(ItemFlag::Rotatable) && definition.attribute(ItemAttributeKey::RotateTo) != 0;
+		// RotateTo is authoritative. Some item datasets expose a rotation
+		// target without setting the Rotatable dat flag.
+		return getDefinition().attribute(ItemAttributeKey::RotateTo) != 0;
 	}
 	void doRotate() {
 		if (isRoteable()) {
@@ -356,10 +357,6 @@ public:
 			}
 
 			const auto definition = g_item_definitions.get(current);
-			if (!definition.hasFlag(ItemFlag::Rotatable)) {
-				break;
-			}
-
 			const auto next = static_cast<ServerItemId>(definition.attribute(ItemAttributeKey::RotateTo));
 			if (next == 0) {
 				break;
