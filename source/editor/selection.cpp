@@ -50,6 +50,7 @@ namespace {
 Selection::Selection(Editor& editor) :
 	busy(false),
 	deferred(false),
+	bulk(false),
 	selectionChanged(false),
 	editor(editor),
 	session(nullptr),
@@ -306,11 +307,48 @@ void Selection::remove(Tile* tile) {
 	}
 }
 
+void Selection::beginBulk() {
+	bulk = true;
+	bulk_adds.clear();
+}
+
+void Selection::endBulk() {
+	if (!bulk) {
+		return;
+	}
+	bulk = false;
+
+	if (bulk_adds.empty()) {
+		return;
+	}
+
+	std::ranges::sort(bulk_adds, tilePositionLessThan);
+	auto [first, last] = std::ranges::unique(bulk_adds, [](Tile* a, Tile* b) {
+		return a->getPosition() == b->getPosition();
+	});
+	bulk_adds.erase(first, last);
+
+	if (tiles.empty()) {
+		tiles = std::move(bulk_adds);
+	} else {
+		std::vector<Tile*> merged;
+		merged.reserve(tiles.size() + bulk_adds.size());
+		std::ranges::set_union(tiles, bulk_adds, std::back_inserter(merged), tilePositionLessThan);
+		tiles = std::move(merged);
+	}
+	bulk_adds.clear();
+
+	bounds_dirty = true;
+	selectionChanged = true;
+}
+
 void Selection::addInternal(Tile* tile) {
 	ASSERT(tile);
 
 	if (deferred) {
 		pending_adds.push_back(tile);
+	} else if (bulk) {
+		bulk_adds.push_back(tile);
 	} else {
 		auto it = std::ranges::lower_bound(tiles, tile, tilePositionLessThan);
 		if (it == tiles.end() || *it != tile) {
