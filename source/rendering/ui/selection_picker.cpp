@@ -195,9 +195,9 @@ namespace {
 			}
 		}
 
-		const int addon_count = std::max<int>(1, body->pattern_y);
+		const int addon_count = std::min<int>(std::max<int>(1, body->pattern_y), 32);
 		for (int addon = 0; addon < addon_count; ++addon) {
-			if (addon > 0 && (draw_outfit->lookAddon & (1 << (addon - 1))) == 0) {
+			if (addon > 0 && (addon > 31 || (draw_outfit->lookAddon & (1 << (addon - 1))) == 0)) {
 				continue;
 			}
 
