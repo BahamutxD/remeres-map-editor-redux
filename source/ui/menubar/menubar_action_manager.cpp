@@ -60,8 +60,10 @@ void MenuBarActionManager::RegisterActions(MainMenuBar* mb, std::unordered_map<s
 	MAKE_ACTION_ICON(SELECT_MODE_LOWER, wxITEM_RADIO, ICON_ARROW_DOWN, OnSelectionTypeChange);
 	MAKE_ACTION_ICON(SELECT_MODE_CURRENT, wxITEM_RADIO, ICON_CROSSHAIRS, OnSelectionTypeChange);
 	MAKE_ACTION_ICON(SELECT_MODE_VISIBLE, wxITEM_RADIO, ICON_EYE, OnSelectionTypeChange);
-	MAKE_ACTION_ICON(SELECT_METHOD_STANDARD, wxITEM_RADIO, ICON_WAND_MAGIC_SPARKLES, OnSelectionMethodChange);
-	MAKE_ACTION_ICON(SELECT_METHOD_PIXEL_PERFECT, wxITEM_RADIO, ICON_BULLSEYE, OnSelectionMethodChange);
+	// Normal items keep their bitmaps visible; wxMSW replaces the bitmap of a checked radio item
+	// with the radio marker. The active mode is indicated by a checkmark in the label instead.
+	MAKE_ACTION_ICON(SELECT_METHOD_STANDARD, wxITEM_NORMAL, ICON_WAND_MAGIC_SPARKLES, OnSelectionMethodChange);
+	MAKE_ACTION_ICON(SELECT_METHOD_PIXEL_PERFECT, wxITEM_NORMAL, ICON_BULLSEYE, OnSelectionMethodChange);
 
 	MAKE_ACTION_ICON(AUTOMAGIC, wxITEM_CHECK, ICON_WAND_SPARKLES, OnToggleAutomagic);
 	MAKE_ACTION_ICON(BORDERIZE_SELECTION, wxITEM_NORMAL, ICON_BORDER_ALL, OnBorderizeSelection);

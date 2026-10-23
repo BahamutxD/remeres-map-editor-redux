@@ -17,6 +17,8 @@ public:
 	void OnSelectionMethodChange(wxCommandEvent& event);
 
 private:
+	void UpdateSelectionMethodLabels();
+
 	MainMenuBar* menuBar;
 };
 

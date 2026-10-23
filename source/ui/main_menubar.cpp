@@ -129,6 +129,17 @@ void MainMenuBar::CheckItem(MenuBar::ActionID id, bool enable) {
 	checking_programmaticly = false;
 }
 
+void MainMenuBar::SetItemLabel(MenuBar::ActionID id, const wxString& label) {
+	auto fi = items.find(id);
+	if (fi == items.end()) {
+		return;
+	}
+
+	for (wxMenuItem* item : fi->second) {
+		item->SetItemLabel(label);
+	}
+}
+
 bool MainMenuBar::IsItemChecked(MenuBar::ActionID id) const {
 	auto fi = items.find(id);
 	if (fi == items.end()) {

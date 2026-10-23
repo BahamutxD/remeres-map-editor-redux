@@ -1,6 +1,7 @@
 #include "ui/menubar/view_settings_handler.h"
 #include "ui/main_menubar.h"
 #include "ui/gui.h"
+#include "ui/gui_ids.h"
 #include "app/preferences.h"
 #include "map/map.h"
 #include <format>
@@ -42,9 +43,7 @@ void ViewSettingsHandler::LoadValues() {
 			break;
 	}
 
-	const bool pixel_perfect = g_settings.getBoolean(Config::PIXEL_PERFECT_SELECTION);
-	menuBar->CheckItem(SELECT_METHOD_STANDARD, !pixel_perfect);
-	menuBar->CheckItem(SELECT_METHOD_PIXEL_PERFECT, pixel_perfect);
+	UpdateSelectionMethodLabels();
 
 	menuBar->CheckItem(AUTOMAGIC, g_settings.getBoolean(Config::USE_AUTOMAGIC));
 
@@ -201,9 +200,19 @@ void ViewSettingsHandler::OnSelectionTypeChange(wxCommandEvent& WXUNUSED(event))
 	}
 }
 
-void ViewSettingsHandler::OnSelectionMethodChange(wxCommandEvent& WXUNUSED(event)) {
+void ViewSettingsHandler::OnSelectionMethodChange(wxCommandEvent& event) {
 	using namespace MenuBar;
-	const bool pixel_perfect = menuBar->IsItemChecked(SELECT_METHOD_PIXEL_PERFECT);
+	const bool pixel_perfect = event.GetId() == MAIN_FRAME_MENU + SELECT_METHOD_PIXEL_PERFECT;
 	g_settings.setInteger(Config::PIXEL_PERFECT_SELECTION, pixel_perfect ? 1 : 0);
+	UpdateSelectionMethodLabels();
 	g_gui.RefreshView();
+}
+
+void ViewSettingsHandler::UpdateSelectionMethodLabels() {
+	using namespace MenuBar;
+	const bool pixel_perfect = g_settings.getBoolean(Config::PIXEL_PERFECT_SELECTION);
+	const wxString active_marker = wxString::FromUTF8("\xE2\x9C\x93 ");
+
+	menuBar->SetItemLabel(SELECT_METHOD_STANDARD, pixel_perfect ? wxString("Standard Selection") : active_marker + "Standard Selection");
+	menuBar->SetItemLabel(SELECT_METHOD_PIXEL_PERFECT, pixel_perfect ? active_marker + "Pixel Perfect Selection" : wxString("Pixel Perfect Selection"));
 }
