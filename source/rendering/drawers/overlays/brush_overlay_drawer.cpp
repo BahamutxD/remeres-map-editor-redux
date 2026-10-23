@@ -14,6 +14,7 @@
 #include "app/settings.h"
 #include "editor/editor.h"
 #include "brushes/managers/brush_manager.h"
+#include "brushes/managers/doodad_preview_manager.h"
 #include "game/sprites.h"
 #include "game/outfit.h"
 #include "app/definitions.h"
@@ -172,6 +173,9 @@ void BrushOverlayDrawer::draw(
 		}
 		if (!(brush->is<TerrainBrush>() || brush->is<TableBrush>() || brush->is<CarpetBrush>() ||
 			  brush->is<DoodadBrush>() || brush->is<OptionalBorderBrush>())) {
+			return;
+		}
+		if (brush->is<DoodadBrush>() && g_doodad_preview.GetBufferMap()->size() > 0) {
 			return;
 		}
 
