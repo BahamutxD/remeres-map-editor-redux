@@ -224,6 +224,10 @@ namespace {
 		return item.isInvalidOTBMItem() && !g_settings.getBoolean(Config::SHOW_INVALID_TILES);
 	}
 
+	bool IsItemUnresolvedAndHidden(const Item& item) {
+		return !item.getDefinition() && !g_settings.getBoolean(Config::SHOW_INVALID_TILES);
+	}
+
 	std::vector<ItemRenderInfo> BuildItemRenderList(const Tile& tile) {
 		std::vector<ItemRenderInfo> render_list;
 		render_list.reserve(tile.items.size());
@@ -236,7 +240,7 @@ namespace {
 			if (!item || item->isBorder() || item->isMetaItem()) {
 				continue;
 			}
-			if (IsItemHiddenBySettings(*item) || IsItemInvalidAndHidden(*item)) {
+			if (IsItemHiddenBySettings(*item) || IsItemInvalidAndHidden(*item) || IsItemUnresolvedAndHidden(*item)) {
 				continue;
 			}
 
@@ -313,7 +317,7 @@ namespace {
 			if (!item || !item->isBorder() || item->isMetaItem()) {
 				continue;
 			}
-			if (IsItemHiddenBySettings(*item) || IsItemInvalidAndHidden(*item)) {
+			if (IsItemHiddenBySettings(*item) || IsItemInvalidAndHidden(*item) || IsItemUnresolvedAndHidden(*item)) {
 				continue;
 			}
 			if (HitTestItem(*item, tile, tile_pos, pixel_x, pixel_y, 0) == PixelTestResult::Hit) {
@@ -321,7 +325,7 @@ namespace {
 			}
 		}
 
-		if (is_target_tile && tile.ground && !IsItemInvalidAndHidden(*tile.ground)) {
+		if (is_target_tile && tile.ground && !IsItemInvalidAndHidden(*tile.ground) && !IsItemUnresolvedAndHidden(*tile.ground)) {
 			if (HitTestItem(*tile.ground, tile, tile_pos, pixel_x, pixel_y, 0) == PixelTestResult::Hit) {
 				return MakeItemHit(&tile, tile.ground.get());
 			}
