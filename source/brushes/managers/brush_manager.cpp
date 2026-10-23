@@ -122,8 +122,13 @@ void BrushManager::SelectBrushInternal(Brush* brush) {
 
 	g_status.SetStatusText("Selected brush: " + wxstr(brush->getName()));
 
-	brush_variation = NormalizeVariation(brush, brush_variation);
-	brush->setVariation(brush_variation);
+	if (const auto* creature = brush->as<CreatureBrush>()) {
+		// Creature brushes keep their own facing direction, defaulting to SOUTH.
+		brush_variation = creature->getVariation();
+	} else {
+		brush_variation = NormalizeVariation(brush, brush_variation);
+		brush->setVariation(brush_variation);
+	}
 	// If we are switching away from a doodad brush, we need to clear the secondary map
 	// Or if the new brush isn't a doodad brush
 	MapTab* mapTab = g_gui.GetCurrentMapTab();
