@@ -125,9 +125,7 @@ namespace {
 		);
 
 		if (result == PixelTestResult::Unknown) {
-			return BoxHit(pixel_x, pixel_y, base_x, base_y, metrics.total_width, metrics.total_height)
-				? PixelTestResult::Hit
-				: PixelTestResult::Miss;
+			return PixelTestResult::Hit;
 		}
 		return result;
 	}
@@ -151,9 +149,7 @@ namespace {
 		);
 
 		if (result == PixelTestResult::Unknown) {
-			return BoxHit(pixel_x, pixel_y, base_x, base_y, metrics.total_width, metrics.total_height)
-				? PixelTestResult::Hit
-				: PixelTestResult::Miss;
+			return PixelTestResult::Hit;
 		}
 		return result;
 	}
