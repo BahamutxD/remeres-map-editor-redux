@@ -420,6 +420,15 @@ void MapCanvas::ScreenToMap(int screen_x, int screen_y, int custom_floor, int* m
 
 	CoordinateMapper::ScreenToMap(screen_x, screen_y, start_x, start_y, zoom, custom_floor, GetContentScaleFactor(), map_x, map_y);
 }
+
+MainMapPixelPosition MapCanvas::ScreenToMapPixel(int screen_x, int screen_y) const {
+	int start_x = 0, start_y = 0;
+	if (auto mw = GetMapWindow()) {
+		mw->GetViewStart(&start_x, &start_y);
+	}
+
+	return CoordinateMapper::ScreenToMapPixel(screen_x, screen_y, start_x, start_y, zoom, floor, GetContentScaleFactor());
+}
 #if 0
 
 *map_y = int(start_y + (screen_y * zoom)) / TILE_SIZE;
@@ -546,10 +555,9 @@ void MapCanvas::OnMouseLeftClick(wxMouseEvent& event) {
 }
 
 void MapCanvas::OnMouseLeftDoubleClick(wxMouseEvent& event) {
-	int mouse_map_x, mouse_map_y;
-	ScreenToMap(event.GetX(), event.GetY(), &mouse_map_x, &mouse_map_y);
+	const MainMapPixelPosition click = ScreenToMapPixel(event.GetX(), event.GetY());
 	if (selection_controller) {
-		selection_controller->HandleDoubleClick(Position(mouse_map_x, mouse_map_y, floor));
+		selection_controller->HandleDoubleClick(Position(click.map_x, click.map_y, floor));
 	}
 }
 
@@ -591,15 +599,16 @@ void MapCanvas::OnMouseActionClick(wxMouseEvent& event) {
 		map_window->ResumeMinimapTrackingToCurrentView();
 	}
 
-	int mouse_map_x, mouse_map_y;
-	ScreenToMap(event.GetX(), event.GetY(), &mouse_map_x, &mouse_map_y);
+	const MainMapPixelPosition click = ScreenToMapPixel(event.GetX(), event.GetY());
+	const int mouse_map_x = click.map_x;
+	const int mouse_map_y = click.map_y;
 
 	if (event.ControlDown() && event.AltDown()) {
 		Tile* tile = editor.map.getTile(mouse_map_x, mouse_map_y, floor);
 		BrushSelector::SelectSmartBrush(editor, tile);
 	} else if (g_gui.IsSelectionMode()) {
 		if (selection_controller) {
-			selection_controller->HandleClick(Position(mouse_map_x, mouse_map_y, floor), event.ShiftDown(), event.ControlDown(), event.AltDown());
+			selection_controller->HandleClick(Position(mouse_map_x, mouse_map_y, floor), SelectionPixelOffset { .x = click.pixel_x, .y = click.pixel_y }, event.ShiftDown(), event.ControlDown(), event.AltDown());
 		}
 	} else if (g_gui.GetCurrentBrush()) { // Drawing mode
 		if (drawing_controller) {
@@ -672,8 +681,9 @@ void MapCanvas::OnMousePropertiesClick(wxMouseEvent& event) {
 		map_window->ResumeMinimapTrackingToCurrentView();
 	}
 
-	int mouse_map_x, mouse_map_y;
-	ScreenToMap(event.GetX(), event.GetY(), &mouse_map_x, &mouse_map_y);
+	const MainMapPixelPosition click = ScreenToMapPixel(event.GetX(), event.GetY());
+	const int mouse_map_x = click.map_x;
+	const int mouse_map_y = click.map_y;
 
 	if (g_gui.IsDrawingMode()) {
 		g_gui.SetSelectionMode();
@@ -693,7 +703,7 @@ void MapCanvas::OnMousePropertiesClick(wxMouseEvent& event) {
 	last_click_map_y = mouse_map_y;
 	last_click_map_z = floor;
 
-	selection_controller->HandlePropertiesClick(Position(mouse_map_x, mouse_map_y, floor), event.ShiftDown(), event.ControlDown(), event.AltDown());
+	selection_controller->HandlePropertiesClick(Position(mouse_map_x, mouse_map_y, floor), SelectionPixelOffset { .x = click.pixel_x, .y = click.pixel_y }, event.ShiftDown(), event.ControlDown(), event.AltDown());
 	RequestLocalRefresh();
 }
 

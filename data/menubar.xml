@@ -133,6 +133,10 @@
 			<item name="Floors Below" action="SELECT_MODE_LOWER" help="Select current floor and all floors below."/>
 			<item name="Visible Floors" action="SELECT_MODE_VISIBLE" help="Select only visible floors."/>
 		</menu>
+		<menu name="Selection Method">
+			<item name="Standard Selection" action="SELECT_METHOD_STANDARD" help="Select the top entity on the clicked tile."/>
+			<item name="Pixel Perfect Selection" action="SELECT_METHOD_PIXEL_PERFECT" help="Use sprite hit testing to select the exact item visible under the cursor."/>
+		</menu>
 		<separator/>
 		<item name="Borderize Selection" action="BORDERIZE_SELECTION" help="Creates automatic borders in the entire selected area."/>
 		<item name="Randomize Selection" action="RANDOMIZE_SELECTION" help="Randomizes the ground tiles of the selected area."/>

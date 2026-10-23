@@ -129,6 +129,7 @@ void MainMenuBar::CheckItem(MenuBar::ActionID id, bool enable) {
 	checking_programmaticly = false;
 }
 
+
 bool MainMenuBar::IsItemChecked(MenuBar::ActionID id) const {
 	auto fi = items.find(id);
 	if (fi == items.end()) {
@@ -357,6 +358,10 @@ void MainMenuBar::OnRemoveItemOnSelection(wxCommandEvent& event) {
 
 void MainMenuBar::OnSelectionTypeChange(wxCommandEvent& event) {
 	viewSettingsHandler->OnSelectionTypeChange(event);
+}
+
+void MainMenuBar::OnSelectionMethodChange(wxCommandEvent& event) {
+	viewSettingsHandler->OnSelectionMethodChange(event);
 }
 
 void MainMenuBar::OnCopy(wxCommandEvent& WXUNUSED(event)) {
