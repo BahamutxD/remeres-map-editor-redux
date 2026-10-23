@@ -282,6 +282,17 @@ namespace {
 	}
 
 	SelectionHit FindHitOnTile(Tile& tile, const Position& tile_pos, int pixel_x, int pixel_y, bool is_target_tile) {
+		const std::vector<ItemRenderInfo> render_list = BuildItemRenderList(tile);
+
+		// TopEffect items (sublayer 10) render in front of creatures (sublayer 8)
+		for (const ItemRenderInfo& info : render_list) {
+			if (info.sublayer >= 10) {
+				if (HitTestItem(*info.item, tile, tile_pos, pixel_x, pixel_y, info.elevation) == PixelTestResult::Hit) {
+					return MakeItemHit(&tile, info.item);
+				}
+			}
+		}
+
 		if (tile.creature && g_settings.getInteger(Config::SHOW_CREATURES)) {
 			const PixelTestResult result = HitTestCreature(*tile.creature, pixel_x, pixel_y);
 			if (result == PixelTestResult::Hit) {
@@ -293,10 +304,12 @@ namespace {
 			}
 		}
 
-		const std::vector<ItemRenderInfo> render_list = BuildItemRenderList(tile);
+		// Common and bottom items
 		for (const ItemRenderInfo& info : render_list) {
-			if (HitTestItem(*info.item, tile, tile_pos, pixel_x, pixel_y, info.elevation) == PixelTestResult::Hit) {
-				return MakeItemHit(&tile, info.item);
+			if (info.sublayer < 10) {
+				if (HitTestItem(*info.item, tile, tile_pos, pixel_x, pixel_y, info.elevation) == PixelTestResult::Hit) {
+					return MakeItemHit(&tile, info.item);
+				}
 			}
 		}
 
