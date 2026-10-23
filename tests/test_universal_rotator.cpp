@@ -181,6 +181,19 @@ int main() {
 		assert(item.getID() == 200);
 	}
 
+	{
+		ResolvedItemDefinitionRow row;
+		row.server_id = 300;
+		row.client_id = 300;
+		row.rotate_to = 301;
+		g_item_definitions.append(std::move(row));
+
+		Item item(300, 0);
+		assert(item.isRoteable());
+		item.doRotate();
+		assert(item.getID() == 301);
+	}
+
 	std::cout << "universal rotator tests passed\n";
 	return 0;
 }
