@@ -28,22 +28,111 @@
 #include "brushes/brush.h"
 #include "brushes/door/door_brush.h"
 
-void PopupActionHandler::RotateItem(Editor& editor) {
-	Tile* tile = editor.selection.getSelectedTile();
+#include <optional>
 
-	std::unique_ptr<Action> action = editor.actionQueue->createAction(ACTION_ROTATE_ITEM);
+namespace {
+
+	void CommitTileChange(Editor& editor, std::unique_ptr<Tile> tile, ActionIdentifier type) {
+		std::unique_ptr<Action> action = editor.actionQueue->createAction(type);
+		action->addChange(std::make_unique<Change>(std::move(tile)));
+		editor.actionQueue->addAction(std::move(action));
+		g_gui.RefreshView();
+	}
+
+	void ApplyItemRotation(Item* item, bool backwards) {
+		if (backwards) {
+			item->doRotateBackwards();
+		} else {
+			item->doRotate();
+		}
+	}
+
+}
+
+void PopupActionHandler::RotateItem(Editor& editor, bool backwards) {
+	if (editor.selection.size() != 1) {
+		return;
+	}
+
+	Tile* tile = editor.selection.getSelectedTile();
+	if (!tile) {
+		return;
+	}
 
 	std::unique_ptr<Tile> new_tile(TileOperations::deepCopy(tile, editor.map));
-
 	ItemVector selected_items = TileOperations::getSelectedItems(new_tile.get());
-	ASSERT(!selected_items.empty());
 
-	selected_items.front()->doRotate();
+	Item* target = nullptr;
+	for (Item* item : selected_items) {
+		if (item && item->isRoteable()) {
+			target = item;
+			break;
+		}
+	}
+	if (!target) {
+		return;
+	}
 
-	action->addChange(std::make_unique<Change>(std::move(new_tile)));
+	ApplyItemRotation(target, backwards);
+	CommitTileChange(editor, std::move(new_tile), ACTION_ROTATE_ITEM);
+}
 
-	editor.actionQueue->addAction(std::move(action));
-	g_gui.RefreshView();
+void PopupActionHandler::RotateItemAt(Editor& editor, const Position& pos, bool backwards) {
+	if (editor.selection.size() == 1) {
+		Tile* selected_tile = editor.selection.getSelectedTile();
+		if (selected_tile) {
+			for (Item* item : TileOperations::getSelectedItems(selected_tile)) {
+				if (item && item->isRoteable()) {
+					RotateItem(editor, backwards);
+					return;
+				}
+			}
+		}
+	}
+
+	Tile* tile = editor.map.getTile(pos);
+	if (!tile) {
+		return;
+	}
+
+	std::optional<size_t> target_index;
+	bool target_is_door = false;
+	for (size_t i = tile->items.size(); i-- > 0;) {
+		Item* item = tile->items[i].get();
+		if (!item) {
+			continue;
+		}
+		if (item->isBrushDoor()) {
+			target_index = i;
+			target_is_door = true;
+			break;
+		}
+		if (item->isRoteable()) {
+			target_index = i;
+			break;
+		}
+	}
+	if (!target_index.has_value()) {
+		return;
+	}
+
+	std::unique_ptr<Tile> new_tile(TileOperations::deepCopy(tile, editor.map));
+	if (*target_index >= new_tile->items.size()) {
+		return;
+	}
+
+	Item* target = new_tile->items[*target_index].get();
+	if (!target) {
+		return;
+	}
+
+	if (target_is_door) {
+		DoorBrush::switchDoor(target);
+		CommitTileChange(editor, std::move(new_tile), ACTION_SWITCHDOOR);
+	} else {
+		ApplyItemRotation(target, backwards);
+		CommitTileChange(editor, std::move(new_tile), ACTION_ROTATE_ITEM);
+	}
 }
 
 void PopupActionHandler::GotoDestination(Editor& editor) {

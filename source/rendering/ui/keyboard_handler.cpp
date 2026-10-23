@@ -26,6 +26,7 @@
 #include "editor/editor.h"
 #include "brushes/brush.h"
 #include "brushes/town/town_temple_brush.h"
+#include "rendering/ui/popup_action_handler.h"
 
 void KeyboardHandler::OnKeyDown(MapCanvas* canvas, wxKeyEvent& event) {
 	switch (event.GetKeyCode()) {
@@ -85,7 +86,11 @@ void KeyboardHandler::OnKeyDown(MapCanvas* canvas, wxKeyEvent& event) {
 		case 'Z':
 		case 'x':
 		case 'X': {
-			HandleBrushVariation(canvas, event.GetKeyCode());
+			if (event.ControlDown() || event.AltDown()) {
+				event.Skip();
+				break;
+			}
+			HandleRotationOrVariation(canvas, event.GetKeyCode());
 			break;
 		}
 		case 'q':
@@ -162,19 +167,39 @@ void KeyboardHandler::HandleBrushSizeChange(MapCanvas* canvas, int keycode) {
 }
 
 void KeyboardHandler::HandleBrushVariation(MapCanvas* canvas, int keycode) {
+	Brush* brush = g_gui.GetCurrentBrush();
+	if (!brush || brush->getMaxVariation() <= 0) {
+		return;
+	}
+
 	int nv = g_gui.GetBrushVariation();
 	if (keycode == 'z' || keycode == 'Z') {
 		--nv;
 		if (nv < 0) {
-			nv = std::max(0, (g_gui.GetCurrentBrush() ? g_gui.GetCurrentBrush()->getMaxVariation() - 1 : 0));
+			nv = brush->getMaxVariation() - 1;
 		}
 	} else {
 		++nv;
-		if (nv >= (g_gui.GetCurrentBrush() ? g_gui.GetCurrentBrush()->getMaxVariation() : 0)) {
+		if (nv >= brush->getMaxVariation()) {
 			nv = 0;
 		}
 	}
 	g_gui.SetBrushVariation(nv);
+	canvas->RequestLocalRefresh();
+}
+
+void KeyboardHandler::HandleRotationOrVariation(MapCanvas* canvas, int keycode) {
+	const bool backwards = (keycode == 'z' || keycode == 'Z');
+
+	if (g_gui.IsDrawingMode()) {
+		Brush* brush = g_gui.GetCurrentBrush();
+		if (brush && brush->getMaxVariation() > 0) {
+			HandleBrushVariation(canvas, keycode);
+			return;
+		}
+	}
+
+	PopupActionHandler::RotateItemAt(canvas->editor, canvas->GetCursorPosition(), backwards);
 	canvas->RequestLocalRefresh();
 }
 

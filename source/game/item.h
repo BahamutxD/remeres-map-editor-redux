@@ -338,7 +338,39 @@ public:
 	}
 	void doRotate() {
 		if (isRoteable()) {
-			id = static_cast<uint16_t>(getDefinition().attribute(ItemAttributeKey::RotateTo));
+			id = static_cast<ServerItemId>(getDefinition().attribute(ItemAttributeKey::RotateTo));
+		}
+	}
+	void doRotateBackwards() {
+		if (!isRoteable()) {
+			return;
+		}
+
+		const ServerItemId target_id = id;
+		ServerItemId current = static_cast<ServerItemId>(getDefinition().attribute(ItemAttributeKey::RotateTo));
+		ServerItemId previous = target_id;
+
+		for (int steps = 0; steps < 16; ++steps) {
+			if (current == 0 || current == target_id) {
+				break;
+			}
+
+			const auto definition = g_item_definitions.get(current);
+			if (!definition.hasFlag(ItemFlag::Rotatable)) {
+				break;
+			}
+
+			const auto next = static_cast<ServerItemId>(definition.attribute(ItemAttributeKey::RotateTo));
+			if (next == 0) {
+				break;
+			}
+
+			previous = current;
+			current = next;
+		}
+
+		if (current == target_id && previous != target_id) {
+			id = previous;
 		}
 	}
 	bool hasCharges() const {
