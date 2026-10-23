@@ -221,17 +221,17 @@ namespace {
 			g_doodad_preview.GetBufferMap()->clear();
 			BaseMap* draw_map = g_doodad_preview.GetBufferMap();
 
+			bool special = true;
 			for (const auto& drawPos : tilestodraw) {
 				auto* location = editor.map.createTileL(drawPos);
 				auto* tile = location->get();
 				if (tile) {
 					std::unique_ptr<Tile> new_tile = TileOperations::deepCopy(tile, editor.map);
-					TileOperations::cleanWalls(new_tile.get(), brush);
-					brush->draw(draw_map, new_tile.get(), nullptr);
+					brush->draw(draw_map, new_tile.get(), &special);
 					(void)draw_map->setTile(drawPos, std::move(new_tile));
 				} else {
 					std::unique_ptr<Tile> new_tile(editor.map.allocator(location));
-					brush->draw(draw_map, new_tile.get(), nullptr);
+					brush->draw(draw_map, new_tile.get(), &special);
 					(void)draw_map->setTile(drawPos, std::move(new_tile));
 				}
 			}
