@@ -21,6 +21,56 @@
 
 #include "brushes/doodad/doodad_brush.h"
 
+#include <set>
+
+namespace {
+
+	bool RotateSelectedTileContents(Tile& tile, bool clockwise, bool toggle_doors) {
+		bool changed = false;
+
+		for (const auto& item : tile.items) {
+			if (!item || !item->isSelected()) {
+				continue;
+			}
+
+			const ServerItemId old_id = item->getID();
+			if (item->isBrushDoor()) {
+				if (toggle_doors) {
+					DoorBrush::switchDoor(item.get());
+				}
+			} else if (item->isWall()) {
+				if (WallBrush* wall_brush = item->getWallBrush()) {
+					if (const auto rotated_id = wall_brush->findRotatedWallVariant(old_id, clockwise)) {
+						item->setID(*rotated_id);
+					}
+				}
+			} else if (item->isRoteable()) {
+				if (clockwise) {
+					item->doRotate();
+				} else {
+					item->doRotateBackwards();
+				}
+			}
+
+			if (item->getID() != old_id) {
+				changed = true;
+			}
+		}
+
+		if (tile.creature && tile.creature->isSelected()) {
+			const Direction old_direction = tile.creature->getDirection();
+			const Direction new_direction = static_cast<Direction>((static_cast<int>(old_direction) + (clockwise ? 1 : 3)) % 4);
+			if (new_direction != old_direction) {
+				tile.creature->setDirection(new_direction);
+				changed = true;
+			}
+		}
+
+		return changed;
+	}
+
+}
+
 void SelectionOperations::doSurroundingBorders(DoodadBrush* doodad_brush, PositionList& tilestoborder, Tile* buffer_tile, Tile* new_tile) {
 	if (doodad_brush->doNewBorders() && g_settings.getInteger(Config::USE_AUTOMAGIC)) {
 		tilestoborder.push_back(Position(new_tile->getPosition().x, new_tile->getPosition().y, new_tile->getPosition().z));
@@ -102,43 +152,7 @@ bool SelectionOperations::rotateSelection(Editor& editor, bool clockwise) {
 		}
 
 		std::unique_ptr<Tile> new_tile = TileOperations::deepCopy(tile, editor.map);
-		bool tile_changed = false;
-
-		for (const auto& item : new_tile->items) {
-			if (!item || !item->isSelected()) {
-				continue;
-			}
-
-			const ServerItemId old_id = item->getID();
-			if (item->isBrushDoor()) {
-				DoorBrush::switchDoor(item.get());
-			} else if (item->isWall()) {
-				if (WallBrush* wall_brush = item->getWallBrush()) {
-					if (const auto rotated_id = wall_brush->findRotatedWallVariant(old_id, clockwise)) {
-						item->setID(*rotated_id);
-					}
-				}
-			} else if (item->isRoteable()) {
-				if (clockwise) {
-					item->doRotate();
-				} else {
-					item->doRotateBackwards();
-				}
-			}
-
-			if (item->getID() != old_id) {
-				tile_changed = true;
-			}
-		}
-
-		if (new_tile->creature && new_tile->creature->isSelected()) {
-			const Direction old_direction = new_tile->creature->getDirection();
-			const Direction new_direction = static_cast<Direction>((static_cast<int>(old_direction) + (clockwise ? 1 : 3)) % 4);
-			if (new_direction != old_direction) {
-				new_tile->creature->setDirection(new_direction);
-				tile_changed = true;
-			}
-		}
+		const bool tile_changed = RotateSelectedTileContents(*new_tile, clockwise, true);
 
 		if (tile_changed) {
 			action->addChange(std::make_unique<Change>(std::move(new_tile)));
@@ -150,6 +164,156 @@ bool SelectionOperations::rotateSelection(Editor& editor, bool clockwise) {
 		return false;
 	}
 
+	editor.addAction(std::move(action));
+	g_gui.RefreshView();
+	return true;
+}
+
+bool SelectionOperations::pivotSelection(Editor& editor, bool clockwise) {
+	if (editor.selection.size() < 2) {
+		return false;
+	}
+
+	const Position min = editor.selection.minPosition();
+	const Position max = editor.selection.maxPosition();
+	if (min.z != max.z) {
+		return false;
+	}
+
+	const int width = max.x - min.x + 1;
+	const int height = max.y - min.y + 1;
+	if (width <= 0 || height <= 0 || (width == 1 && height == 1)) {
+		return false;
+	}
+
+	const int center_x2 = min.x * 2 + (width - 1);
+	const int center_y2 = min.y * 2 + (height - 1);
+	const int new_min_x = (center_x2 - (height - 1)) / 2;
+	const int new_min_y = (center_y2 - (width - 1)) / 2;
+
+	std::set<Position> selected_positions;
+	for (const Tile* tile : editor.selection) {
+		if (tile) {
+			selected_positions.insert(tile->getPosition());
+		}
+	}
+
+	struct Move {
+		std::unique_ptr<Tile> tile;
+	};
+	std::vector<Move> moves;
+	moves.reserve(editor.selection.size());
+
+	for (Tile* tile : editor.selection) {
+		if (!tile) {
+			continue;
+		}
+
+		const Position source = tile->getPosition();
+		const int dx = source.x - min.x;
+		const int dy = source.y - min.y;
+		int ndx = 0;
+		int ndy = 0;
+		if (clockwise) {
+			ndx = height - 1 - dy;
+			ndy = dx;
+		} else {
+			ndx = dy;
+			ndy = width - 1 - dx;
+		}
+
+		const Position destination(new_min_x + ndx, new_min_y + ndy, source.z);
+		if (!destination.isValid()) {
+			return false;
+		}
+
+		if (selected_positions.find(destination) == selected_positions.end()) {
+			if (Tile* existing = editor.map.getTile(destination); existing && !existing->empty()) {
+				g_gui.SetStatusText("Cannot rotate selection: destination is occupied.");
+				return false;
+			}
+		}
+
+		auto moved_tile = TileOperations::deepCopy(tile, editor.map);
+		RotateSelectedTileContents(*moved_tile, clockwise, false);
+		moved_tile->setLocation(editor.map.createTileL(destination));
+		moves.push_back(Move { std::move(moved_tile) });
+	}
+
+	if (moves.empty()) {
+		return false;
+	}
+
+	std::unique_ptr<Action> action = editor.actionQueue->createAction(ACTION_ROTATE);
+	for (Tile* tile : editor.selection) {
+		if (!tile) {
+			continue;
+		}
+		auto empty_tile = editor.map.allocator(tile->getLocation());
+		action->addChange(std::make_unique<Change>(std::move(empty_tile)));
+	}
+	for (auto& move : moves) {
+		action->addChange(std::make_unique<Change>(std::move(move.tile)));
+	}
+
+	editor.addAction(std::move(action));
+	g_gui.RefreshView();
+	return true;
+}
+
+bool SelectionOperations::rotateWallOrDoorAt(Editor& editor, const Position& position) {
+	Tile* tile = editor.map.getTile(position);
+	if (!tile) {
+		return false;
+	}
+
+	size_t target_index = tile->items.size();
+	bool is_door = false;
+	for (size_t i = tile->items.size(); i-- > 0;) {
+		Item* item = tile->items[i].get();
+		if (!item) {
+			continue;
+		}
+		if (item->isBrushDoor()) {
+			target_index = i;
+			is_door = true;
+			break;
+		}
+		if (item->isWall()) {
+			target_index = i;
+			break;
+		}
+	}
+
+	if (target_index >= tile->items.size()) {
+		return false;
+	}
+
+	std::unique_ptr<Tile> new_tile = TileOperations::deepCopy(tile, editor.map);
+	if (target_index >= new_tile->items.size()) {
+		return false;
+	}
+
+	Item* target = new_tile->items[target_index].get();
+	if (!target) {
+		return false;
+	}
+
+	const ServerItemId old_id = target->getID();
+	if (is_door) {
+		DoorBrush::switchDoor(target);
+	} else if (WallBrush* wall_brush = target->getWallBrush()) {
+		if (const auto next_id = wall_brush->findNextWallVariant(old_id)) {
+			target->setID(*next_id);
+		}
+	}
+
+	if (target->getID() == old_id) {
+		return true;
+	}
+
+	std::unique_ptr<Action> action = editor.actionQueue->createAction(ACTION_ROTATE);
+	action->addChange(std::make_unique<Change>(std::move(new_tile)));
 	editor.addAction(std::move(action));
 	g_gui.RefreshView();
 	return true;

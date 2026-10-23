@@ -7,6 +7,7 @@
 #include "rendering/ui/map_display.h"
 #include "editor/editor.h"
 #include "editor/action_queue.h"
+#include "editor/operations/selection_operations.h"
 #include "map/map.h"
 #include "map/tile.h"
 #include "brushes/brush.h"
@@ -44,6 +45,11 @@ DrawingController::~DrawingController() {
 }
 
 void DrawingController::HandleClick(const Position& mouse_map_pos, bool shift_down, bool ctrl_down, bool alt_down) {
+	if (alt_down && !ctrl_down && SelectionOperations::rotateWallOrDoorAt(editor, mouse_map_pos)) {
+		last_draw_pos = mouse_map_pos;
+		return;
+	}
+
 	Brush* brush = g_gui.GetCurrentBrush();
 	if (brush) {
 		const BrushFootprint footprint = g_gui.GetBrushFootprint();

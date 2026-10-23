@@ -15,6 +15,8 @@ public:
 	static void borderizeSelection(Editor& editor);
 	static void randomizeSelection(Editor& editor);
 	static bool rotateSelection(Editor& editor, bool clockwise);
+	static bool pivotSelection(Editor& editor, bool clockwise);
+	static bool rotateWallOrDoorAt(Editor& editor, const Position& position);
 
 	// Helper functions used by Editor::drawInternal
 	static void removeDuplicateWalls(Tile* buffer_tile, Tile* new_tile);
