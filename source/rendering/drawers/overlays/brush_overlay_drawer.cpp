@@ -493,12 +493,13 @@ void BrushOverlayDrawer::draw(
 				}
 			}
 
-			if (cursor_blend_mode == 1) {
+			BaseMap* buffer_map = (doodad_brush && placement_item_id == 0) ? g_doodad_preview.GetBufferMap() : nullptr;
+			const bool is_item_preview = (buffer_map != nullptr || placement_item_id != 0);
+
+			if (cursor_blend_mode == 1 && !is_item_preview) {
 				sprite_batch.setBlendFunc(GL_DST_COLOR, GL_ZERO, atlas);
 			}
 			const uint32_t zf_mult = (cursor_blend_mode == 1) ? static_cast<uint32_t>(rme::rendering::ZONE_FLAG_MULTIPLICATIVE) : 0u;
-
-			BaseMap* buffer_map = (doodad_brush && placement_item_id == 0) ? g_doodad_preview.GetBufferMap() : nullptr;
 			auto hasItemAt = [&](int ox, int oy) -> bool {
 				if (buffer_map) {
 					Tile* t = buffer_map->getTile(0x8000 + ox, 0x8000 + oy, 0x8);
@@ -595,7 +596,7 @@ void BrushOverlayDrawer::draw(
 				}
 			}
 
-			if (cursor_blend_mode == 1) {
+			if (cursor_blend_mode == 1 && !is_item_preview) {
 				sprite_batch.setBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, atlas);
 			}
 		}

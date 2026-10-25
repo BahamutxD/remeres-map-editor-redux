@@ -107,7 +107,7 @@ void DoodadPreviewManager::FillBuffer() {
 							tile->addItem(item->deepCopy());
 						}
 					}
-				exit = true;
+					exit = true;
 				} else if (brush->hasSingleObjects(variation)) {
 					Position pos = center_pos + Position(xpos, ypos, 0);
 					Tile* tile = doodad_buffer_map->getTile(pos);
@@ -124,6 +124,8 @@ void DoodadPreviewManager::FillBuffer() {
 					if (item) {
 						tile->addItem(item->deepCopy());
 					}
+					exit = true;
+				} else {
 					exit = true;
 				}
 				if (fail) {
