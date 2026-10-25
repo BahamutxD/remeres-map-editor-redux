@@ -130,14 +130,14 @@ void RuleListControl::OnNanoVGPaint(NVGcontext* vg, int width, int height) {
 		// Draw Shadow (Simple offset)
 		if (!isSelected) {
 			nvgBeginPath(vg);
-			nvgRoundedRect(vg, x + 2, y + 2, w, h, radius);
+			nvgRect(vg, x + 2, y + 2, w, h);
 			nvgFillColor(vg, nvgRGBA(0, 0, 0, 50));
 			nvgFill(vg);
 		}
 
 		// Draw Card Body
 		nvgBeginPath(vg);
-		nvgRoundedRect(vg, x, y, w, h, radius);
+		nvgRect(vg, x, y, w, h);
 		nvgFillColor(vg, nvgRGBA(fillColor.Red(), fillColor.Green(), fillColor.Blue(), fillColor.Alpha()));
 		nvgFill(vg);
 
@@ -156,7 +156,7 @@ void RuleListControl::OnNanoVGPaint(NVGcontext* vg, int width, int height) {
 		// A solid state bar on the left, on the set being edited.
 		if (isActive) {
 			nvgBeginPath(vg);
-			nvgRoundedRect(vg, x, y, 5.0f, h, 2.0f);
+			nvgRect(vg, x, y, 5.0f, h);
 			nvgFillColor(vg, nvgRGBA(stateColour.Red(), stateColour.Green(), stateColour.Blue(), 255));
 			nvgFill(vg);
 		}

@@ -73,6 +73,13 @@ public:
 	void undraw(BaseMap* map, Tile* tile) override;
 	void getRelatedItems(std::vector<uint16_t>& items) override;
 
+	[[nodiscard]] uint16_t getPlacementItemId() const {
+		if (!border_items.empty()) {
+			return border_items.front().id;
+		}
+		return 0;
+	}
+
 	static void doBorders(BaseMap* map, Tile* tile);
 	static const BorderBlock* getBrushTo(GroundBrush* first, GroundBrush* second);
 

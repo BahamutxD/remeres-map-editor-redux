@@ -1,5 +1,6 @@
 #include "app/main.h"
 #include "ui/find_item_window_internal.h"
+#include "palette/controls/tileset_grid_toolbar.h"
 
 #include "brushes/creature/creature_brush.h"
 #include "brushes/raw/raw_brush.h"
@@ -127,6 +128,9 @@ void FindItemDialog::setResultViewMode(AdvancedFinderResultViewMode mode) {
 	if (results_notebook_ != nullptr) {
 		results_notebook_->ChangeSelection(findItemDialogIndex(mode));
 	}
+	if (grid_toolbar_ != nullptr) {
+		grid_toolbar_->SetListMode(mode == AdvancedFinderResultViewMode::List);
+	}
 }
 
 AdvancedFinderResultsView* FindItemDialog::activeResultsView() const {
@@ -168,6 +172,9 @@ void FindItemDialog::OnResultPageChanged(wxBookCtrlEvent& event) {
 	}
 
 	result_view_mode_ = page == 0 ? AdvancedFinderResultViewMode::List : AdvancedFinderResultViewMode::Grid;
+	if (grid_toolbar_ != nullptr) {
+		grid_toolbar_->SetListMode(result_view_mode_ == AdvancedFinderResultViewMode::List);
+	}
 	updateCurrentSelection();
 	updateButtons();
 	event.Skip();

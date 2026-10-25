@@ -99,7 +99,7 @@ void PaletteManager::SelectPalettePage(std::string_view name) {
 	ShowPalette();
 	p->SelectPage(name);
 	g_gui.aui_manager->Update();
-	g_brush_manager.SelectBrushInternal(p->GetSelectedBrush());
+	g_gui.SelectBrushInternal(p->GetSelectedBrush());
 }
 
 void PaletteManager::ReloadDynamicPalettes() {
@@ -109,6 +109,27 @@ void PaletteManager::ReloadDynamicPalettes() {
 		}
 	}
 	g_gui.aui_manager->Update();
+}
+
+void PaletteManager::SetBrushIndicators(bool dogEar) {
+	g_settings.setInteger(Config::PALETTE_INDICATOR_DOGEAR, dogEar ? 1 : 0);
+	g_settings.save();
+	for (auto* p : palettes) {
+		if (p) {
+			p->SetBrushIndicators(dogEar);
+		}
+	}
+}
+
+void PaletteManager::SetGridSpacing(int spacing) {
+	const int validSpacing = (spacing == 2 || spacing == 6) ? spacing : 4;
+	g_settings.setInteger(Config::PALETTE_GRID_SPACING, validSpacing);
+	g_settings.save();
+	for (auto* p : palettes) {
+		if (p) {
+			p->SetGridSpacing(validSpacing);
+		}
+	}
 }
 
 bool PaletteManager::SelectTilesetInPalette(std::string_view paletteName, std::string_view tilesetName) {
@@ -124,7 +145,7 @@ bool PaletteManager::SelectTilesetInPalette(std::string_view paletteName, std::s
 	p->SelectPage(paletteName);
 	bool success = p->SelectTilesetInCurrentPalette(tilesetName);
 	g_gui.aui_manager->Update();
-	g_brush_manager.SelectBrushInternal(p->GetSelectedBrush());
+	g_gui.SelectBrushInternal(p->GetSelectedBrush());
 	return success;
 }
 
@@ -169,7 +190,7 @@ PaletteWindow* PaletteManager::CreatePalette() {
 	g_gui.aui_manager->Update();
 
 	palettes.push_front(palette);
-	g_brush_manager.SelectBrushInternal(palette->GetSelectedBrush());
+	g_gui.SelectBrushInternal(palette->GetSelectedBrush());
 	palette->OnUpdate(g_gui.IsEditorOpen() ? &g_gui.GetCurrentMap() : nullptr);
 	return palette;
 }

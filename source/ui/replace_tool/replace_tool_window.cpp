@@ -2,6 +2,7 @@
 #include "replace_tool_window.h"
 #include "visual_similarity_service.h"
 #include "ui/theme.h"
+
 #include "editor/editor.h"
 #include "ui/gui.h"
 #include "app/settings.h"
@@ -294,6 +295,16 @@ void ReplaceToolWindow::InitLayout() {
 		if (m_noFilterGrid) m_noFilterGrid->SetIconSize(size);
 		if (m_similarGrid) m_similarGrid->SetIconSize(size);
 		if (m_exactGrid) m_exactGrid->SetIconSize(size);
+	};
+	suggestionActions.brush_indicators = [this](bool dogEar) {
+		if (m_noFilterGrid) m_noFilterGrid->SetBrushIndicators(dogEar);
+		if (m_similarGrid) m_similarGrid->SetBrushIndicators(dogEar);
+		if (m_exactGrid) m_exactGrid->SetBrushIndicators(dogEar);
+	};
+	suggestionActions.grid_spacing = [this](int spacingPx) {
+		if (m_noFilterGrid) m_noFilterGrid->SetGridSpacing(spacingPx);
+		if (m_similarGrid) m_similarGrid->SetGridSpacing(spacingPx);
+		if (m_exactGrid) m_exactGrid->SetGridSpacing(spacingPx);
 	};
 
 	m_suggestionsToolbar = new TilesetGridToolbar(col3Card, std::move(suggestionActions), TilesetGridToolbar::Part_Standard);

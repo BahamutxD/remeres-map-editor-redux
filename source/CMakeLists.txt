@@ -418,6 +418,7 @@ set(rme_H
     ${CMAKE_CURRENT_LIST_DIR}/ui/menubar_loader.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/tool_options_window.h
     ${CMAKE_CURRENT_LIST_DIR}/ui/tool_options_surface.h
+    ${CMAKE_CURRENT_LIST_DIR}/ui/brush_items/brush_items_window.h
     ${CMAKE_CURRENT_LIST_DIR}/util/common.h
     ${CMAKE_CURRENT_LIST_DIR}/util/grid_view_options.h
     ${CMAKE_CURRENT_LIST_DIR}/util/json.h
@@ -844,6 +845,7 @@ set(rme_SRC
     ${CMAKE_CURRENT_LIST_DIR}/util/grid_cell_renderer.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/tool_options_window.cpp
     ${CMAKE_CURRENT_LIST_DIR}/ui/tool_options_surface.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/ui/brush_items/brush_items_window.cpp
     ${CMAKE_CURRENT_LIST_DIR}/util/file_system.cpp
     ${CMAKE_CURRENT_LIST_DIR}/util/system_specs.cpp
     ${CMAKE_CURRENT_LIST_DIR}/util/image_manager.cpp

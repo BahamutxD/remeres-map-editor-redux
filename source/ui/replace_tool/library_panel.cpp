@@ -106,6 +106,14 @@ void LibraryPanel::InitLayout() {
 	itemActions.icon_size = [this](int size) {
 		m_allItemsGrid->SetIconSize(size);
 	};
+	itemActions.brush_indicators = [this](bool dogEar) {
+		m_allItemsGrid->SetBrushIndicators(dogEar);
+		m_itemsToolbar->SetIndicatorState(dogEar);
+	};
+	itemActions.grid_spacing = [this](int spacingPx) {
+		m_allItemsGrid->SetGridSpacing(spacingPx);
+		m_itemsToolbar->SetGridSpacing(spacingPx);
+	};
 
 	m_itemsToolbar = new TilesetGridToolbar(itemListPage, std::move(itemActions));
 	m_itemsToolbar->SetState(m_allItemsGrid->GetShowLabels(), m_allItemsGrid->GetIconSize(), m_allItemsGrid->HasSort(), m_allItemsGrid->GetSortKey(), m_allItemsGrid->GetSortDirection(), false);
@@ -154,6 +162,16 @@ void LibraryPanel::InitLayout() {
 	brushActions.icon_size = [this](int size) {
 		m_brushGrid->SetIconSize(size);
 		m_relatedGrid->SetIconSize(size);
+	};
+	brushActions.brush_indicators = [this](bool dogEar) {
+		m_brushGrid->SetBrushIndicators(dogEar);
+		m_relatedGrid->SetBrushIndicators(dogEar);
+		m_brushesToolbar->SetIndicatorState(dogEar);
+	};
+	brushActions.grid_spacing = [this](int spacingPx) {
+		m_brushGrid->SetGridSpacing(spacingPx);
+		m_relatedGrid->SetGridSpacing(spacingPx);
+		m_brushesToolbar->SetGridSpacing(spacingPx);
 	};
 
 	m_brushesToolbar = new TilesetGridToolbar(brushesPanel, std::move(brushActions));
@@ -237,6 +255,14 @@ void LibraryPanel::InitLayout() {
 	viewportActions.icon_size = [this](int size) {
 		m_viewportGrid->SetIconSize(size);
 	};
+	viewportActions.brush_indicators = [this](bool dogEar) {
+		m_viewportGrid->SetBrushIndicators(dogEar);
+		m_viewportToolbar->SetIndicatorState(dogEar);
+	};
+	viewportActions.grid_spacing = [this](int spacingPx) {
+		m_viewportGrid->SetGridSpacing(spacingPx);
+		m_viewportToolbar->SetGridSpacing(spacingPx);
+	};
 
 	m_viewportToolbar = new TilesetGridToolbar(viewportPage, std::move(viewportActions));
 	m_viewportToolbar->SetState(m_viewportGrid->GetShowLabels(), m_viewportGrid->GetIconSize(), m_viewportGrid->HasSort(), m_viewportGrid->GetSortKey(), m_viewportGrid->GetSortDirection(), false);
@@ -281,6 +307,14 @@ void LibraryPanel::InitLayout() {
 	};
 	selectionActions.icon_size = [this](int size) {
 		m_selectionGrid->SetIconSize(size);
+	};
+	selectionActions.brush_indicators = [this](bool dogEar) {
+		m_selectionGrid->SetBrushIndicators(dogEar);
+		m_selectionToolbar->SetIndicatorState(dogEar);
+	};
+	selectionActions.grid_spacing = [this](int spacingPx) {
+		m_selectionGrid->SetGridSpacing(spacingPx);
+		m_selectionToolbar->SetGridSpacing(spacingPx);
 	};
 
 	m_selectionToolbar = new TilesetGridToolbar(selectionPage, std::move(selectionActions));

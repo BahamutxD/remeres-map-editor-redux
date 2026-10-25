@@ -30,6 +30,8 @@ public:
 	void ShowPalette();
 	void SelectPalettePage(std::string_view name);
 	void ReloadDynamicPalettes();
+	void SetBrushIndicators(bool dogEar);
+	void SetGridSpacing(int spacing);
 	bool SelectTilesetInPalette(std::string_view paletteName, std::string_view tilesetName);
 	void DestroyPalettes();
 	PaletteWindow* CreatePalette();

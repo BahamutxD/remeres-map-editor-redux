@@ -29,6 +29,9 @@
 AllItemsPalette::AllItemsPalette(wxWindow* parent, wxWindowID id) :
 	PalettePanel(parent, id) {
 	tileset_def.name = "All items";
+	indicator_dogear = g_settings.getBoolean(Config::PALETTE_INDICATOR_DOGEAR);
+	const int loadedSpacing = g_settings.getInteger(Config::PALETTE_GRID_SPACING);
+	grid_spacing = (loadedSpacing == 2 || loadedSpacing == 6) ? loadedSpacing : 4;
 
 	main_sizer = newd wxBoxSizer(wxVERTICAL);
 
@@ -73,10 +76,18 @@ AllItemsPalette::AllItemsPalette(wxWindow* parent, wxWindowID id) :
 	actions.filter_cleared = [this]() {
 		ResetFilter();
 	};
+	actions.brush_indicators = [this](bool dogEar) {
+		SetBrushIndicators(dogEar);
+	};
+	actions.grid_spacing = [this](int spacing) {
+		SetGridSpacing(spacing);
+	};
 	actions.filter_focus_lost = []() {};
 
 	toolbar = newd TilesetGridToolbar(this, std::move(actions), TilesetGridToolbar::Part_Standard);
 	toolbar->SetState(show_labels, tile_size, has_sort, sort_key, sort_dir, false, is_list_mode);
+	toolbar->SetIndicatorState(indicator_dogear);
+	toolbar->SetGridSpacing(grid_spacing);
 	main_sizer->Add(toolbar, 0, wxEXPAND | wxBOTTOM, 2);
 
 	SetSizer(main_sizer);
@@ -131,6 +142,8 @@ void AllItemsPalette::LoadCurrentContents() {
 			grid->SetSort(sort_key, sort_dir);
 		}
 		grid->SetShowLabels(show_labels);
+		grid->SetBrushIndicators(indicator_dogear);
+		grid->SetGridSpacing(grid_spacing);
 		if (!filter_query.empty()) {
 			grid->SetFilterQuery(filter_query);
 		}
@@ -224,5 +237,30 @@ void AllItemsPalette::ResetFilter() {
 void AllItemsPalette::ApplyFilter() {
 	if (grid) {
 		grid->SetFilterQuery(filter_query);
+	}
+}
+
+void AllItemsPalette::SetBrushIndicators(bool dogEar) {
+	indicator_dogear = dogEar;
+	g_settings.setInteger(Config::PALETTE_INDICATOR_DOGEAR, dogEar ? 1 : 0);
+	g_settings.save();
+	if (toolbar) {
+		toolbar->SetIndicatorState(dogEar);
+	}
+	if (grid) {
+		grid->SetBrushIndicators(dogEar);
+	}
+}
+
+void AllItemsPalette::SetGridSpacing(int spacing) {
+	const int validSpacing = (spacing == 2 || spacing == 6) ? spacing : 4;
+	grid_spacing = validSpacing;
+	g_settings.setInteger(Config::PALETTE_GRID_SPACING, validSpacing);
+	g_settings.save();
+	if (toolbar) {
+		toolbar->SetGridSpacing(validSpacing);
+	}
+	if (grid) {
+		grid->SetGridSpacing(validSpacing);
 	}
 }

@@ -33,6 +33,14 @@ public:
 	int GetIconSize() const {
 		return m_iconSize;
 	}
+	void SetBrushIndicators(bool dogEar);
+	bool GetBrushIndicators() const {
+		return m_indicatorDogEar;
+	}
+	void SetGridSpacing(int spacingPx);
+	int GetGridSpacing() const {
+		return m_gridSpacing;
+	}
 	virtual void SetSort(TilesetSortKey key, TilesetSortDirection dir);
 	virtual void ClearSort();
 	bool HasSort() const {
@@ -99,6 +107,8 @@ protected:
 	// Member variables
 	int m_iconSize;
 	bool m_showLabels;
+	bool m_indicatorDogEar = false;
+	int m_gridSpacing = 4;
 	TilesetSortKey m_sortKey = TilesetSortKey::Name;
 	TilesetSortDirection m_sortDir = TilesetSortDirection::Ascending;
 	bool m_hasSort = false;

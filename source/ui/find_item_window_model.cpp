@@ -415,6 +415,18 @@ AdvancedFinderPersistedState LoadAdvancedFinderPersistedState() {
 		std::max(680, g_settings.getInteger(Config::ADVANCED_ITEM_FINDER_WINDOW_HEIGHT))
 	);
 
+	state.view_mode = g_settings.getInteger(Config::ADVANCED_ITEM_FINDER_VIEW_MODE);
+	state.icon_size = g_settings.getInteger(Config::ADVANCED_ITEM_FINDER_ICON_SIZE);
+	if (state.icon_size != 64 && state.icon_size != 128) {
+		state.icon_size = 32;
+	}
+	state.grid_spacing = g_settings.getInteger(Config::ADVANCED_ITEM_FINDER_GRID_SPACING);
+	if (state.grid_spacing != 2 && state.grid_spacing != 6) {
+		state.grid_spacing = 4;
+	}
+	state.indicator_dogear = (g_settings.getInteger(Config::ADVANCED_ITEM_FINDER_INDICATOR_DOGEAR) != 0);
+	state.show_labels = (g_settings.getInteger(Config::ADVANCED_ITEM_FINDER_SHOW_LABELS) != 0);
+
 	return state;
 }
 
@@ -435,6 +447,11 @@ void SaveAdvancedFinderPersistedState(const AdvancedFinderPersistedState& state)
 	if (state.size.IsFullySpecified()) {
 		g_settings.setInteger(Config::ADVANCED_ITEM_FINDER_WINDOW_WIDTH, state.size.GetWidth());
 		g_settings.setInteger(Config::ADVANCED_ITEM_FINDER_WINDOW_HEIGHT, state.size.GetHeight());
+		g_settings.setInteger(Config::ADVANCED_ITEM_FINDER_VIEW_MODE, state.view_mode);
+		g_settings.setInteger(Config::ADVANCED_ITEM_FINDER_ICON_SIZE, state.icon_size);
+		g_settings.setInteger(Config::ADVANCED_ITEM_FINDER_GRID_SPACING, state.grid_spacing);
+		g_settings.setInteger(Config::ADVANCED_ITEM_FINDER_INDICATOR_DOGEAR, state.indicator_dogear ? 1 : 0);
+		g_settings.setInteger(Config::ADVANCED_ITEM_FINDER_SHOW_LABELS, state.show_labels ? 1 : 0);
 	}
 }
 

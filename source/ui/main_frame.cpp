@@ -24,6 +24,7 @@
 #include "ui/main_menubar.h"
 #include "app/updater.h"
 #include "ui/tile_properties/tile_properties_panel.h"
+#include "ui/brush_items/brush_items_window.h"
 #include <wx/stattext.h>
 #include <wx/slider.h>
 
@@ -76,6 +77,21 @@ MainFrame::MainFrame(const wxString& title, const wxPoint& pos, const wxSize& si
 
 	g_gui.tile_properties_panel = newd TilePropertiesPanel(this);
 	g_gui.aui_manager->AddPane(g_gui.tile_properties_panel, wxAuiPaneInfo().Name("TileProperties").Caption("Tile Properties").Right().Layer(1).Position(1).CloseButton(true).MaximizeButton(true).Hide());
+	g_gui.brush_items_window = newd BrushItemsWindow(this);
+	g_gui.aui_manager->AddPane(g_gui.brush_items_window,
+		wxAuiPaneInfo()
+			.Name("BrushItems")
+			.Caption("Brush Items")
+			.Right()
+			.Layer(1)
+			.Position(2)
+			.CloseButton(true)
+			.MaximizeButton(true)
+			.Floatable(true)
+			.BestSize(320, 450)
+			.MinSize(220, 180)
+			.Hide()
+	);
 
 	// Create Script Manager panel (dockable)
 	LuaScriptsWindow* scriptsWindow = newd LuaScriptsWindow(this);

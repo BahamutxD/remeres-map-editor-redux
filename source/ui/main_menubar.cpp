@@ -22,6 +22,7 @@
 #include "ui/gui.h"
 #include "ui/tool_options_window.h"
 #include "ui/tile_properties/tile_properties_panel.h"
+#include "ui/brush_items/brush_items_window.h"
 
 #include "map/map_statistics.h"
 #include "map/map_search.h"
@@ -539,6 +540,19 @@ void MainMenuBar::OnToolOptionsWindow(wxCommandEvent& event) {
 
 void MainMenuBar::OnIngamePreviewWindow(wxCommandEvent& event) {
 	g_preview.Create();
+}
+
+void MainMenuBar::OnBrushItemsWindow(wxCommandEvent& event) {
+	if (g_gui.brush_items_window) {
+		wxAuiPaneInfo& info = g_gui.aui_manager->GetPane(g_gui.brush_items_window);
+		if (info.IsShown()) {
+			info.Hide();
+		} else {
+			info.Show();
+			g_gui.brush_items_window->SetActiveBrush(g_gui.GetCurrentBrush());
+		}
+		g_gui.aui_manager->Update();
+	}
 }
 
 void MainMenuBar::OnTilePropertiesWindow(wxCommandEvent& event) {

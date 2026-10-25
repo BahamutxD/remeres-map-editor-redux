@@ -25,6 +25,8 @@
 #include "map/basemap.h"
 #include "game/spawn.h"
 
+#include <algorithm>
+
 //=============================================================================
 // Creature brush
 
@@ -104,6 +106,14 @@ void CreatureBrush::draw(BaseMap* map, Tile* tile, void* parameter) {
 	draw_creature(map, tile);
 }
 
+void CreatureBrush::setVariation(int32_t variation) {
+	current_direction = static_cast<Direction>(std::clamp<int32_t>(variation, 0, 3));
+}
+
+int32_t CreatureBrush::getVariation() const {
+	return static_cast<int32_t>(current_direction);
+}
+
 void CreatureBrush::draw_creature(BaseMap* map, Tile* tile) {
 	if (canDraw(map, tile->getPosition())) {
 		undraw(map, tile);
@@ -113,6 +123,7 @@ void CreatureBrush::draw_creature(BaseMap* map, Tile* tile) {
 				tile->spawn = std::make_unique<Spawn>(1);
 			}
 			tile->creature = std::make_unique<Creature>(creature_type);
+			tile->creature->setDirection(current_direction);
 			tile->creature->setSpawnTime(g_gui.GetSpawnTime());
 		}
 	}

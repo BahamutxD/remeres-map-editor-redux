@@ -60,6 +60,7 @@ class LiveSocket;
 class SidebarWindow;
 class ToolOptionsWindow;
 class TilePropertiesPanel;
+class BrushItemsWindow;
 
 wxDECLARE_EVENT(EVT_UPDATE_MENUS, wxCommandEvent);
 
@@ -282,6 +283,7 @@ public:
 	void RefreshView(bool immediate = false);
 	void ReleaseAllChunkCaches();
 	void SyncCurrentMapCanvasPreviewState();
+	void FocusCurrentMapCanvas();
 	// Fit all/specified current map view to map dimensions
 	void FitViewToMap();
 	void FitViewToMap(MapTab* mt);
@@ -386,6 +388,7 @@ public:
 
 	ToolOptionsWindow* tool_options;
 	TilePropertiesPanel* tile_properties_panel;
+	BrushItemsWindow* brush_items_window;
 
 	bool pasting;
 

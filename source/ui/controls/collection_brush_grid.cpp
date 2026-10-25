@@ -1,3 +1,4 @@
+#include "app/settings.h"
 #include "ui/controls/collection_brush_grid.h"
 
 #include "brushes/brush.h"
@@ -43,6 +44,10 @@ namespace {
 
 CollectionBrushGrid::CollectionBrushGrid(wxWindow* parent, wxWindowID id) :
 	NanoVGCanvas(parent, id) {
+
+	m_indicatorDogEar = g_settings.getBoolean(Config::PALETTE_INDICATOR_DOGEAR);
+	const int loadedSpacing = g_settings.getInteger(Config::PALETTE_GRID_SPACING);
+	m_gridSpacing = (loadedSpacing == 2 || loadedSpacing == 6) ? loadedSpacing : 4;
 	m_itemSize = rme::ui::grid::CellWidth(m_iconSize);
 
 	Bind(wxEVT_LEFT_DOWN, &CollectionBrushGrid::OnMouseDown, this);
@@ -169,7 +174,7 @@ void CollectionBrushGrid::UpdateLayout() {
 		width = 200;
 	}
 
-	constexpr int padding = rme::ui::grid::kPadding;
+	const int padding = m_gridSpacing;
 	int totalItems = static_cast<int>(m_filteredBrushes.size());
 	int cellWidth = m_itemSize;
 	int cellHeight = rme::ui::grid::CellHeight(m_iconSize, m_showLabels);
@@ -184,7 +189,7 @@ wxSize CollectionBrushGrid::DoGetBestClientSize() const {
 }
 
 int CollectionBrushGrid::HitTest(int x, int y) const {
-	constexpr int padding = rme::ui::grid::kPadding;
+	const int padding = m_gridSpacing;
 	int scrollPos = GetScrollPosition();
 	int realY = y + scrollPos;
 	int realX = x;
@@ -216,7 +221,7 @@ int CollectionBrushGrid::HitTest(int x, int y) const {
 }
 
 wxRect CollectionBrushGrid::GetItemRect(int index) const {
-	constexpr int padding = rme::ui::grid::kPadding;
+	const int padding = m_gridSpacing;
 	int row = index / m_columns;
 	int col = index % m_columns;
 	int cellWidth = m_itemSize;
@@ -239,7 +244,7 @@ void CollectionBrushGrid::DrawBrushItem(NVGcontext* vg, int i, const wxRect& rec
 	const bool selected = (i == m_selectedIndex);
 	const bool hovered = (i == m_hoverIndex);
 
-	const wxRect drawn = rme::ui::grid::DrawCardChrome(vg, rect, selected, hovered, m_hoverAnim);
+	const wxRect drawn = rme::ui::grid::DrawCardChrome(vg, rect, selected, hovered, m_hoverAnim, m_showLabels);
 
 	const wxRect iconRect = rme::ui::grid::IconRect(drawn, m_iconSize);
 
@@ -261,6 +266,12 @@ void CollectionBrushGrid::DrawBrushItem(NVGcontext* vg, int i, const wxRect& rec
 	}
 	rme::ui::grid::DrawCellIcon(vg, iconRect, texture, badge);
 
+	if (m_indicatorDogEar) {
+		const bool isLightTheme = (Theme::Get(Theme::Role::Surface).Red() > 128);
+		const NVGcolor catNVG = rme::ui::grid::GetStandardCategoryColor(brush);
+		rme::ui::grid::DrawDogEarBadge(vg, iconRect, catNVG);
+	}
+
 	if (m_showLabels) {
 		rme::ui::grid::DrawCellLabel(vg, drawn, wxstr(brush->getName()), selected, m_labelCache);
 	}
@@ -273,7 +284,7 @@ void CollectionBrushGrid::DrawBrushItem(NVGcontext* vg, int i, const wxRect& rec
 void CollectionBrushGrid::OnNanoVGPaint(NVGcontext* vg, int width, int height) {
 	int scrollPos = GetScrollPosition();
 	int cellHeight = rme::ui::grid::CellHeight(m_iconSize, m_showLabels);
-	int rowHeight = cellHeight + rme::ui::grid::kPadding;
+	int rowHeight = cellHeight + m_gridSpacing;
 	int startRow = scrollPos / rowHeight;
 	int endRow = (scrollPos + height + rowHeight - 1) / rowHeight + 1;
 
@@ -282,6 +293,22 @@ void CollectionBrushGrid::OnNanoVGPaint(NVGcontext* vg, int width, int height) {
 
 	for (int i = startIdx; i < endIdx; ++i) {
 		DrawBrushItem(vg, i, GetItemRect(i));
+	}
+}
+
+void CollectionBrushGrid::SetBrushIndicators(bool dogEar) {
+	if (m_indicatorDogEar != dogEar) {
+		m_indicatorDogEar = dogEar;
+		Refresh();
+	}
+}
+
+void CollectionBrushGrid::SetGridSpacing(int spacingPx) {
+	const int validSpacing = (spacingPx == 2 || spacingPx == 6) ? spacingPx : 4;
+	if (m_gridSpacing != validSpacing) {
+		m_gridSpacing = validSpacing;
+		UpdateLayout();
+		Refresh();
 	}
 }
 

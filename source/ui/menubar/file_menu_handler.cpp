@@ -14,6 +14,7 @@
 #include "game/creatures.h"
 #include "app/managers/version_manager.h"
 #include "ui/controls/sortable_list_box.h"
+#include "ui/brush_items/brush_items_window.h"
 
 FileMenuHandler::FileMenuHandler(MainFrame* frame, MainMenuBar* menubar) :
 	frame(frame), menubar(menubar) {
@@ -95,6 +96,9 @@ void FileMenuHandler::OnExportMinimap(wxCommandEvent& WXUNUSED(event)) {
 }
 
 void FileMenuHandler::OnReloadDataFiles(wxCommandEvent& WXUNUSED(event)) {
+	if (g_gui.brush_items_window) {
+		g_gui.brush_items_window->SetActiveBrush(nullptr);
+	}
 	wxString error;
 	std::vector<std::string> warnings;
 	g_version.LoadVersion(g_version.GetCurrentVersionID(), error, warnings, true);
