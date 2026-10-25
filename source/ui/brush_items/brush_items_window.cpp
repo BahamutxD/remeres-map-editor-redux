@@ -351,6 +351,9 @@ void BrushItemsWindow::BuildUI() {
 
 	// Bottom tile square with brush name
 	m_bottomCard = new BrushBottomCardWidget(this);
+	if (m_grid) {
+		m_bottomCard->SetIndicatorDogEar(m_grid->GetBrushIndicators());
+	}
 	m_bottomCard->Show(false);
 	mainSizer->Add(m_bottomCard, 0, wxEXPAND);
 
