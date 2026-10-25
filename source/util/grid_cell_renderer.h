@@ -80,8 +80,16 @@ namespace rme::ui::grid {
 		std::unordered_map<std::string, CellLabel> m_entries;
 	};
 
-	NVGcolor GetStandardCategoryColor(Theme::Role role, bool isLightTheme);
-	NVGcolor GetStandardCategoryColor(const Brush* brush, bool isLightTheme);
+	constexpr int NormalizeGridSpacing(int spacing) noexcept {
+		return (spacing == 2 || spacing == 6) ? spacing : 4;
+	}
+
+	inline bool IsLightTheme() {
+		return Theme::Get(Theme::Role::Surface).Red() > 128;
+	}
+
+	NVGcolor GetStandardCategoryColor(Theme::Role role);
+	NVGcolor GetStandardCategoryColor(const Brush* brush);
 
 	void DrawDogEarBadge(NVGcontext* vg, const wxRect& iconRect, NVGcolor categoryColor);
 

@@ -207,6 +207,9 @@ void GUI::SetCurrentMapSecondaryMap(BaseMap* secondary_map) {
 }
 
 void GUI::RefreshView(bool immediate) {
+	if (!tabbook) {
+		return;
+	}
 	MapTab* current_map_tab = GetCurrentMapTab();
 	for (int i = 0; i < tabbook->GetTabCount(); ++i) {
 		auto* editor_tab = tabbook->GetTab(i);
@@ -370,7 +373,9 @@ void GUI::FillDoodadPreviewBuffer() {
 
 void GUI::FocusCurrentMapCanvas() {
 	if (MapTab* map_tab = GetCurrentMapTab()) {
-		map_tab->GetCanvas()->SetFocus();
+		if (auto* canvas = map_tab->GetCanvas()) {
+			canvas->SetFocus();
+		}
 	}
 }
 

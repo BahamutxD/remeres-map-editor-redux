@@ -479,6 +479,12 @@ void BrushPalettePanel::OnSwitchIn() {
 	if (m_tileSize != s_defaultTileSize) {
 		SetTileSize(s_defaultTileSize);
 	}
+	if (m_indicatorDogEar != s_defaultIndicatorDogEar) {
+		SetBrushIndicators(s_defaultIndicatorDogEar);
+	}
+	if (m_gridSpacing != s_defaultGridSpacing) {
+		SetGridSpacing(s_defaultGridSpacing);
+	}
 	if (s_defaultHasSort) {
 		if (!m_hasSort || m_sortKey != s_defaultSortKey || m_sortDir != s_defaultSortDir) {
 			SetSort(s_defaultSortKey, s_defaultSortDir);

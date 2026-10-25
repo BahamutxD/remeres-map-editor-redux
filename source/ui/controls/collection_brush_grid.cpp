@@ -268,7 +268,7 @@ void CollectionBrushGrid::DrawBrushItem(NVGcontext* vg, int i, const wxRect& rec
 
 	if (m_indicatorDogEar) {
 		const bool isLightTheme = (Theme::Get(Theme::Role::Surface).Red() > 128);
-		const NVGcolor catNVG = rme::ui::grid::GetStandardCategoryColor(brush, isLightTheme);
+		const NVGcolor catNVG = rme::ui::grid::GetStandardCategoryColor(brush);
 		rme::ui::grid::DrawDogEarBadge(vg, iconRect, catNVG);
 	}
 

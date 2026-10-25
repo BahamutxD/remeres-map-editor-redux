@@ -273,7 +273,7 @@ void RuleBuilderRenderer::DrawTargetSlot(
 	}
 
 	nvgBeginPath(vg);
-	nvgRoundedRect(vg, static_cast<float>(rect.x), static_cast<float>(rect.y), static_cast<float>(rect.width), static_cast<float>(rect.height), 4.0f);
+	nvgRect(vg, static_cast<float>(rect.x), static_cast<float>(rect.y), static_cast<float>(rect.width), static_cast<float>(rect.height));
 	nvgFillColor(vg, (hovered && !ignored) ? rme::ui::grid::NvgColor(Theme::Role::CardBaseHover) : rme::ui::grid::NvgColor(Theme::Role::CardBase));
 	nvgFill(vg);
 

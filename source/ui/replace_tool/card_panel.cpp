@@ -60,7 +60,6 @@ void CardPanel::OnNanoVGPaint(NVGcontext* vg, int width, int height) {
 
 	// Padding for "shadow"
 	float margin = 2.0f;
-	float r = 6.0f; // Radius
 
 	// Draw Shadow (simulated with offset rect)
 	nvgBeginPath(vg);
@@ -96,21 +95,7 @@ void CardPanel::OnNanoVGPaint(NVGcontext* vg, int width, int height) {
 		float ch = headerH; // Height of header part
 
 		nvgBeginPath(vg);
-		// Start at Bottom-Left of header
-		nvgMoveTo(vg, x, y + ch);
-		// Left vertical up to start of round
-		nvgLineTo(vg, x, y + r);
-		// Top-Left Corner
-		nvgArc(vg, x + r, y + r, r, NVG_PI, 1.5f * NVG_PI, NVG_CW);
-		// Top Line
-		nvgLineTo(vg, x + cw - r, y);
-		// Top-Right Corner
-		nvgArc(vg, x + cw - r, y + r, r, 1.5f * NVG_PI, 0, NVG_CW);
-		// Bottom-Right of header part
-		nvgLineTo(vg, x + cw, y + ch);
-		// Bottom Line (Separator)
-		nvgLineTo(vg, x, y + ch);
-		nvgClosePath(vg);
+		nvgRect(vg, x, y, cw, ch);
 
 		// Fill Header
 		nvgFillColor(vg, nvgRGBA(headerBg.Red(), headerBg.Green(), headerBg.Blue(), headerBg.Alpha()));
@@ -151,21 +136,7 @@ void CardPanel::OnNanoVGPaint(NVGcontext* vg, int width, int height) {
 		float ch = footerH;
 
 		nvgBeginPath(vg);
-		// Start at Top-Left of footer
-		nvgMoveTo(vg, x, y);
-		// Top Line (Separator)
-		nvgLineTo(vg, x + cw, y);
-		// Right vertical down to start of round
-		nvgLineTo(vg, x + cw, y + ch - r);
-		// Bottom-Right Corner
-		nvgArc(vg, x + cw - r, y + ch - r, r, 0, 0.5f * NVG_PI, NVG_CW);
-		// Bottom Line
-		nvgLineTo(vg, x + r, y + ch);
-		// Bottom-Left Corner
-		nvgArc(vg, x + r, y + ch - r, r, 0.5f * NVG_PI, NVG_PI, NVG_CW);
-		// Left vertical up
-		nvgLineTo(vg, x, y);
-		nvgClosePath(vg);
+		nvgRect(vg, x, y, cw, ch);
 
 		// Fill Footer
 		nvgFillColor(vg, nvgRGBA(headerBg.Red(), headerBg.Green(), headerBg.Blue(), headerBg.Alpha()));

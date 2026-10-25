@@ -203,12 +203,6 @@ void KeyboardHandler::HandleRotationOrVariation(MapCanvas* canvas, int keycode) 
 	const bool backwards = (keycode == 'z' || keycode == 'Z');
 	const bool clockwise = !backwards;
 
-	if (canvas->editor.selection.size() > 1) {
-		SelectionOperations::pivotSelection(canvas->editor, clockwise);
-		canvas->RequestLocalRefresh();
-		return;
-	}
-
 	if (SelectionOperations::rotateSelection(canvas->editor, clockwise)) {
 		canvas->RequestLocalRefresh();
 		return;

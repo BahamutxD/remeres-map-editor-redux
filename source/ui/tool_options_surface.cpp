@@ -100,12 +100,15 @@ void ToolOptionsSurface::BuildUi() {
 	Bind(wxEVT_CHAR_HOOK, [this](wxKeyEvent& event) {
 		const int key = event.GetKeyCode();
 		if (!event.ControlDown() && !event.AltDown()) {
-			if (key == 'z' || key == 'Z' || key == 'x' || key == 'X' || key == 'q' || key == 'Q' || key == WXK_SPACE) {
-				if (MapTab* map_tab = g_gui.GetCurrentMapTab()) {
-					if (auto* canvas = map_tab->GetCanvas()) {
-						canvas->SetFocus();
-						KeyboardHandler::OnKeyDown(canvas, event);
-						return;
+			if (key == 'z' || key == 'Z' || key == 'x' || key == 'X' || key == 'q' || key == 'Q') {
+				wxWindow* focused = wxWindow::FindFocus();
+				if (!focused || (!dynamic_cast<wxTextCtrl*>(focused) && !dynamic_cast<wxSpinCtrl*>(focused))) {
+					if (MapTab* map_tab = g_gui.GetCurrentMapTab()) {
+						if (auto* canvas = map_tab->GetCanvas()) {
+							canvas->SetFocus();
+							KeyboardHandler::OnKeyDown(canvas, event);
+							return;
+						}
 					}
 				}
 			}

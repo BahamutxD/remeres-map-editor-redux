@@ -324,13 +324,16 @@ void AdvancedFinderResultsView::applySort() {
 		return;
 	}
 	const auto* selected = GetSelectedRow();
-	std::sort(rows_.begin(), rows_.end(), [this](const AdvancedFinderCatalogRow* a, const AdvancedFinderCatalogRow* b) {
+	std::stable_sort(rows_.begin(), rows_.end(), [this](const AdvancedFinderCatalogRow* a, const AdvancedFinderCatalogRow* b) {
+		const int idA = a->server_id > 0 ? a->server_id : a->client_id;
+		const int idB = b->server_id > 0 ? b->server_id : b->client_id;
 		if (sort_key_ == TilesetSortKey::ID) {
-			const int idA = a->server_id > 0 ? a->server_id : a->client_id;
-			const int idB = b->server_id > 0 ? b->server_id : b->client_id;
 			return sort_dir_ == TilesetSortDirection::Ascending ? (idA < idB) : (idA > idB);
 		} else {
-			return sort_dir_ == TilesetSortDirection::Ascending ? (a->label < b->label) : (a->label > b->label);
+			if (a->lower_label != b->lower_label) {
+				return sort_dir_ == TilesetSortDirection::Ascending ? (a->lower_label < b->lower_label) : (a->lower_label > b->lower_label);
+			}
+			return idA < idB;
 		}
 	});
 	if (selected) {

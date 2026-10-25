@@ -221,8 +221,8 @@ void AdvancedFinderResultsView::drawListRow(NVGcontext* vg, const wxRect& rect, 
 	if (indicator_dogear_) {
 		const bool isLightTheme = (Theme::Get(Theme::Role::Surface).Red() > 128);
 		const Brush* b = row.brush ? row.brush : static_cast<Brush*>(row.raw_brush);
-		const NVGcolor catColor = b ? rme::ui::grid::GetStandardCategoryColor(b, isLightTheme)
-		                            : rme::ui::grid::GetStandardCategoryColor(Theme::Role::BrushCategoryDefaultRaw, isLightTheme);
+		const NVGcolor catColor = b ? rme::ui::grid::GetStandardCategoryColor(b)
+		                            : rme::ui::grid::GetStandardCategoryColor(Theme::Role::BrushCategoryDefaultRaw);
 		rme::ui::grid::DrawDogEarBadge(vg, sprite_rect, catColor);
 	}
 
@@ -260,8 +260,8 @@ void AdvancedFinderResultsView::drawGridCard(NVGcontext* vg, const wxRect& rect,
 	if (indicator_dogear_) {
 		const bool isLightTheme = (Theme::Get(Theme::Role::Surface).Red() > 128);
 		const Brush* b = row.brush ? row.brush : static_cast<Brush*>(row.raw_brush);
-		const NVGcolor catColor = b ? rme::ui::grid::GetStandardCategoryColor(b, isLightTheme)
-		                            : rme::ui::grid::GetStandardCategoryColor(Theme::Role::BrushCategoryDefaultRaw, isLightTheme);
+		const NVGcolor catColor = b ? rme::ui::grid::GetStandardCategoryColor(b)
+		                            : rme::ui::grid::GetStandardCategoryColor(Theme::Role::BrushCategoryDefaultRaw);
 		rme::ui::grid::DrawDogEarBadge(vg, sprite_rect, catColor);
 	}
 

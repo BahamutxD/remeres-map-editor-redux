@@ -812,11 +812,6 @@ void MapCanvas::OnGainMouse(wxMouseEvent& event) {
 		screendragging = false;
 	}
 
-	wxWindow* focused = wxWindow::FindFocus();
-	if (!focused || !dynamic_cast<wxTextCtrl*>(focused)) {
-		SetFocus();
-	}
-
 	RequestLocalRefresh();
 }
 

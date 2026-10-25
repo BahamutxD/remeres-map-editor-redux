@@ -78,25 +78,6 @@ void PopupActionHandler::RotateItem(Editor& editor, bool backwards) {
 }
 
 void PopupActionHandler::RotateItemAt(Editor& editor, const Position& pos, bool backwards) {
-	if (editor.selection.size() == 1) {
-		Tile* selected_tile = editor.selection.getSelectedTile();
-		if (selected_tile) {
-			for (Item* item : TileOperations::getSelectedItems(selected_tile)) {
-				if (!item) {
-					continue;
-				}
-				if (item->isBrushDoor()) {
-					SwitchDoor(editor);
-					return;
-				}
-				if (item->isRoteable()) {
-					RotateItem(editor, backwards);
-					return;
-				}
-			}
-		}
-	}
-
 	Tile* tile = editor.map.getTile(pos);
 	if (!tile) {
 		return;

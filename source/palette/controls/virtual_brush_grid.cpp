@@ -278,7 +278,7 @@ void VirtualBrushGrid::DrawBrushItem(NVGcontext* vg, int i, const wxRect& rect) 
 	const bool hovered = (i == hover_index);
 	const bool listMode = display_mode == DisplayMode::List;
 
-	const wxRect drawn = rme::ui::grid::DrawCardChrome(vg, rect, selected, hovered, hover_anim, m_showLabels);
+	const wxRect drawn = rme::ui::grid::DrawCardChrome(vg, rect, selected, hovered, hover_anim, m_showLabels && !listMode);
 
 	const int iconSize = listMode ? rme::ui::grid::kIconSizeBase : icon_size_px;
 	const wxRect iconRect = listMode
@@ -305,7 +305,7 @@ void VirtualBrushGrid::DrawBrushItem(NVGcontext* vg, int i, const wxRect& rect) 
 
 	if (m_indicatorDogEar) {
 		const bool isLightTheme = (Theme::Get(Theme::Role::Surface).Red() > 128);
-		const NVGcolor catNVG = rme::ui::grid::GetStandardCategoryColor(brush, isLightTheme);
+		const NVGcolor catNVG = rme::ui::grid::GetStandardCategoryColor(brush);
 		rme::ui::grid::DrawDogEarBadge(vg, iconRect, catNVG);
 	}
 

@@ -128,36 +128,12 @@ namespace rme::ui::grid {
 		return m_entries.emplace(key, std::move(label)).first->second;
 	}
 
-	NVGcolor GetStandardCategoryColor(Theme::Role role, bool isLightTheme) {
-		if (isLightTheme) {
-			switch (role) {
-				case Theme::Role::BrushCategoryGround: return nvgRGBA(30, 155, 40, 255);
-				case Theme::Role::BrushCategoryWall: return nvgRGBA(110, 115, 165, 255);
-				case Theme::Role::BrushCategoryWallDecoration: return nvgRGBA(30, 125, 235, 255);
-				case Theme::Role::BrushCategoryDoor: return nvgRGBA(215, 100, 10, 255);
-				case Theme::Role::BrushCategoryDoodad: return nvgRGBA(185, 125, 0, 255);
-				case Theme::Role::BrushCategoryTable: return nvgRGBA(165, 95, 30, 255);
-				case Theme::Role::BrushCategoryCarpet: return nvgRGBA(175, 40, 195, 255);
-				case Theme::Role::BrushCategoryDefaultRaw:
-				default: return nvgRGBA(120, 125, 135, 255);
-			}
-		} else {
-			switch (role) {
-				case Theme::Role::BrushCategoryGround: return nvgRGBA(85, 230, 85, 255);
-				case Theme::Role::BrushCategoryWall: return nvgRGBA(180, 185, 230, 255);
-				case Theme::Role::BrushCategoryWallDecoration: return nvgRGBA(95, 175, 255, 255);
-				case Theme::Role::BrushCategoryDoor: return nvgRGBA(255, 175, 55, 255);
-				case Theme::Role::BrushCategoryDoodad: return nvgRGBA(255, 225, 45, 255);
-				case Theme::Role::BrushCategoryTable: return nvgRGBA(225, 145, 70, 255);
-				case Theme::Role::BrushCategoryCarpet: return nvgRGBA(225, 90, 235, 255);
-				case Theme::Role::BrushCategoryDefaultRaw:
-				default: return nvgRGBA(150, 155, 165, 255);
-			}
-		}
+	NVGcolor GetStandardCategoryColor(Theme::Role role) {
+		return NvgColor(role);
 	}
 
-	NVGcolor GetStandardCategoryColor(const Brush* brush, bool isLightTheme) {
-		return GetStandardCategoryColor(Theme::GetBrushCategoryRole(brush), isLightTheme);
+	NVGcolor GetStandardCategoryColor(const Brush* brush) {
+		return GetStandardCategoryColor(Theme::GetBrushCategoryRole(brush));
 	}
 
 	void DrawDogEarBadge(NVGcontext* vg, const wxRect& iconRect, NVGcolor categoryColor) {

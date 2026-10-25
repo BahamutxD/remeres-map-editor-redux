@@ -71,7 +71,8 @@ public:
 		return settings.look_id;
 	}
 	int getMaxVariation() const override {
-		return 1000000;
+		const int total = items.getTotalVariants();
+		return total > 0 ? total : static_cast<int>(items.getAlternatives().size());
 	}
 	int getVariation() const {
 		return current_variation;

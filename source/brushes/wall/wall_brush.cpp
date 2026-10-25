@@ -369,9 +369,11 @@ uint16_t WallBrush::getPlacementItemId() const {
 	const WallBrush* try_brush = this;
 	while (try_brush != nullptr) {
 		for (int i = 0; i < WallBrushItems::WALL_ALIGNMENT_COUNT; ++i) {
-			uint16_t id = try_brush->items.getRandomWallId(i);
-			if (id != 0) {
-				return id;
+			const auto& node = try_brush->items.getWallNode(i);
+			for (const auto& wall : node.items) {
+				if (wall.id != 0) {
+					return wall.id;
+				}
 			}
 		}
 		try_brush = try_brush->redirect_to;

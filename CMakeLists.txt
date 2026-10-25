@@ -229,3 +229,6 @@ target_link_libraries(test_universal_rotator PRIVATE sol2::sol2)
 target_link_libraries(test_universal_rotator PRIVATE cpr::cpr)
 target_link_libraries(test_universal_rotator PRIVATE WebP::webp)
 target_link_libraries(test_universal_rotator PRIVATE ${LUA_LIBRARIES})
+
+enable_testing()
+add_test(NAME test_universal_rotator COMMAND test_universal_rotator)

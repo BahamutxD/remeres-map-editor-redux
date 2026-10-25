@@ -25,9 +25,6 @@
 namespace {
 
 	int32_t NormalizeVariation(const Brush* brush, int32_t variation) {
-		if (brush && brush->is<DoodadBrush>()) {
-			return std::max(0, variation);
-		}
 		const int32_t max_variation = brush ? brush->getMaxVariation() : 0;
 		if (max_variation <= 1) {
 			return 0;

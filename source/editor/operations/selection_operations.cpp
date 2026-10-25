@@ -21,12 +21,23 @@
 
 #include "brushes/doodad/doodad_brush.h"
 
-#include <set>
 
 namespace {
 
 	bool RotateSelectedTileContents(Tile& tile, bool clockwise, bool toggle_doors) {
 		bool changed = false;
+
+		if (tile.ground && tile.ground->isSelected() && tile.ground->isRoteable()) {
+			const ServerItemId old_id = tile.ground->getID();
+			if (clockwise) {
+				tile.ground->doRotate();
+			} else {
+				tile.ground->doRotateBackwards();
+			}
+			if (tile.ground->getID() != old_id) {
+				changed = true;
+			}
+		}
 
 		for (const auto& item : tile.items) {
 			if (!item || !item->isSelected()) {
@@ -169,98 +180,6 @@ bool SelectionOperations::rotateSelection(Editor& editor, bool clockwise) {
 	return true;
 }
 
-bool SelectionOperations::pivotSelection(Editor& editor, bool clockwise) {
-	if (editor.selection.size() < 2) {
-		return false;
-	}
-
-	const Position min = editor.selection.minPosition();
-	const Position max = editor.selection.maxPosition();
-	if (min.z != max.z) {
-		return false;
-	}
-
-	const int width = max.x - min.x + 1;
-	const int height = max.y - min.y + 1;
-	if (width <= 0 || height <= 0 || (width == 1 && height == 1)) {
-		return false;
-	}
-
-	const int center_x2 = min.x * 2 + (width - 1);
-	const int center_y2 = min.y * 2 + (height - 1);
-	const int new_min_x = (center_x2 - (height - 1)) / 2;
-	const int new_min_y = (center_y2 - (width - 1)) / 2;
-
-	std::set<Position> selected_positions;
-	for (const Tile* tile : editor.selection) {
-		if (tile) {
-			selected_positions.insert(tile->getPosition());
-		}
-	}
-
-	struct Move {
-		std::unique_ptr<Tile> tile;
-	};
-	std::vector<Move> moves;
-	moves.reserve(editor.selection.size());
-
-	for (Tile* tile : editor.selection) {
-		if (!tile) {
-			continue;
-		}
-
-		const Position source = tile->getPosition();
-		const int dx = source.x - min.x;
-		const int dy = source.y - min.y;
-		int ndx = 0;
-		int ndy = 0;
-		if (clockwise) {
-			ndx = height - 1 - dy;
-			ndy = dx;
-		} else {
-			ndx = dy;
-			ndy = width - 1 - dx;
-		}
-
-		const Position destination(new_min_x + ndx, new_min_y + ndy, source.z);
-		if (!destination.isValid()) {
-			return false;
-		}
-
-		if (selected_positions.find(destination) == selected_positions.end()) {
-			if (Tile* existing = editor.map.getTile(destination); existing && !existing->empty()) {
-				g_gui.SetStatusText("Cannot rotate selection: destination is occupied.");
-				return false;
-			}
-		}
-
-		auto moved_tile = TileOperations::deepCopy(tile, editor.map);
-		RotateSelectedTileContents(*moved_tile, clockwise, false);
-		moved_tile->setLocation(editor.map.createTileL(destination));
-		moves.push_back(Move { std::move(moved_tile) });
-	}
-
-	if (moves.empty()) {
-		return false;
-	}
-
-	std::unique_ptr<Action> action = editor.actionQueue->createAction(ACTION_ROTATE);
-	for (Tile* tile : editor.selection) {
-		if (!tile) {
-			continue;
-		}
-		auto empty_tile = editor.map.allocator(tile->getLocation());
-		action->addChange(std::make_unique<Change>(std::move(empty_tile)));
-	}
-	for (auto& move : moves) {
-		action->addChange(std::make_unique<Change>(std::move(move.tile)));
-	}
-
-	editor.addAction(std::move(action));
-	g_gui.RefreshView();
-	return true;
-}
-
 bool SelectionOperations::rotateWallOrDoorAt(Editor& editor, const Position& position) {
 	Tile* tile = editor.map.getTile(position);
 	if (!tile) {
@@ -309,7 +228,7 @@ bool SelectionOperations::rotateWallOrDoorAt(Editor& editor, const Position& pos
 	}
 
 	if (target->getID() == old_id) {
-		return true;
+		return false;
 	}
 
 	std::unique_ptr<Action> action = editor.actionQueue->createAction(ACTION_ROTATE);

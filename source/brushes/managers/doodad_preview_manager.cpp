@@ -88,7 +88,7 @@ void DoodadPreviewManager::FillBuffer() {
 				const int comp_chance = brush->getCompositeChance(variation);
 				if (total_chance > 0 && next_rand(0, total_chance) <= comp_chance) {
 					// Composite
-					const CompositeTileList& composites = brush->getComposite(variation);
+					const CompositeTileList& composites = brush->getComposite(variation, next_rand(1, std::max(1, comp_chance)));
 					for (const auto& composite : composites) {
 						Position pos = center_pos + composite.first + Position(xpos, ypos, 0);
 						if (Tile* tile = doodad_buffer_map->getTile(pos)) {

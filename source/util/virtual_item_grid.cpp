@@ -337,7 +337,7 @@ void VirtualItemGrid::OnNanoVGPaint(NVGcontext* vg, int width, int height) {
 
 		if (m_indicatorDogEar) {
 			const bool isLightTheme = (Theme::Get(Theme::Role::Surface).Red() > 128);
-			const NVGcolor stdColor = rme::ui::grid::GetStandardCategoryColor(Theme::Role::BrushCategoryDefaultRaw, isLightTheme);
+			const NVGcolor stdColor = rme::ui::grid::GetStandardCategoryColor(Theme::Role::BrushCategoryDefaultRaw);
 			rme::ui::grid::DrawDogEarBadge(vg, iconRect, stdColor);
 		}
 
