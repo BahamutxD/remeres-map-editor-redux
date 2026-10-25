@@ -175,14 +175,24 @@ void KeyboardHandler::HandleBrushVariation(MapCanvas* canvas, int keycode) {
 
 	int nv = g_gui.GetBrushVariation();
 	if (keycode == 'z' || keycode == 'Z') {
-		--nv;
+		if (brush->is<DoodadBrush>()) {
+			nv = std::max(0, nv - 1);
+		} else {
+			--nv;
 		if (nv < 0) {
 			nv = brush->getMaxVariation() - 1;
 		}
+		}
 	} else {
 		++nv;
-		if (nv >= brush->getMaxVariation()) {
-			nv = 0;
+		if (brush->is<DoodadBrush>()) {
+			if (nv >= brush->getMaxVariation()) {
+				nv = brush->getMaxVariation() - 1;
+			}
+		} else {
+			if (nv >= brush->getMaxVariation()) {
+				nv = 0;
+			}
 		}
 	}
 	g_gui.SetBrushVariation(nv);

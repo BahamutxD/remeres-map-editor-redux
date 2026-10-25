@@ -493,6 +493,8 @@ void Settings::IO(IOMode mode) {
 	Int(CURSOR_ALT_BLUE, 0);
 	Int(CURSOR_ALT_ALPHA, 128);
 	Int(CURSOR_ALT_BLEND_MODE, 0);
+	Bool(CURSOR_SHOW_OUTLINE, true);
+	Int(RANDOMIZE_DOODADS, 0);
 
 	section("Zones");
 	Bool(ZONE_BORDERS_ENABLED, false);

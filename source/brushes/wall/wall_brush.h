@@ -45,6 +45,8 @@ public:
 
 	void getRelatedItems(std::vector<uint16_t>& items) override;
 
+	[[nodiscard]] uint16_t getPlacementItemId() const;
+
 	bool canSmear() const override {
 		return false;
 	}

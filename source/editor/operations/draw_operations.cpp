@@ -73,14 +73,16 @@ namespace {
 						std::unique_ptr<Tile> new_tile = TileOperations::deepCopy(tile, editor.map);
 						SelectionOperations::removeDuplicateWalls(buffer_tile, new_tile.get());
 						SelectionOperations::doSurroundingBorders(brush, tilestoborder, buffer_tile, new_tile.get());
-						TileOperations::merge(new_tile.get(), buffer_tile, &editor.map);
+						auto buffer_tile_copy = TileOperations::deepCopy(buffer_tile, *buffer_map);
+						TileOperations::merge(new_tile.get(), buffer_tile_copy.get(), &editor.map);
 						action->addChange(std::make_unique<Change>(std::move(new_tile)));
 					}
 				} else {
 					std::unique_ptr<Tile> new_tile(editor.map.allocator(location));
 					SelectionOperations::removeDuplicateWalls(buffer_tile, new_tile.get());
 					SelectionOperations::doSurroundingBorders(brush, tilestoborder, buffer_tile, new_tile.get());
-					TileOperations::merge(new_tile.get(), buffer_tile, &editor.map);
+					auto buffer_tile_copy = TileOperations::deepCopy(buffer_tile, *buffer_map);
+					TileOperations::merge(new_tile.get(), buffer_tile_copy.get(), &editor.map);
 					action->addChange(std::make_unique<Change>(std::move(new_tile)));
 				}
 			} else {
@@ -98,7 +100,8 @@ namespace {
 						std::unique_ptr<Tile> new_tile = TileOperations::deepCopy(tile, editor.map);
 						SelectionOperations::removeDuplicateWalls(buffer_tile, new_tile.get());
 						SelectionOperations::doSurroundingBorders(brush, tilestoborder, buffer_tile, new_tile.get());
-						TileOperations::merge(new_tile.get(), buffer_tile, &editor.map);
+						auto buffer_tile_copy = TileOperations::deepCopy(buffer_tile, *buffer_map);
+						TileOperations::merge(new_tile.get(), buffer_tile_copy.get(), &editor.map);
 						action->addChange(std::make_unique<Change>(std::move(new_tile)));
 					}
 				}

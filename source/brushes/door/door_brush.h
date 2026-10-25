@@ -25,8 +25,12 @@ public:
 		return true;
 	}
 
+	[[nodiscard]] uint16_t getDoorItemId(BaseMap* map, const Position& pos) const;
+	[[nodiscard]] uint16_t getFallbackDoorItemId() const;
+
 protected:
 	DoorType doortype;
+	mutable uint16_t cached_fallback_id = 0;
 };
 
 #endif

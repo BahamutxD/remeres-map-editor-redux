@@ -25,6 +25,9 @@
 namespace {
 
 	int32_t NormalizeVariation(const Brush* brush, int32_t variation) {
+		if (brush && brush->is<DoodadBrush>()) {
+			return std::max(0, variation);
+		}
 		const int32_t max_variation = brush ? brush->getMaxVariation() : 0;
 		if (max_variation <= 1) {
 			return 0;
@@ -125,6 +128,8 @@ void BrushManager::SelectBrushInternal(Brush* brush) {
 	if (const auto* creature = brush->as<CreatureBrush>()) {
 		// Creature brushes keep their own facing direction, defaulting to SOUTH.
 		brush_variation = creature->getVariation();
+	} else if (const auto* doodad = brush->as<DoodadBrush>()) {
+		brush_variation = doodad->getVariation();
 	} else {
 		brush_variation = NormalizeVariation(brush, brush_variation);
 		brush->setVariation(brush_variation);

@@ -46,6 +46,10 @@ public:
 
 	void getRelatedItems(std::vector<uint16_t>& items) override;
 
+	[[nodiscard]] uint16_t getPlacementItemId() const {
+		return m_items.getRandomItem(CARPET_CENTER);
+	}
+
 	bool canDrag() const override {
 		return true;
 	}

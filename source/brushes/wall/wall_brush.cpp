@@ -365,3 +365,20 @@ void WallDecorationBrush::draw(BaseMap* map, Tile* tile, void* parameter) {
 		++iter;
 	}
 }
+uint16_t WallBrush::getPlacementItemId() const {
+	const WallBrush* try_brush = this;
+	while (try_brush != nullptr) {
+		for (int i = 0; i < WallBrushItems::WALL_ALIGNMENT_COUNT; ++i) {
+			uint16_t id = try_brush->items.getRandomWallId(i);
+			if (id != 0) {
+				return id;
+			}
+		}
+		try_brush = try_brush->redirect_to;
+		if (try_brush == this) {
+			break;
+		}
+	}
+	return 0;
+}
+

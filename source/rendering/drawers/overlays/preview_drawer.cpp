@@ -39,7 +39,11 @@ void PreviewDrawer::draw(SpriteBatch& sprite_batch, bool is_pasting, BaseMap* se
 			const int source_end_x = normalPos.x + view.end_x - to.x;
 			const int source_end_y = normalPos.y + view.end_y - to.y;
 			const int offset = map_z <= GROUND_LAYER ? (GROUND_LAYER - map_z) * TILE_SIZE : TILE_SIZE * (view.floor - map_z);
-			const uint8_t base_alpha = is_pasting ? 128 : 255;
+			const bool is_doodad = (brush && brush->is<DoodadBrush>());
+			const uint8_t base_alpha = is_pasting ? 128 : (is_doodad ? 160 : 255);
+			const uint8_t default_r = 255;
+			const uint8_t default_g = 255;
+			const uint8_t default_b = 255;
 			const AtlasManager* atlas = ctx ? &ctx->atlas : nullptr;
 			const AtlasRegion* white_pixel = atlas ? atlas->getWhitePixel() : nullptr;
 
@@ -47,9 +51,9 @@ void PreviewDrawer::draw(SpriteBatch& sprite_batch, bool is_pasting, BaseMap* se
 				int draw_x = ((map_x * TILE_SIZE) - view.view_scroll_x) - offset;
 				int draw_y = ((map_y * TILE_SIZE) - view.view_scroll_y) - offset;
 
-				uint8_t r = 255;
-				uint8_t g = 255;
-				uint8_t b = 255;
+				uint8_t r = default_r;
+				uint8_t g = default_g;
+				uint8_t b = default_b;
 
 				uint32_t tile_zone_flags = 0;
 				if (options.show_special_tiles) {

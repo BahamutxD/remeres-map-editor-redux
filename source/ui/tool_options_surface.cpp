@@ -22,6 +22,9 @@
 #include "ui/gui.h"
 #include "map/map.h"
 #include "util/image_manager.h"
+#include "ui/map_tab.h"
+#include "rendering/ui/map_display.h"
+#include "rendering/ui/keyboard_handler.h"
 
 #include <algorithm>
 #include <format>
@@ -94,6 +97,22 @@ ToolOptionsSurface::ToolOptionsSurface(wxWindow* parent) :
 }
 
 void ToolOptionsSurface::BuildUi() {
+	Bind(wxEVT_CHAR_HOOK, [this](wxKeyEvent& event) {
+		const int key = event.GetKeyCode();
+		if (!event.ControlDown() && !event.AltDown()) {
+			if (key == 'z' || key == 'Z' || key == 'x' || key == 'X' || key == 'q' || key == 'Q' || key == WXK_SPACE) {
+				if (MapTab* map_tab = g_gui.GetCurrentMapTab()) {
+					if (auto* canvas = map_tab->GetCanvas()) {
+						canvas->SetFocus();
+						KeyboardHandler::OnKeyDown(canvas, event);
+						return;
+					}
+				}
+			}
+		}
+		event.Skip();
+	});
+
 	main_sizer = newd wxBoxSizer(wxVERTICAL);
 
 	main_tools_sizer = newd wxStaticBoxSizer(wxVERTICAL, this, "Main tools");
@@ -201,6 +220,8 @@ void ToolOptionsSurface::BuildUi() {
 
 	preview_border_checkbox = newd wxCheckBox(other_sizer->GetStaticBox(), wxID_ANY, "Preview Border");
 	lock_doors_checkbox = newd wxCheckBox(other_sizer->GetStaticBox(), wxID_ANY, "Lock Doors (Shift)");
+	randomize_doodads_checkbox = newd wxCheckBox(other_sizer->GetStaticBox(), wxID_ANY, "Randomize Doodads");
+	randomize_doodads_checkbox->SetValue(g_settings.getBoolean(Config::RANDOMIZE_DOODADS));
 	other_sizer->Add(preview_border_checkbox, 0, wxEXPAND | wxALL, FromDIP(6));
 	other_sizer->Add(lock_doors_checkbox, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(6));
 	main_sizer->Add(other_sizer, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(4));
@@ -213,6 +234,7 @@ void ToolOptionsSurface::BuildUi() {
 	aspect_button->Bind(wxEVT_TOGGLEBUTTON, &ToolOptionsSurface::OnAspectToggled, this);
 	preview_border_checkbox->Bind(wxEVT_CHECKBOX, &ToolOptionsSurface::OnPreviewBorderToggled, this);
 	lock_doors_checkbox->Bind(wxEVT_CHECKBOX, &ToolOptionsSurface::OnLockDoorsToggled, this);
+	randomize_doodads_checkbox->Bind(wxEVT_CHECKBOX, &ToolOptionsSurface::OnRandomizeDoodadsToggled, this);
 	thickness_slider->Bind(wxEVT_SLIDER, &ToolOptionsSurface::OnThicknessChanged, this);
 	place_spawn_with_creature_checkbox->Bind(wxEVT_CHECKBOX, &ToolOptionsSurface::OnPlaceSpawnWithCreatureToggled, this);
 	spawn_time_spin->Bind(wxEVT_SPINCTRL, &ToolOptionsSurface::OnSpawnTimeChanged, this);
@@ -233,6 +255,9 @@ void ToolOptionsSurface::UpdateBrushSize(BrushShape shape, int size) {
 
 void ToolOptionsSurface::ReloadSettings() {
 	active_brush = g_gui.GetCurrentBrush();
+	if (randomize_doodads_checkbox) {
+		randomize_doodads_checkbox->SetValue(g_settings.getBoolean(Config::RANDOMIZE_DOODADS));
+	}
 	RefreshFromState();
 }
 
@@ -373,7 +398,8 @@ void ToolOptionsSurface::UpdateSectionVisibility() {
 	const bool show_lock_doors = HasLockDoorsControl();
 	const bool show_spawn_controls = HasSpawnControls();
 	const bool show_weight = HasWeightControl();
-	const bool show_other = show_thickness || show_preview_border || show_lock_doors || show_spawn_controls || show_weight;
+	const bool show_randomize_doodads = HasRandomizeDoodadsControl();
+	const bool show_other = show_thickness || show_preview_border || show_lock_doors || show_spawn_controls || show_weight || show_randomize_doodads;
 
 	main_sizer->Show(main_tools_sizer, show_tools, true);
 	main_sizer->Show(size_sizer, show_size, true);
@@ -386,6 +412,7 @@ void ToolOptionsSurface::UpdateSectionVisibility() {
 	DetachWindowIfPresent(other_sizer, weight_panel);
 	DetachWindowIfPresent(other_sizer, preview_border_checkbox);
 	DetachWindowIfPresent(other_sizer, lock_doors_checkbox);
+	DetachWindowIfPresent(other_sizer, randomize_doodads_checkbox);
 
 	if (show_thickness) {
 		AddWindowToSizer(other_sizer, thickness_panel, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, FromDIP(6));
@@ -403,6 +430,9 @@ void ToolOptionsSurface::UpdateSectionVisibility() {
 	}
 	if (show_lock_doors) {
 		AddWindowToSizer(other_sizer, lock_doors_checkbox, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(6));
+	}
+	if (show_randomize_doodads) {
+		AddWindowToSizer(other_sizer, randomize_doodads_checkbox, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, FromDIP(6));
 	}
 
 	main_sizer->Show(other_sizer, show_other, true);
@@ -474,6 +504,20 @@ bool ToolOptionsSurface::HasBrushSizeControls() const {
 
 bool ToolOptionsSurface::HasThicknessControl() const {
 	return active_brush && active_brush->is<DoodadBrush>();
+}
+
+bool ToolOptionsSurface::HasRandomizeDoodadsControl() const {
+	return active_brush && active_brush->is<DoodadBrush>();
+}
+
+void ToolOptionsSurface::OnRandomizeDoodadsToggled(wxCommandEvent& WXUNUSED(event)) {
+	if (!randomize_doodads_checkbox) {
+		return;
+	}
+	g_settings.setInteger(Config::RANDOMIZE_DOODADS, randomize_doodads_checkbox->GetValue() ? 1 : 0);
+	g_gui.FillDoodadPreviewBuffer();
+	g_gui.RefreshView();
+	g_gui.FocusCurrentMapCanvas();
 }
 
 bool ToolOptionsSurface::HasPreviewBorderControl() const {
@@ -701,6 +745,7 @@ void ToolOptionsSurface::OnExactToggled(wxCommandEvent& event) {
 
 	g_gui.SetExactBrushSize(event.IsChecked());
 	RefreshFromState();
+	g_gui.FocusCurrentMapCanvas();
 }
 
 void ToolOptionsSurface::OnAspectToggled(wxCommandEvent& event) {
@@ -710,6 +755,7 @@ void ToolOptionsSurface::OnAspectToggled(wxCommandEvent& event) {
 
 	g_gui.SetBrushAspectRatioLocked(event.IsChecked());
 	RefreshFromState();
+	g_gui.FocusCurrentMapCanvas();
 }
 
 void ToolOptionsSurface::OnPreviewBorderToggled(wxCommandEvent& event) {
@@ -719,6 +765,7 @@ void ToolOptionsSurface::OnPreviewBorderToggled(wxCommandEvent& event) {
 
 	g_settings.setInteger(Config::SHOW_AUTOBORDER_PREVIEW, event.IsChecked());
 	g_gui.RefreshView();
+	g_gui.FocusCurrentMapCanvas();
 }
 
 void ToolOptionsSurface::OnLockDoorsToggled(wxCommandEvent& event) {
@@ -728,6 +775,7 @@ void ToolOptionsSurface::OnLockDoorsToggled(wxCommandEvent& event) {
 
 	g_settings.setInteger(Config::DRAW_LOCKED_DOOR, event.IsChecked());
 	g_brush_manager.SetDoorLocked(event.IsChecked());
+	g_gui.FocusCurrentMapCanvas();
 }
 
 void ToolOptionsSurface::OnThicknessChanged(wxCommandEvent& event) {
@@ -737,6 +785,7 @@ void ToolOptionsSurface::OnThicknessChanged(wxCommandEvent& event) {
 
 	thickness_value->SetLabel(std::format("{}%", event.GetInt()));
 	g_brush_manager.SetBrushThickness(true, event.GetInt(), 100);
+	g_gui.FocusCurrentMapCanvas();
 }
 
 void ToolOptionsSurface::OnPlaceSpawnWithCreatureToggled(wxCommandEvent& event) {
@@ -745,6 +794,7 @@ void ToolOptionsSurface::OnPlaceSpawnWithCreatureToggled(wxCommandEvent& event) 
 	}
 
 	g_settings.setInteger(Config::AUTO_CREATE_SPAWN, event.IsChecked());
+	g_gui.FocusCurrentMapCanvas();
 }
 
 void ToolOptionsSurface::OnSpawnTimeChanged(wxSpinEvent& event) {

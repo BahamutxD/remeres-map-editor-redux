@@ -6,6 +6,10 @@
 #include "brushes/creature/creature_brush.h"
 #include "brushes/door/door_brush.h"
 #include "brushes/wall/wall_brush.h"
+#include "brushes/doodad/doodad_brush.h"
+#include "brushes/doodad/doodad_brush_items.h"
+#include "map/map.h"
+#include "map/tile_operations.h"
 #include "game/creatures.h"
 #include "game/item.h"
 #include "item_definitions/core/item_definition_store.h"
@@ -192,6 +196,67 @@ int main() {
 		assert(item.isRoteable());
 		item.doRotate();
 		assert(item.getID() == 301);
+	}
+
+	{
+		DoodadBrush doodad;
+		assert(doodad.getVariation() == 0);
+		assert(doodad.getTotalVariants() == 0);
+		doodad.setVariation(5);
+		assert(doodad.getVariation() == 5);
+		doodad.setVariation(-1);
+		assert(doodad.getVariation() == 0);
+
+		DoodadBrushItems items;
+		assert(items.getTotalVariants() == 0);
+
+		auto* alt = items.createAlternative();
+		items.addSingleToBlock(alt, std::make_unique<Item>(2740, 0), 10);
+		items.addSingleToBlock(alt, std::make_unique<Item>(2741, 0), 10);
+		items.addSingleToBlock(alt, std::make_unique<Item>(2742, 0), 10);
+
+		assert(items.getTotalVariants() == 3);
+
+		auto v0 = items.getVariant(0);
+		assert(v0.single_item != nullptr);
+		assert(v0.single_item->getID() == 2740);
+
+		auto v1 = items.getVariant(1);
+		assert(v1.single_item != nullptr);
+		assert(v1.single_item->getID() == 2741);
+
+		auto v2 = items.getVariant(2);
+		assert(v2.single_item != nullptr);
+		assert(v2.single_item->getID() == 2742);
+
+		// Check wrapping forward and backward
+		auto v3 = items.getVariant(3);
+		assert(v3.single_item->getID() == 2740);
+
+		auto v_prev = items.getVariant(-1);
+		assert(v_prev.single_item->getID() == 2742);
+	}
+
+	// Buffer tile preservation on doodad draw (merge of copy preserves template)
+	{
+		BaseMap map;
+		Tile* buffer_tile = map.createTile(100, 100, 7);
+		buffer_tile->addItem(std::make_unique<Item>(2740, 0));
+		assert(buffer_tile->items.size() == 1);
+
+		Tile* dest_tile = map.createTile(200, 200, 7);
+		assert(dest_tile->items.empty());
+
+		auto buffer_copy = TileOperations::deepCopy(buffer_tile, map);
+		TileOperations::merge(dest_tile, buffer_copy.get(), &map);
+
+		// buffer_tile must STILL have its item!
+		assert(buffer_tile->items.size() == 1);
+		assert(buffer_tile->items.front()->getID() == 2740);
+
+		// dest_tile must have received the item
+		assert(dest_tile->items.size() == 1);
+		assert(dest_tile->items.front()->getID() == 2740);
 	}
 
 	std::cout << "universal rotator tests passed\n";
