@@ -53,6 +53,7 @@
 #include "app/application.h"
 #include "ui/welcome_dialog.h"
 #include "ui/tool_options_window.h"
+#include "ui/brush_items/brush_items_window.h"
 
 #include "live/live_client.h"
 #include "live/live_tab.h"
@@ -107,6 +108,7 @@ GUI::GUI() :
 	town_palette(nullptr),
 	tool_options(nullptr),
 	tile_properties_panel(nullptr),
+	brush_items_window(nullptr),
 	pasting(false),
 	disabled_counter(0),
 	hotkeys_enabled(true) {
@@ -384,6 +386,9 @@ void GUI::SelectBrush() {
 	if (tool_options) {
 		tool_options->SetActiveBrush(GetCurrentBrush());
 	}
+	if (brush_items_window) {
+		brush_items_window->SetActiveBrush(GetCurrentBrush());
+	}
 	SyncCurrentMapCanvasPreviewState();
 	FocusCurrentMapCanvas();
 	emitBrushChangeIfNeeded(*this);
@@ -392,6 +397,9 @@ bool GUI::SelectBrush(const Brush* brush) {
 	const bool changed = g_brush_manager.SelectBrush(brush);
 	if (tool_options) {
 		tool_options->SetActiveBrush(GetCurrentBrush());
+	}
+	if (brush_items_window) {
+		brush_items_window->SetActiveBrush(GetCurrentBrush());
 	}
 	SyncCurrentMapCanvasPreviewState();
 	FocusCurrentMapCanvas();
@@ -403,6 +411,9 @@ void GUI::SelectPreviousBrush() {
 	if (tool_options) {
 		tool_options->SetActiveBrush(GetCurrentBrush());
 	}
+	if (brush_items_window) {
+		brush_items_window->SetActiveBrush(GetCurrentBrush());
+	}
 	SyncCurrentMapCanvasPreviewState();
 	FocusCurrentMapCanvas();
 	emitBrushChangeIfNeeded(*this);
@@ -411,6 +422,9 @@ void GUI::SelectBrushInternal(Brush* brush) {
 	g_brush_manager.SelectBrushInternal(brush);
 	if (tool_options) {
 		tool_options->SetActiveBrush(GetCurrentBrush());
+	}
+	if (brush_items_window) {
+		brush_items_window->SetActiveBrush(GetCurrentBrush());
 	}
 	SyncCurrentMapCanvasPreviewState();
 	FocusCurrentMapCanvas();
@@ -671,6 +685,9 @@ void GUI::ActivatePalette(PaletteWindow* p) {
 	g_palettes.ActivatePalette(p);
 	if (p && tool_options) {
 		tool_options->SetActiveBrush(GetCurrentBrush());
+	}
+	if (p && brush_items_window) {
+		brush_items_window->SetActiveBrush(GetCurrentBrush());
 	}
 }
 void GUI::RebuildPalettes() {

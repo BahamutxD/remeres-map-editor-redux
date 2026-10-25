@@ -25,6 +25,8 @@ public:
 		return true;
 	}
 
+	void getRelatedItems(std::vector<uint16_t>& items) override;
+
 	[[nodiscard]] uint16_t getDoorItemId(BaseMap* map, const Position& pos) const;
 	[[nodiscard]] uint16_t getFallbackDoorItemId() const;
 

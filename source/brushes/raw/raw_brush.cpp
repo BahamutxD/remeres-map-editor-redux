@@ -88,3 +88,9 @@ void RAWBrush::draw(BaseMap* map, Tile* tile, void* parameter) {
 	}
 	tile->addItem(Item::Create(item_id));
 }
+
+void RAWBrush::getRelatedItems(std::vector<uint16_t>& items) {
+	if (item_id != 0) {
+		items.push_back(item_id);
+	}
+}

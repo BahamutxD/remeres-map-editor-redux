@@ -352,3 +352,18 @@ uint16_t DoorBrush::getFallbackDoorItemId() const {
 	return 0;
 }
 
+void DoorBrush::getRelatedItems(std::vector<uint16_t>& items) {
+	for (const auto& [name, brush] : g_brushes.getMap()) {
+		if (brush && brush->is<WallBrush>()) {
+			WallBrush* wb = brush->as<WallBrush>();
+			for (int align : { WALL_HORIZONTAL, WALL_VERTICAL, WALL_POLE }) {
+				const auto& doorItems = wb->items.getDoorItems(align);
+				for (const auto& dt : doorItems) {
+					if (dt.type == doortype && dt.id != 0) {
+						items.push_back(dt.id);
+					}
+				}
+			}
+		}
+	}
+}

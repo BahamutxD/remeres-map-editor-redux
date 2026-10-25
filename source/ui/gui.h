@@ -60,6 +60,7 @@ class LiveSocket;
 class SidebarWindow;
 class ToolOptionsWindow;
 class TilePropertiesPanel;
+class BrushItemsWindow;
 
 wxDECLARE_EVENT(EVT_UPDATE_MENUS, wxCommandEvent);
 
@@ -387,6 +388,7 @@ public:
 
 	ToolOptionsWindow* tool_options;
 	TilePropertiesPanel* tile_properties_panel;
+	BrushItemsWindow* brush_items_window;
 
 	bool pasting;
 
