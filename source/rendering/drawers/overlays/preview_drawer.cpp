@@ -120,8 +120,11 @@ void PreviewDrawer::draw(SpriteBatch& sprite_batch, bool is_pasting, BaseMap* se
 				}
 
 				if (view.zoom <= 10.0 || !options.hide_items_when_zoomed) {
+					const Tile* target_map_tile = editor.map.getTile(Position(map_x, map_y, map_z));
 					for (const auto& item : tile->items) {
-						BlitItemParams params(tile, item.get(), options);
+						const Tile* effective_tile = (item->isHangable() && target_map_tile) ? target_map_tile : tile;
+						BlitItemParams params(effective_tile, item.get(), options);
+						params.pos = Position(map_x, map_y, map_z);
 						params.ephemeral = true;
 						params.alpha = base_alpha;
 						params.ctx = ctx;

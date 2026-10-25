@@ -256,7 +256,7 @@ void ItemDrawer::BlitItem(SpriteBatch& sprite_batch, SpriteDrawer* sprite_drawer
 	}
 }
 
-void ItemDrawer::DrawRawBrush(SpriteBatch& sprite_batch, SpriteDrawer* sprite_drawer, int screenx, int screeny, ServerItemId item_id, uint8_t r, uint8_t g, uint8_t b, uint8_t alpha, const RenderFrameContext* ctx) {
+void ItemDrawer::DrawRawBrush(SpriteBatch& sprite_batch, SpriteDrawer* sprite_drawer, int screenx, int screeny, ServerItemId item_id, uint8_t r, uint8_t g, uint8_t b, uint8_t alpha, const RenderFrameContext* ctx, const Tile* tile, const Position& pos) {
 	if (!ctx) {
 		return;
 	}
@@ -274,6 +274,8 @@ void ItemDrawer::DrawRawBrush(SpriteBatch& sprite_batch, SpriteDrawer* sprite_dr
 
 	GameSprite* spr = resolveSprite(definition, ctx);
 	if (spr) {
-		sprite_drawer->BlitSprite(sprite_batch, screenx, screeny, spr, DrawColor(r, g, b, alpha), ctx);
+		const std::optional<int64_t> elapsed_time = std::optional<int64_t>(ctx->elapsed_time);
+		const SpritePatterns patterns = PatternCalculator::Calculate(spr, definition, nullptr, tile, pos, elapsed_time);
+		sprite_drawer->BlitSprite(sprite_batch, screenx, screeny, spr, DrawColor(r, g, b, alpha), ctx, 0.0f, &patterns);
 	}
 }

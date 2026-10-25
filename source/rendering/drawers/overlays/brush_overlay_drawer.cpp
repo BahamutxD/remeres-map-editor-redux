@@ -278,7 +278,9 @@ void BrushOverlayDrawer::draw(
 							if (brush->is<OptionalBorderBrush>()) {
 								sprite_batch.drawRect(static_cast<float>(cx), static_cast<float>(cy), static_cast<float>(TILE_SIZE), static_cast<float>(TILE_SIZE), get_check_color(brush, editor, Position(x, y, view.floor), cfg), atlas);
 							} else {
-								item_drawer->DrawRawBrush(sprite_batch, sprite_drawer, cx, cy, raw_brush->getItemID(), 240, 245, 255, 180, &ctx);
+								const Position target_pos(x, y, view.floor);
+								const Tile* target_tile = editor.map.getTile(target_pos);
+								item_drawer->DrawRawBrush(sprite_batch, sprite_drawer, cx, cy, raw_brush->getItemID(), 240, 245, 255, 180, &ctx, target_tile, target_pos);
 							}
 						}
 					}
@@ -402,7 +404,9 @@ void BrushOverlayDrawer::draw(
 						float distance = sqrt(dx * dx + dy * dy);
 						if (distance < radii) {
 							if (brush->is<RAWBrush>()) {
-								item_drawer->DrawRawBrush(sprite_batch, sprite_drawer, cx, cy, raw_brush->getItemID(), 160, 160, 160, 160, &ctx);
+								const Position target_pos(x, y, view.floor);
+								const Tile* target_tile = editor.map.getTile(target_pos);
+								item_drawer->DrawRawBrush(sprite_batch, sprite_drawer, cx, cy, raw_brush->getItemID(), 160, 160, 160, 160, &ctx, target_tile, target_pos);
 							} else if (brush->is<FlagBrush>()) {
 								const uint32_t zf = getZoneFlagForBrush(brush->as<FlagBrush>());
 								const AtlasRegion* white_pixel = atlas.getWhitePixel();
@@ -442,10 +446,11 @@ void BrushOverlayDrawer::draw(
 			bool valid = door_brush->canDraw(&editor.map, pos);
 			uint16_t door_id = valid ? door_brush->getDoorItemId(&editor.map, pos) : door_brush->getFallbackDoorItemId();
 			if (door_id != 0) {
+				const Tile* target_tile = editor.map.getTile(pos);
 				if (valid) {
-					item_drawer->DrawRawBrush(sprite_batch, sprite_drawer, cx, cy, door_id, 255, 255, 255, 160, &ctx);
+					item_drawer->DrawRawBrush(sprite_batch, sprite_drawer, cx, cy, door_id, 255, 255, 255, 160, &ctx, target_tile, pos);
 				} else {
-					item_drawer->DrawRawBrush(sprite_batch, sprite_drawer, cx, cy, door_id, 255, 64, 64, 160, &ctx);
+					item_drawer->DrawRawBrush(sprite_batch, sprite_drawer, cx, cy, door_id, 255, 64, 64, 160, &ctx, target_tile, pos);
 				}
 			}
 			drawTileOutline(static_cast<float>(cx), static_cast<float>(cy));
@@ -518,7 +523,15 @@ void BrushOverlayDrawer::draw(
 					if (buffer_map || placement_item_id != 0) {
 						if (hasItemAt(x, y)) {
 							if (placement_item_id != 0) {
-								item_drawer->DrawRawBrush(sprite_batch, sprite_drawer, cx, cy, placement_item_id, 255, 255, 255, 160, &ctx);
+								const Position target_pos(view.mouse_map_x + x, view.mouse_map_y + y, view.floor);
+								const Tile* target_tile = editor.map.getTile(target_pos);
+								uint16_t item_to_draw = placement_item_id;
+								if (wall_brush && wall_brush->is<WallDecorationBrush>()) {
+									if (uint16_t dynamic_id = wall_brush->getPlacementItemId(target_tile)) {
+										item_to_draw = dynamic_id;
+									}
+								}
+								item_drawer->DrawRawBrush(sprite_batch, sprite_drawer, cx, cy, item_to_draw, 255, 255, 255, 160, &ctx, target_tile, target_pos);
 							}
 							bool north = !hasItemAt(x, y - 1);
 							bool south = !hasItemAt(x, y + 1);

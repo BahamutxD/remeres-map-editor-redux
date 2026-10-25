@@ -14,6 +14,8 @@
 //=============================================================================
 // Wallbrush, for drawing walls
 
+class Tile;
+
 class WallBrush : public TerrainBrush {
 public:
 	static void init();
@@ -44,7 +46,7 @@ public:
 
 	void getRelatedItems(std::vector<uint16_t>& items) override;
 
-	[[nodiscard]] uint16_t getPlacementItemId() const;
+	[[nodiscard]] uint16_t getPlacementItemId(const Tile* tile = nullptr) const;
 
 	bool canSmear() const override {
 		return false;

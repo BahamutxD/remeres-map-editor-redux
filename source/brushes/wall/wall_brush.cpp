@@ -13,6 +13,8 @@
 #include "item_definitions/core/item_definition_store.h"
 #include "map/basemap.h"
 #include "map/tile_operations.h"
+#include "map/tile.h"
+#include "game/item.h"
 
 #include <algorithm>
 #include <iterator>
@@ -291,7 +293,24 @@ void WallDecorationBrush::draw(BaseMap* map, Tile* tile, void* parameter) {
 		++iter;
 	}
 }
-uint16_t WallBrush::getPlacementItemId() const {
+uint16_t WallBrush::getPlacementItemId(const Tile* tile) const {
+	if (tile != nullptr && this->is<WallDecorationBrush>()) {
+		for (const auto& it : tile->items) {
+			if (it->isWall()) {
+				WallBrush* item_brush = it->getWallBrush();
+				if (item_brush && item_brush->is<WallDecorationBrush>()) {
+					continue;
+				}
+				BorderType wall_alignment = it->getWallAlignment();
+				const auto& node = items.getWallNode(wall_alignment);
+				for (const auto& wall : node.items) {
+					if (wall.id != 0) {
+						return wall.id;
+					}
+				}
+			}
+		}
+	}
 	const WallBrush* try_brush = this;
 	while (try_brush != nullptr) {
 		for (int i = 0; i < WallBrushItems::WALL_ALIGNMENT_COUNT; ++i) {
