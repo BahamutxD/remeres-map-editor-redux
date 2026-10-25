@@ -16,6 +16,7 @@
 #include "palette/town/town_palette.h"
 #include "brushes/zone/zone_brush.h"
 #include "palette/panels/brush_palette_panel.h"
+#include "palette/all_items/all_items_palette.h"
 #include "rendering/ui/map_display.h"
 #include "game/materials.h"
 #include "map/map.h"
@@ -212,6 +213,26 @@ void PaletteWindow::ReloadDynamicPages() {
 		}
 	}
 	LoadCurrentContents();
+}
+
+void PaletteWindow::SetBrushIndicators(bool dogEar) {
+	for (auto* panel : palette_pages) {
+		if (auto* bpp = dynamic_cast<BrushPalettePanel*>(panel)) {
+			bpp->SetBrushIndicators(dogEar);
+		} else if (auto* aip = dynamic_cast<AllItemsPalette*>(panel)) {
+			aip->SetBrushIndicators(dogEar);
+		}
+	}
+}
+
+void PaletteWindow::SetGridSpacing(int spacing) {
+	for (auto* panel : palette_pages) {
+		if (auto* bpp = dynamic_cast<BrushPalettePanel*>(panel)) {
+			bpp->SetGridSpacing(spacing);
+		} else if (auto* aip = dynamic_cast<AllItemsPalette*>(panel)) {
+			aip->SetGridSpacing(spacing);
+		}
+	}
 }
 
 bool PaletteWindow::SelectTilesetInCurrentPalette(std::string_view tilesetName) {

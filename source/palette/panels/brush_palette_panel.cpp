@@ -11,6 +11,8 @@ bool BrushPalettePanel::s_defaultShowLabels = false;
 int BrushPalettePanel::s_defaultTileSize = 32;
 bool BrushPalettePanel::s_defaultFilterAll = false;
 bool BrushPalettePanel::s_defaultIsListMode = false;
+bool BrushPalettePanel::s_defaultIndicatorDogEar = false;
+int BrushPalettePanel::s_defaultGridSpacing = 4;
 bool BrushPalettePanel::s_defaultsLoaded = false;
 
 namespace {
@@ -93,11 +95,16 @@ void BrushPalettePanel::EnsureDefaultsLoaded() {
 		}
 	}
 	s_defaultFilterAll = g_settings.getBoolean(Config::PALETTE_FILTER_ALL);
+		s_defaultIndicatorDogEar = g_settings.getBoolean(Config::PALETTE_INDICATOR_DOGEAR);
+	int loadedSpacing = g_settings.getInteger(Config::PALETTE_GRID_SPACING);
+	s_defaultGridSpacing = (loadedSpacing == 2 || loadedSpacing == 6) ? loadedSpacing : 4;
 }
 
 void BrushPalettePanel::LoadPaletteFilters() {
 	EnsureDefaultsLoaded();
 	m_filterAll = s_defaultFilterAll;
+		m_indicatorDogEar = s_defaultIndicatorDogEar;
+	m_gridSpacing = s_defaultGridSpacing;
 	m_filterQuery.clear();
 
 	std::string keyName = toLowerString(palette_name);
@@ -209,6 +216,12 @@ BrushPalettePanel::BrushPalettePanel(wxWindow* parent, const DynamicPaletteDefin
 		actions.filter_focus_lost = [this]() {
 			SavePaletteFilters();
 		};
+		actions.brush_indicators = [this](bool dogEar) {
+			SetBrushIndicators(dogEar);
+		};
+		actions.grid_spacing = [this](int spacing) {
+			SetGridSpacing(spacing);
+		};
 		actions.filter_all = [this](bool all) {
 			m_filterAll = all;
 			s_defaultFilterAll = all;
@@ -223,6 +236,8 @@ BrushPalettePanel::BrushPalettePanel(wxWindow* parent, const DynamicPaletteDefin
 		gridToolbar = newd TilesetGridToolbar(tmp_choicebook, std::move(actions), TilesetGridToolbar::Part_Standard | TilesetGridToolbar::Part_FilterAll);
 		gridToolbar->SetStacked(true);
 		gridToolbar->SetState(m_showLabels, m_tileSize, m_hasSort, m_sortKey, m_sortDir, m_filterAll, m_isListMode);
+		gridToolbar->SetIndicatorState(m_indicatorDogEar);
+		gridToolbar->SetGridSpacing(m_gridSpacing);
 		gridToolbar->SetFilterQuery(m_filterQuery);
 	}
 	wxChoice* choice = tmp_choicebook->GetChoiceCtrl();
@@ -253,6 +268,8 @@ BrushPalettePanel::BrushPalettePanel(wxWindow* parent, const DynamicPaletteDefin
 			panel->SetShowLabels(m_showLabels);
 			panel->SetTileSize(m_tileSize);
 			panel->SetDisplayMode(m_isListMode ? TilesetDisplayMode::List : TilesetDisplayMode::Grid);
+			panel->SetBrushIndicators(m_indicatorDogEar);
+			panel->SetGridSpacing(m_gridSpacing);
 			tmp_choicebook->AddPage(panel, wxstr(tileset.name));
 		}
 	}
@@ -805,6 +822,8 @@ void BrushPalettePanel::ReloadPages() {
 			panel->SetShowLabels(m_showLabels);
 			panel->SetTileSize(m_tileSize);
 			panel->SetDisplayMode(m_isListMode ? TilesetDisplayMode::List : TilesetDisplayMode::Grid);
+			panel->SetBrushIndicators(m_indicatorDogEar);
+			panel->SetGridSpacing(m_gridSpacing);
 			choicebook->AddPage(panel, wxstr(tileset.name));
 		}
 	}
@@ -831,3 +850,44 @@ void BrushPalettePanel::ReloadPages() {
 }
 
 
+
+
+void BrushPalettePanel::SetBrushIndicators(bool dogEar) {
+	m_indicatorDogEar = dogEar;
+	s_defaultIndicatorDogEar = dogEar;
+	g_settings.setInteger(Config::PALETTE_INDICATOR_DOGEAR, dogEar ? 1 : 0);
+	g_settings.save();
+
+	if (gridToolbar) {
+		gridToolbar->SetIndicatorState(dogEar);
+	}
+
+	if (choicebook) {
+		for (size_t iz = 0; iz < choicebook->GetPageCount(); ++iz) {
+			BrushPanel* panel = dynamic_cast<BrushPanel*>(choicebook->GetPage(iz));
+			if (panel) {
+				panel->SetBrushIndicators(dogEar);
+			}
+		}
+	}
+}
+
+void BrushPalettePanel::SetGridSpacing(int spacing) {
+	const int validSpacing = (spacing == 2 || spacing == 6) ? spacing : 4;
+	m_gridSpacing = validSpacing;
+	s_defaultGridSpacing = validSpacing;
+	g_settings.setInteger(Config::PALETTE_GRID_SPACING, validSpacing);
+	g_settings.save();
+
+	if (gridToolbar) {
+		gridToolbar->SetGridSpacing(validSpacing);
+	}
+
+	if (choicebook) {
+		for (size_t iz = 0; iz < choicebook->GetPageCount(); ++iz) {
+			if (auto* panel = dynamic_cast<BrushPanel*>(choicebook->GetPage(iz))) {
+				panel->SetGridSpacing(validSpacing);
+			}
+		}
+	}
+}

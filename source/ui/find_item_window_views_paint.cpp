@@ -4,6 +4,7 @@
 #include "rendering/indicators/indicator_drawing_utils.h"
 #include "ui/gui.h"
 #include "ui/theme.h"
+#include "util/grid_cell_renderer.h"
 #include "util/nvg_utils.h"
 
 #include <glad/glad.h>
@@ -110,23 +111,23 @@ int AdvancedFinderResultsView::listHeaderHeight() const {
 }
 
 int AdvancedFinderResultsView::listItemHeight() const {
-	return FromDIP(48);
+	return list_item_height_ > 0 ? list_item_height_ : (FromDIP(40) + grid_spacing_);
 }
 
 int AdvancedFinderResultsView::gridCardWidth() const {
-	return FromDIP(40);
+	return rme::ui::grid::CellWidth(icon_size_);
 }
 
 int AdvancedFinderResultsView::gridCardHeight() const {
-	return FromDIP(40);
+	return rme::ui::grid::CellHeight(icon_size_, show_labels_);
 }
 
 int AdvancedFinderResultsView::gridPadding() const {
-	return FromDIP(8);
+	return grid_spacing_;
 }
 
 int AdvancedFinderResultsView::gridGap() const {
-	return FromDIP(4);
+	return grid_spacing_;
 }
 
 void AdvancedFinderResultsView::drawEmptyState(NVGcontext* vg, int width, int height) const {
@@ -154,22 +155,6 @@ void AdvancedFinderResultsView::drawEmptyState(NVGcontext* vg, int width, int he
 	nvgText(vg, 18.0f, height * 0.52f, secondary, nullptr);
 }
 
-void AdvancedFinderResultsView::drawSpriteBadge(NVGcontext* vg, const wxRect& rect, Sprite* sprite) const {
-	if (sprite == nullptr) {
-		return;
-	}
-
-	// Mutates only the internal texture cache; drawing semantics stay const.
-	if (const int texture = const_cast<AdvancedFinderResultsView*>(this)->GetOrCreateSpriteTexture(vg, sprite); texture > 0) {
-		const float radius = 8.0f;
-		NVGpaint paint = nvgImagePattern(vg, rect.x, rect.y, rect.width, rect.height, 0.0f, texture, 1.0f);
-		nvgBeginPath(vg);
-		nvgRoundedRect(vg, rect.x, rect.y, rect.width, rect.height, radius);
-		nvgFillPaint(vg, paint);
-		nvgFill(vg);
-	}
-}
-
 void AdvancedFinderResultsView::drawRowBadge(NVGcontext* vg, const wxRect& rect, const AdvancedFinderCatalogRow& row) const {
 	auto tech = rme::rendering::TileIndicatorType::None;
 	if (row.isItem()) {
@@ -182,17 +167,14 @@ void AdvancedFinderResultsView::drawRowBadge(NVGcontext* vg, const wxRect& rect,
 	if (tech == rme::rendering::TileIndicatorType::None && b) {
 		tech = rme::rendering::TechnicalItemRegistry::GetBrushIndicatorType(b);
 	}
-	if (tech != rme::rendering::TileIndicatorType::None) {
-		rme::rendering::DrawNanoVGIndicatorBadge(
-			vg,
-			tech,
-			static_cast<float>(rect.x),
-			static_cast<float>(rect.y),
-			static_cast<float>(rect.width)
-		);
-		return;
+
+	int texture = 0;
+	if (tech == rme::rendering::TileIndicatorType::None) {
+		if (Sprite* sprite = spriteForRow(row)) {
+			texture = const_cast<AdvancedFinderResultsView*>(this)->GetOrCreateSpriteTexture(vg, sprite);
+		}
 	}
-	drawSpriteBadge(vg, rect, spriteForRow(row));
+	rme::ui::grid::DrawCellIcon(vg, rect, texture, tech);
 }
 
 void AdvancedFinderResultsView::drawListRow(NVGcontext* vg, const wxRect& rect, const AdvancedFinderCatalogRow& row, bool selected, bool hovered) const {
@@ -220,7 +202,7 @@ void AdvancedFinderResultsView::drawListRow(NVGcontext* vg, const wxRect& rect, 
 	const int icon_size = FromDIP(32);
 	const wxRect icon_background(rect.x + 8, rect.y + 6, FromDIP(40), rect.height - 12);
 	nvgBeginPath(vg);
-	nvgRoundedRect(vg, icon_background.x, icon_background.y, icon_background.width, icon_background.height, 6.0f);
+	nvgRect(vg, icon_background.x, icon_background.y, icon_background.width, icon_background.height);
 	nvgFillColor(vg, NvgUtils::ToNvColor(icon_fill));
 	nvgFill(vg);
 	nvgStrokeWidth(vg, 1.0f);
@@ -235,6 +217,14 @@ void AdvancedFinderResultsView::drawListRow(NVGcontext* vg, const wxRect& rect, 
 	);
 	const wxRect sprite_rect(icon_rect.x + (icon_rect.width - icon_size) / 2, icon_rect.y + (icon_rect.height - icon_size) / 2, icon_size, icon_size);
 	drawRowBadge(vg, sprite_rect, row);
+
+	if (indicator_dogear_) {
+		const bool isLightTheme = (Theme::Get(Theme::Role::Surface).Red() > 128);
+		const Brush* b = row.brush ? row.brush : static_cast<Brush*>(row.raw_brush);
+		const NVGcolor catColor = b ? rme::ui::grid::GetStandardCategoryColor(b, isLightTheme)
+		                            : rme::ui::grid::GetStandardCategoryColor(Theme::Role::BrushCategoryDefaultRaw, isLightTheme);
+		rme::ui::grid::DrawDogEarBadge(vg, sprite_rect, catColor);
+	}
 
 	nvgFontFace(vg, "sans");
 	nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
@@ -262,26 +252,22 @@ void AdvancedFinderResultsView::drawListRow(NVGcontext* vg, const wxRect& rect, 
 }
 
 void AdvancedFinderResultsView::drawGridCard(NVGcontext* vg, const wxRect& rect, const AdvancedFinderCatalogRow& row, bool selected, bool hovered) const {
-	const wxColour border = Theme::Get(Theme::Role::CardBorder);
-	const wxColour hover_fill = Theme::Get(Theme::Role::CardBaseHover);
-	const wxColour selected_fill = Theme::Get(Theme::Role::Accent);
-	const wxColour surface = Theme::Get(Theme::Role::RaisedSurface);
+	rme::ui::grid::DrawCardChrome(vg, rect, selected, hovered, 0.0f, show_labels_);
 
-	nvgBeginPath(vg);
-	nvgRoundedRect(vg, rect.x, rect.y, rect.width, rect.height, 4.0f);
-	nvgFillColor(vg, NvgUtils::ToNvColor(selected ? selected_fill : (hovered ? hover_fill : surface)));
-	nvgFill(vg);
-	nvgStrokeWidth(vg, 1.0f);
-	nvgStrokeColor(vg, NvgUtils::ToNvColor(selected ? Theme::Get(Theme::Role::AccentHover) : border));
-	nvgStroke(vg);
-
-	const wxRect sprite_rect(
-		rect.x + (rect.width - FromDIP(32)) / 2,
-		rect.y + (rect.height - FromDIP(32)) / 2,
-		FromDIP(32),
-		FromDIP(32)
-	);
+	const wxRect sprite_rect = rme::ui::grid::IconRect(rect, icon_size_);
 	drawRowBadge(vg, sprite_rect, row);
+
+	if (indicator_dogear_) {
+		const bool isLightTheme = (Theme::Get(Theme::Role::Surface).Red() > 128);
+		const Brush* b = row.brush ? row.brush : static_cast<Brush*>(row.raw_brush);
+		const NVGcolor catColor = b ? rme::ui::grid::GetStandardCategoryColor(b, isLightTheme)
+		                            : rme::ui::grid::GetStandardCategoryColor(Theme::Role::BrushCategoryDefaultRaw, isLightTheme);
+		rme::ui::grid::DrawDogEarBadge(vg, sprite_rect, catColor);
+	}
+
+	if (show_labels_) {
+		rme::ui::grid::DrawCellLabel(vg, rect, wxstr(row.label), selected, const_cast<AdvancedFinderResultsView*>(this)->label_cache_);
+	}
 }
 
 void AdvancedFinderResultsView::drawGridHoverInfo(NVGcontext* vg, int width, int height, int scroll_pos) const {
@@ -313,7 +299,7 @@ void AdvancedFinderResultsView::drawGridHoverInfo(NVGcontext* vg, int width, int
 	);
 
 	nvgBeginPath(vg);
-	nvgRoundedRect(vg, panel_x, panel_y, panel_width, panel_height, 6.0f);
+	nvgRect(vg, panel_x, panel_y, panel_width, panel_height);
 	nvgFillColor(vg, NvgUtils::ToNvColor(panel));
 	nvgFill(vg);
 	nvgStrokeWidth(vg, 1.0f);

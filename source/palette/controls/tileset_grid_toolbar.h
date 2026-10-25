@@ -34,6 +34,10 @@ public:
 		std::function<void(int)> icon_size;
 		/** List view mode toggle. */
 		std::function<void(bool)> list_mode;
+		/** Brush indicators toggled (frame, dog-ear). */
+		std::function<void(bool /*dogEar*/)> brush_indicators;
+		/** Grid spacing in pixels (2, 4, 6). */
+		std::function<void(int /*spacingPx*/)> grid_spacing;
 		/** Live text typed in the search box. */
 		std::function<void(const std::string&)> filter;
 		/** Search committed (Enter or the search button). */
@@ -51,6 +55,8 @@ public:
 		TOOL_SORT_ZA,
 		TOOL_TOGGLE_LABELS,
 		TOOL_CHANGE_SIZE,
+		TOOL_BRUSH_INDICATORS,
+		TOOL_GRID_SPACING,
 		TOOL_FILTER_ALL,
 	};
 
@@ -65,13 +71,23 @@ public:
 		Part_Size = 1u << 2,
 		Part_FilterAll = 1u << 3,
 		Part_Search = 1u << 4,
-		Part_Standard = Part_Sort | Part_Labels | Part_Size | Part_Search,
+		Part_Indicators = 1u << 5,
+		Part_Spacing = 1u << 6,
+		Part_Standard = Part_Sort | Part_Labels | Part_Size | Part_Indicators | Part_Spacing | Part_Search,
 	};
 
 	TilesetGridToolbar(wxWindow* parent, Actions actions, unsigned parts = Part_Standard);
 
 	/** Reflects the current state without invoking the callbacks. */
-	void SetState(bool show_labels, int icon_size, bool has_sort, TilesetSortKey sort_key, TilesetSortDirection sort_dir, bool filter_all, bool is_list_mode = false);
+	void SetState(
+		bool show_labels,
+		int icon_size,
+		bool has_sort,
+		TilesetSortKey sort_key,
+		TilesetSortDirection sort_dir,
+		bool filter_all,
+		bool is_list_mode = false
+	);
 	void SetFilterQuery(const std::string& query);
 	std::string GetFilterQuery() const;
 
@@ -88,6 +104,14 @@ public:
 		return m_isListMode;
 	}
 	void SetListMode(bool listMode);
+	void SetIndicatorState(bool dogEar);
+	void SetGridSpacing(int spacingPx);
+	bool GetIndicatorDogEar() const {
+		return m_indicatorDogEar;
+	}
+	int GetGridSpacing() const {
+		return m_gridSpacing;
+	}
 
 	void ApplyTheme();
 	void FocusSearch();
@@ -102,6 +126,7 @@ private:
 	void OnToolClick(wxCommandEvent& event);
 	void OnSortButtonClick(TilesetSortDirection dir, int toolId);
 	void OnSizeButtonClick(int toolId);
+	void OnSpacingButtonClick(int toolId);
 	void OnFilterModeButtonClick(int toolId);
 	void OnSearchChanged(wxCommandEvent& event);
 	void OnSearchCancel(wxCommandEvent& event);
@@ -125,6 +150,8 @@ private:
 	TilesetSortDirection m_sortDir = TilesetSortDirection::Ascending;
 	bool m_filterAll = false;
 	bool m_isListMode = false;
+	bool m_indicatorDogEar = false;
+	int m_gridSpacing = 4;
 };
 
 #endif

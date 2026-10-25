@@ -13,6 +13,7 @@
 
 class Brush;
 class CreatureBrush;
+class TilesetGridToolbar;
 class wxButton;
 class wxBitmapButton;
 class wxCheckBox;
@@ -118,6 +119,7 @@ private:
 	wxNotebook* results_notebook_ = nullptr;
 	AdvancedFinderResultsView* list_results_view_ = nullptr;
 	AdvancedFinderResultsView* grid_results_view_ = nullptr;
+	TilesetGridToolbar* grid_toolbar_ = nullptr;
 
 	AdvancedFinderQuery query_;
 	AdvancedFinderPersistedState persisted_state_;

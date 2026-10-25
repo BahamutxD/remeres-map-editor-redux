@@ -26,6 +26,8 @@ public:
 
 	void SetIconSize(int sizePx);
 	void SetShowLabels(bool show);
+	void SetBrushIndicators(bool dogEar);
+	void SetGridSpacing(int spacingPx);
 	void SetSort(TilesetSortKey key, TilesetSortDirection dir);
 	void ClearSort();
 
@@ -63,6 +65,8 @@ private:
 	int m_iconSize = 32;
 	int m_itemSize = 36;
 	bool m_showLabels = false;
+	bool m_indicatorDogEar = false;
+	int m_gridSpacing = 4;
 	bool m_hasSort = false;
 	TilesetSortKey m_sortKey = TilesetSortKey::Name;
 	TilesetSortDirection m_sortDir = TilesetSortDirection::Ascending;

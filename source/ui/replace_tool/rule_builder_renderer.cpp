@@ -261,7 +261,7 @@ void RuleBuilderRenderer::DrawTargetSlot(
 		const NVGpaint glow = nvgBoxGradient(vg, static_cast<float>(rect.x), static_cast<float>(rect.y), static_cast<float>(rect.width), static_cast<float>(rect.height), 4.0f, 9.0f, nvgRGBA(100, 150, 255, 150), nvgRGBA(0, 0, 0, 0));
 		nvgBeginPath(vg);
 		nvgRect(vg, static_cast<float>(rect.x) - 8.0f, static_cast<float>(rect.y) - 8.0f, static_cast<float>(rect.width) + 16.0f, static_cast<float>(rect.height) + 16.0f);
-		nvgRoundedRect(vg, static_cast<float>(rect.x), static_cast<float>(rect.y), static_cast<float>(rect.width), static_cast<float>(rect.height), 4.0f);
+		nvgRect(vg, static_cast<float>(rect.x), static_cast<float>(rect.y), static_cast<float>(rect.width), static_cast<float>(rect.height));
 		nvgPathWinding(vg, NVG_HOLE);
 		nvgFillPaint(vg, glow);
 		nvgFill(vg);
@@ -288,7 +288,7 @@ void RuleBuilderRenderer::DrawTargetSlot(
 	nvgRestore(vg);
 
 	nvgBeginPath(vg);
-	nvgRoundedRect(vg, static_cast<float>(rect.x) + 1.0f, static_cast<float>(rect.y) + 1.0f, static_cast<float>(rect.width) - 2.0f, static_cast<float>(rect.height) - 2.0f, 4.0f);
+	nvgRect(vg, static_cast<float>(rect.x) + 1.0f, static_cast<float>(rect.y) + 1.0f, static_cast<float>(rect.width) - 2.0f, static_cast<float>(rect.height) - 2.0f);
 	nvgStrokeColor(vg, ignored ? rme::ui::grid::NvgColor(Theme::Role::TextSubtle, 160) : ActionColour(action));
 	nvgStrokeWidth(vg, 2.0f);
 	nvgStroke(vg);
@@ -325,7 +325,7 @@ void RuleBuilderRenderer::DrawTrashGlyph(const RenderContext& ctx, const wxRect&
 	const float h = static_cast<float>(rect.height);
 
 	nvgBeginPath(vg);
-	nvgRoundedRect(vg, x + 1.0f, y + 1.0f, w - 2.0f, h - 2.0f, 4.0f);
+	nvgRect(vg, x + 1.0f, y + 1.0f, w - 2.0f, h - 2.0f);
 	nvgFillColor(vg, nvgRGBA(190, 50, 50, active ? 60 : 28));
 	nvgFill(vg);
 	nvgStrokeColor(vg, (selected || hovered) ? rme::ui::grid::NvgColor(Theme::Role::Error) : rme::ui::grid::NvgColor(Theme::Role::Error, active ? 210 : 130));
@@ -351,7 +351,7 @@ void RuleBuilderRenderer::DrawGhostSlot(NVGcontext* vg, const wxRect& rect, bool
 	const float h = static_cast<float>(rect.height);
 
 	nvgBeginPath(vg);
-	nvgRoundedRect(vg, x + 0.5f, y + 0.5f, w - 1.0f, h - 1.0f, 4.0f);
+	nvgRect(vg, x + 0.5f, y + 0.5f, w - 1.0f, h - 1.0f);
 	if (hovered) {
 		nvgFillColor(vg, rme::ui::grid::NvgColor(Theme::Role::CardBaseHover));
 		nvgFill(vg);
@@ -386,7 +386,7 @@ void RuleBuilderRenderer::DrawRemoveBadge(NVGcontext* vg, const wxRect& rect, bo
 void RuleBuilderRenderer::DrawRowDelete(NVGcontext* vg, const wxRect& rect, bool hovered) {
 	if (hovered) {
 		nvgBeginPath(vg);
-		nvgRoundedRect(vg, static_cast<float>(rect.x), static_cast<float>(rect.y), static_cast<float>(rect.width), static_cast<float>(rect.height), 4.0f);
+		nvgRect(vg, static_cast<float>(rect.x), static_cast<float>(rect.y), static_cast<float>(rect.width), static_cast<float>(rect.height));
 		nvgFillColor(vg, nvgRGBA(128, 128, 128, 40));
 		nvgFill(vg);
 	}
@@ -446,7 +446,7 @@ void RuleBuilderRenderer::DrawRowTrash(const RenderContext& ctx, const wxRect& r
 	NVGcontext* vg = ctx.vg;
 	if (active || hovered) {
 		nvgBeginPath(vg);
-		nvgRoundedRect(vg, static_cast<float>(rect.x), static_cast<float>(rect.y), static_cast<float>(rect.width), static_cast<float>(rect.height), 4.0f);
+		nvgRect(vg, static_cast<float>(rect.x), static_cast<float>(rect.y), static_cast<float>(rect.width), static_cast<float>(rect.height));
 		nvgFillColor(vg, active ? nvgRGBA(190, 50, 50, 70) : nvgRGBA(128, 128, 128, 40));
 		nvgFill(vg);
 	}
@@ -467,7 +467,7 @@ void RuleBuilderRenderer::DrawDropZone(NVGcontext* vg, const wxRect& rect, bool 
 	const float h = static_cast<float>(rect.height);
 
 	nvgBeginPath(vg);
-	nvgRoundedRect(vg, x + 0.5f, y + 0.5f, w - 1.0f, h - 1.0f, 4.0f);
+	nvgRect(vg, x + 0.5f, y + 0.5f, w - 1.0f, h - 1.0f);
 	if (active) {
 		nvgFillColor(vg, rme::ui::grid::NvgColor(Theme::Role::Accent, 40));
 		nvgFill(vg);
@@ -499,7 +499,7 @@ void RuleBuilderRenderer::DrawActionButton(NVGcontext* vg, const wxRect& rect, b
 	}
 
 	nvgBeginPath(vg);
-	nvgRoundedRect(vg, x, y, w, h, 4.0f);
+	nvgRect(vg, x, y, w, h);
 	nvgFillColor(vg, colour);
 	nvgFill(vg);
 

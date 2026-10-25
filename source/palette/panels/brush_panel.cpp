@@ -16,6 +16,8 @@ BrushPanel::BrushPanel(wxWindow* parent) :
 	wxPanel(parent, wxID_ANY),
 	tileset(nullptr),
 	brushbox(nullptr),
+	indicator_dogear(g_settings.getBoolean(Config::PALETTE_INDICATOR_DOGEAR)),
+	grid_spacing((g_settings.getInteger(Config::PALETTE_GRID_SPACING) == 2 || g_settings.getInteger(Config::PALETTE_GRID_SPACING) == 6) ? g_settings.getInteger(Config::PALETTE_GRID_SPACING) : 4),
 	loaded(false),
 	list_type(BRUSHLIST_ICONS_32) {
 	sizer = newd wxBoxSizer(wxVERTICAL);
@@ -117,6 +119,10 @@ void BrushPanel::LoadContents() {
 	}
 	brushbox->SetShowLabels(show_labels);
 	brushbox->SetTileSize(tile_size_px);
+	if (auto* vbg = dynamic_cast<VirtualBrushGrid*>(brushbox)) {
+		vbg->SetBrushIndicators(indicator_dogear);
+		vbg->SetGridSpacing(grid_spacing);
+	}
 	if (!filter_query.empty() || has_override_brushes) {
 		brushbox->SetFilterQuery(filter_query, has_override_brushes ? &override_brushes : nullptr);
 	}
@@ -215,3 +221,18 @@ void BrushPanel::OnSwitchOut() {
 	////
 }
 
+
+
+void BrushPanel::SetBrushIndicators(bool dogEar) {
+	indicator_dogear = dogEar;
+	if (auto* vbg = dynamic_cast<VirtualBrushGrid*>(brushbox)) {
+		vbg->SetBrushIndicators(dogEar);
+	}
+}
+
+void BrushPanel::SetGridSpacing(int spacing) {
+	grid_spacing = spacing;
+	if (auto* vbg = dynamic_cast<VirtualBrushGrid*>(brushbox)) {
+		vbg->SetGridSpacing(spacing);
+	}
+}

@@ -80,12 +80,22 @@ namespace rme::ui::grid {
 		std::unordered_map<std::string, CellLabel> m_entries;
 	};
 
+	NVGcolor GetStandardCategoryColor(Theme::Role role, bool isLightTheme);
+	NVGcolor GetStandardCategoryColor(const Brush* brush, bool isLightTheme);
+
+	void DrawDogEarBadge(NVGcontext* vg, const wxRect& iconRect, NVGcolor categoryColor);
+
 	/**
-	 * Card background and its hover/selection treatment, including the hover
-	 * grow shared by both grids. Returns the rect the card was actually drawn
-	 * at, so the caller can place the icon and label inside the grown card.
+	 * Classic Inset 1px sunken well card chrome and selection treatment.
 	 */
-	wxRect DrawCardChrome(NVGcontext* vg, const wxRect& cell, bool selected, bool hovered, float hoverAnim);
+	wxRect DrawCardChrome(
+		NVGcontext* vg,
+		const wxRect& cell,
+		bool selected,
+		bool hovered,
+		float hoverAnim = 0.0f,
+		bool showLabels = false
+	);
 
 	/**
 	 * Cell content: the indicator badge when the entry has one, otherwise the

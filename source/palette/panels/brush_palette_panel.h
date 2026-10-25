@@ -48,6 +48,8 @@ public:
 	void SetShowLabels(bool show);
 	void SetTileSize(int sizePx);
 	void SetDisplayMode(TilesetDisplayMode mode);
+	void SetBrushIndicators(bool dogEar);
+	void SetGridSpacing(int spacing);
 	void ApplyTheme();
 
 	// Search and filter operations
@@ -78,6 +80,11 @@ protected:
 	bool m_showLabels;
 	int m_tileSize;
 	bool m_isListMode = false;
+	bool m_indicatorDogEar = false;
+	int m_gridSpacing = 4;
+
+	static bool s_defaultIndicatorDogEar;
+	static int s_defaultGridSpacing;
 
 	static TilesetSortKey s_defaultSortKey;
 	static TilesetSortDirection s_defaultSortDir;

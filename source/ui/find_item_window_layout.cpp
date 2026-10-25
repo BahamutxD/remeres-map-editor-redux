@@ -2,6 +2,7 @@
 #include "ui/find_item_window_internal.h"
 
 #include "app/settings.h"
+#include "palette/controls/tileset_grid_toolbar.h"
 #include "ui/theme.h"
 #include "util/common.h"
 #include "util/image_manager.h"
@@ -158,6 +159,56 @@ void FindItemDialog::buildLayout() {
 	auto* results_box = createStaticBox(right_panel, "Results");
 	auto* results_box_sizer = newd wxBoxSizer(wxVERTICAL);
 
+	TilesetGridToolbar::Actions toolbar_actions;
+	toolbar_actions.list_mode = [this](bool listMode) {
+		setResultViewMode(listMode ? AdvancedFinderResultViewMode::List : AdvancedFinderResultViewMode::Grid);
+	};
+	toolbar_actions.icon_size = [this](int size) {
+		if (list_results_view_) list_results_view_->SetIconSize(size);
+		if (grid_results_view_) grid_results_view_->SetIconSize(size);
+		if (grid_toolbar_) grid_toolbar_->SetListMode(false);
+		if (result_view_mode_ == AdvancedFinderResultViewMode::List) {
+			setResultViewMode(AdvancedFinderResultViewMode::Grid);
+		}
+	};
+	toolbar_actions.show_labels = [this](bool show) {
+		if (list_results_view_) list_results_view_->SetShowLabels(show);
+		if (grid_results_view_) grid_results_view_->SetShowLabels(show);
+	};
+	toolbar_actions.sort = [this](TilesetSortKey key, TilesetSortDirection dir) {
+		if (list_results_view_) list_results_view_->SetSort(key, dir);
+		if (grid_results_view_) grid_results_view_->SetSort(key, dir);
+	};
+	toolbar_actions.clear_sort = [this]() {
+		if (list_results_view_) list_results_view_->ClearSort();
+		if (grid_results_view_) grid_results_view_->ClearSort();
+	};
+	toolbar_actions.brush_indicators = [this](bool dogEar) {
+		if (list_results_view_) list_results_view_->SetBrushIndicators(dogEar);
+		if (grid_results_view_) grid_results_view_->SetBrushIndicators(dogEar);
+		if (grid_toolbar_) grid_toolbar_->SetIndicatorState(dogEar);
+	};
+	toolbar_actions.grid_spacing = [this](int spacingPx) {
+		if (list_results_view_) list_results_view_->SetGridSpacing(spacingPx);
+		if (grid_results_view_) grid_results_view_->SetGridSpacing(spacingPx);
+		if (grid_toolbar_) grid_toolbar_->SetGridSpacing(spacingPx);
+	};
+
+	const unsigned toolbar_parts = TilesetGridToolbar::Part_Sort |
+	                               TilesetGridToolbar::Part_Labels |
+	                               TilesetGridToolbar::Part_Size |
+	                               TilesetGridToolbar::Part_Indicators |
+	                               TilesetGridToolbar::Part_Spacing;
+
+	grid_toolbar_ = newd TilesetGridToolbar(
+		results_box->GetStaticBox(),
+		std::move(toolbar_actions),
+		toolbar_parts
+	);
+	grid_toolbar_->SetListMode(result_view_mode_ == AdvancedFinderResultViewMode::List);
+
+	results_box_sizer->Add(grid_toolbar_, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 4);
+
 	results_notebook_ = newd wxNotebook(results_box->GetStaticBox(), wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNB_TOP);
 	results_notebook_->SetBackgroundColour(Theme::Get(Theme::Role::Surface));
 
@@ -269,6 +320,7 @@ void FindItemDialog::loadInitialState() {
 			result_view_mode_ = g_session_finder_state->result_view_mode;
 		} else {
 			persisted_state_ = LoadAdvancedFinderPersistedState();
+			result_view_mode_ = (persisted_state_.view_mode == 1) ? AdvancedFinderResultViewMode::Grid : AdvancedFinderResultViewMode::List;
 		}
 		query_ = persisted_state_.query;
 		current_selection_ = persisted_state_.selection;
@@ -287,6 +339,32 @@ void FindItemDialog::loadInitialState() {
 
 	if (only_pickupables_) {
 		query_.interaction_mask |= advancedFinderBit(AdvancedFinderInteractionFilter::Pickupable);
+	}
+
+	if (list_results_view_) {
+		list_results_view_->SetIconSize(persisted_state_.icon_size);
+		list_results_view_->SetGridSpacing(persisted_state_.grid_spacing);
+		list_results_view_->SetBrushIndicators(persisted_state_.indicator_dogear);
+		list_results_view_->SetShowLabels(persisted_state_.show_labels);
+	}
+	if (grid_results_view_) {
+		grid_results_view_->SetIconSize(persisted_state_.icon_size);
+		grid_results_view_->SetGridSpacing(persisted_state_.grid_spacing);
+		grid_results_view_->SetBrushIndicators(persisted_state_.indicator_dogear);
+		grid_results_view_->SetShowLabels(persisted_state_.show_labels);
+	}
+	if (grid_toolbar_) {
+		grid_toolbar_->SetState(
+			persisted_state_.show_labels,
+			persisted_state_.icon_size,
+			false,
+			TilesetSortKey::ID,
+			TilesetSortDirection::Ascending,
+			false,
+			result_view_mode_ == AdvancedFinderResultViewMode::List
+		);
+		grid_toolbar_->SetIndicatorState(persisted_state_.indicator_dogear);
+		grid_toolbar_->SetGridSpacing(persisted_state_.grid_spacing);
 	}
 
 	applyQueryToControls();
@@ -317,6 +395,13 @@ void FindItemDialog::savePersistedState() {
 	state.selection = current_selection_;
 	state.position = GetPosition();
 	state.size = GetSize();
+	state.view_mode = (result_view_mode_ == AdvancedFinderResultViewMode::Grid) ? 1 : 0;
+	if (grid_results_view_) {
+		state.icon_size = grid_results_view_->GetIconSize();
+		state.grid_spacing = grid_results_view_->GetGridSpacing();
+		state.indicator_dogear = grid_results_view_->GetBrushIndicators();
+		state.show_labels = grid_results_view_->GetShowLabels();
+	}
 	g_session_finder_state = SessionFinderState {
 		.persisted = state,
 		.result_view_mode = result_view_mode_,

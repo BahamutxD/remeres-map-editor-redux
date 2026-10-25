@@ -1,3 +1,4 @@
+#include "app/settings.h"
 #include "util/virtual_item_grid.h"
 #include "util/common.h"
 #include "item_definitions/core/item_definition_store.h"
@@ -29,6 +30,10 @@ VirtualItemGrid::VirtualItemGrid(wxWindow* parent, wxWindowID id) :
 	m_selectedIndex(-1),
 	m_hoverIndex(-1),
 	m_animTimer(this) {
+
+	m_indicatorDogEar = g_settings.getBoolean(Config::PALETTE_INDICATOR_DOGEAR);
+	const int loadedSpacing = g_settings.getInteger(Config::PALETTE_GRID_SPACING);
+	m_gridSpacing = (loadedSpacing == 2 || loadedSpacing == 6) ? loadedSpacing : 4;
 	Bind(wxEVT_SIZE, &VirtualItemGrid::OnSize, this);
 	Bind(wxEVT_LEFT_DOWN, &VirtualItemGrid::OnMouseDown, this);
 	Bind(wxEVT_MOTION, &VirtualItemGrid::OnMotion, this);
@@ -128,7 +133,7 @@ void VirtualItemGrid::UpdateLayout() {
 	}
 
 	const wxSize cell = CellSize();
-	const int padding = rme::ui::grid::kPadding;
+	const int padding = m_gridSpacing;
 	m_columns = std::max(1, (width - padding) / (cell.x + padding));
 	size_t count = GetItemCount();
 	int rows = (count + m_columns - 1) / m_columns;
@@ -143,7 +148,7 @@ wxSize VirtualItemGrid::DoGetBestClientSize() const {
 
 int VirtualItemGrid::HitTest(int x, int y) const {
 	const wxSize cell = CellSize();
-	const int padding = rme::ui::grid::kPadding;
+	const int padding = m_gridSpacing;
 	int scrollPos = GetScrollPosition();
 	int realY = y + scrollPos;
 	int col = (x - padding) / (cell.x + padding);
@@ -166,7 +171,7 @@ int VirtualItemGrid::HitTest(int x, int y) const {
 
 wxRect VirtualItemGrid::GetItemRect(int index) const {
 	const wxSize cell = CellSize();
-	const int padding = rme::ui::grid::kPadding;
+	const int padding = m_gridSpacing;
 	int row = index / m_columns;
 	int col = index % m_columns;
 	return wxRect(
@@ -292,7 +297,7 @@ wxString VirtualItemGrid::GetItemTooltip(size_t index) const {
 
 void VirtualItemGrid::OnNanoVGPaint(NVGcontext* vg, int width, int height) {
 	const wxSize cell = CellSize();
-	int rowHeight = cell.y + rme::ui::grid::kPadding;
+	int rowHeight = cell.y + m_gridSpacing;
 	int scrollPos = GetScrollPosition();
 
 	size_t count = GetItemCount();
@@ -316,9 +321,7 @@ void VirtualItemGrid::OnNanoVGPaint(NVGcontext* vg, int width, int height) {
 		const bool isSelected = IsItemSelected(i);
 		const bool isHovered = (i == m_hoverIndex);
 
-		// Cell chrome, hover grow and state colours come from the shared
-		// renderer so this grid and the palette grid stay identical.
-		rme::ui::grid::DrawCardChrome(vg, cell, isSelected, isHovered, m_hoverAnim);
+		const wxRect drawn = rme::ui::grid::DrawCardChrome(vg, cell, isSelected, isHovered, m_hoverAnim, m_showLabels);
 
 		const uint16_t id = GetItem(i);
 		const auto definition = g_item_definitions.get(id);
@@ -329,10 +332,33 @@ void VirtualItemGrid::OnNanoVGPaint(NVGcontext* vg, int width, int height) {
 		if (badge == rme::rendering::TileIndicatorType::None) {
 			texture = GetOrCreateItemTexture(vg, id);
 		}
-		rme::ui::grid::DrawCellIcon(vg, rme::ui::grid::IconRect(cell, m_iconSize), texture, badge);
+		const wxRect iconRect = rme::ui::grid::IconRect(drawn, m_iconSize);
+		rme::ui::grid::DrawCellIcon(vg, iconRect, texture, badge);
+
+		if (m_indicatorDogEar) {
+			const bool isLightTheme = (Theme::Get(Theme::Role::Surface).Red() > 128);
+			const NVGcolor stdColor = rme::ui::grid::GetStandardCategoryColor(Theme::Role::BrushCategoryDefaultRaw, isLightTheme);
+			rme::ui::grid::DrawDogEarBadge(vg, iconRect, stdColor);
+		}
 
 		if (m_showLabels) {
 			rme::ui::grid::DrawCellLabel(vg, cell, GetItemName(i), isSelected, m_labelCache);
 		}
+	}
+}
+
+void VirtualItemGrid::SetBrushIndicators(bool dogEar) {
+	if (m_indicatorDogEar != dogEar) {
+		m_indicatorDogEar = dogEar;
+		Refresh();
+	}
+}
+
+void VirtualItemGrid::SetGridSpacing(int spacingPx) {
+	const int validSpacing = (spacingPx == 2 || spacingPx == 6) ? spacingPx : 4;
+	if (m_gridSpacing != validSpacing) {
+		m_gridSpacing = validSpacing;
+		UpdateLayout();
+		Refresh();
 	}
 }

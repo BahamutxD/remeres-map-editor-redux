@@ -64,7 +64,7 @@ void CardPanel::OnNanoVGPaint(NVGcontext* vg, int width, int height) {
 
 	// Draw Shadow (simulated with offset rect)
 	nvgBeginPath(vg);
-	nvgRoundedRect(vg, margin + 2, margin + 2, width - 2 * margin, height - 2 * margin, r);
+	nvgRect(vg, margin + 2, margin + 2, width - 2 * margin, height - 2 * margin);
 	nvgFillColor(vg, nvgRGBA(0, 0, 0, 40));
 	nvgFill(vg);
 
@@ -78,7 +78,7 @@ void CardPanel::OnNanoVGPaint(NVGcontext* vg, int width, int height) {
 	NVGpaint paint = nvgLinearGradient(vg, cardX, cardY, cardX, cardY + cardH, nvgRGBA(cardBgStart.Red(), cardBgStart.Green(), cardBgStart.Blue(), cardBgStart.Alpha()), nvgRGBA(cardBgEnd.Red(), cardBgEnd.Green(), cardBgEnd.Blue(), cardBgEnd.Alpha()));
 
 	nvgBeginPath(vg);
-	nvgRoundedRect(vg, cardX, cardY, cardW, cardH, r);
+	nvgRect(vg, cardX, cardY, cardW, cardH);
 	nvgFillPaint(vg, paint);
 	nvgFill(vg);
 

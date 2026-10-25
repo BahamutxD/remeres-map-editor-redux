@@ -1,4 +1,12 @@
 #include "ui/theme.h"
+#include "brushes/brush.h"
+#include "brushes/ground/ground_brush.h"
+#include "brushes/wall/wall_brush.h"
+#include "brushes/doodad/doodad_brush.h"
+#include "brushes/door/door_brush.h"
+#include "brushes/border/optional_border_brush.h"
+#include "brushes/table/table_brush.h"
+#include "brushes/carpet/carpet_brush.h"
 
 Theme::Type Theme::current_type = Theme::Type::System;
 
@@ -110,6 +118,22 @@ wxColour Theme::GetDark(Role role) {
 			return wxColour(153, 50, 204); // Dark Orchid
 		case Role::TooltipBorderText:
 			return wxColour(218, 165, 32); // Goldenrod
+		case Role::BrushCategoryGround:
+			return wxColour(85, 230, 85);
+		case Role::BrushCategoryWall:
+			return wxColour(180, 185, 230);
+		case Role::BrushCategoryWallDecoration:
+			return wxColour(95, 175, 255);
+		case Role::BrushCategoryDoor:
+			return wxColour(255, 175, 55);
+		case Role::BrushCategoryDoodad:
+			return wxColour(255, 225, 45);
+		case Role::BrushCategoryTable:
+			return wxColour(225, 145, 70);
+		case Role::BrushCategoryCarpet:
+			return wxColour(225, 90, 235);
+		case Role::BrushCategoryDefaultRaw:
+			return wxColour(150, 155, 165);
 		default:
 			return *wxWHITE;
 	}
@@ -198,7 +222,51 @@ wxColour Theme::GetLight(Role role) {
 			return wxColour(153, 50, 204); // Dark Orchid
 		case Role::TooltipBorderText:
 			return wxColour(218, 165, 32); // Goldenrod
+		case Role::BrushCategoryGround:
+			return wxColour(30, 155, 40);
+		case Role::BrushCategoryWall:
+			return wxColour(110, 115, 165);
+		case Role::BrushCategoryWallDecoration:
+			return wxColour(30, 125, 235);
+		case Role::BrushCategoryDoor:
+			return wxColour(215, 100, 10);
+		case Role::BrushCategoryDoodad:
+			return wxColour(185, 125, 0);
+		case Role::BrushCategoryTable:
+			return wxColour(165, 95, 30);
+		case Role::BrushCategoryCarpet:
+			return wxColour(175, 40, 195);
+		case Role::BrushCategoryDefaultRaw:
+			return wxColour(120, 125, 135);
 		default:
 			return *wxBLACK;
 	}
+}
+
+Theme::Role Theme::GetBrushCategoryRole(const Brush* brush) {
+	if (!brush) {
+		return Role::BrushCategoryDefaultRaw;
+	}
+	if (brush->is<GroundBrush>() || brush->is<OptionalBorderBrush>()) {
+		return Role::BrushCategoryGround;
+	}
+	if (brush->is<WallDecorationBrush>()) {
+		return Role::BrushCategoryWallDecoration;
+	}
+	if (brush->is<WallBrush>()) {
+		return Role::BrushCategoryWall;
+	}
+	if (brush->is<DoorBrush>()) {
+		return Role::BrushCategoryDoor;
+	}
+	if (brush->is<DoodadBrush>()) {
+		return Role::BrushCategoryDoodad;
+	}
+	if (brush->is<TableBrush>()) {
+		return Role::BrushCategoryTable;
+	}
+	if (brush->is<CarpetBrush>()) {
+		return Role::BrushCategoryCarpet;
+	}
+	return Role::BrushCategoryDefaultRaw;
 }

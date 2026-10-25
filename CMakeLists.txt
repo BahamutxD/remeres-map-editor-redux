@@ -168,5 +168,64 @@ target_link_libraries(rme PRIVATE ${LUA_LIBRARIES})
 
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT "rme")
 
+# --- Unit test for universal rotator ---
+set(TEST_ROTATOR_SRC ${rme_SRC})
+list(REMOVE_ITEM TEST_ROTATOR_SRC "${CMAKE_CURRENT_SOURCE_DIR}/source/app/application.cpp")
 
+add_executable(test_universal_rotator ${rme_H} ${TEST_ROTATOR_SRC} ${RME_PROTO_SRCS} ${RME_PROTO_HDRS} tests/test_universal_rotator.cpp)
+set_target_properties(test_universal_rotator PROPERTIES CXX_STANDARD 23)
+set_target_properties(test_universal_rotator PROPERTIES CXX_STANDARD_REQUIRED ON)
+target_compile_definitions(test_universal_rotator PRIVATE WXWIN_COMPATIBILITY_3_3 NANOVG_GL3)
+target_precompile_headers(test_universal_rotator PRIVATE source/app/main.h)
 
+if(TARGET wxWidgets::wxWidgets)
+	target_link_libraries(test_universal_rotator PRIVATE wxWidgets::wxWidgets)
+else()
+	target_link_libraries(test_universal_rotator PRIVATE ${wxWidgets_LIBRARIES})
+endif()
+
+target_include_directories(test_universal_rotator PRIVATE
+	${Boost_INCLUDE_DIRS}
+	${OPENGL_INCLUDE_DIR}
+	${ZLIB_INCLUDE_DIR}
+	${Protobuf_INCLUDE_DIRS}
+	${LIBLZMA_INCLUDE_DIRS}
+	${CMAKE_CURRENT_BINARY_DIR}
+	${LUA_INCLUDE_DIR}
+	${CMAKE_CURRENT_SOURCE_DIR}/source
+)
+
+if(TARGET Boost::boost)
+	target_link_libraries(test_universal_rotator PRIVATE Boost::boost Boost::thread Boost::system)
+else()
+	target_link_libraries(test_universal_rotator PRIVATE ${Boost_LIBRARIES})
+endif()
+
+if(TARGET ZLIB::ZLIB)
+	target_link_libraries(test_universal_rotator PRIVATE ZLIB::ZLIB)
+else()
+	target_link_libraries(test_universal_rotator PRIVATE ${ZLIB_LIBRARIES})
+endif()
+
+if(TARGET protobuf::libprotobuf)
+	target_link_libraries(test_universal_rotator PRIVATE protobuf::libprotobuf)
+else()
+	target_link_libraries(test_universal_rotator PRIVATE ${Protobuf_LIBRARIES})
+endif()
+
+if(TARGET LibLZMA::LibLZMA)
+	target_link_libraries(test_universal_rotator PRIVATE LibLZMA::LibLZMA)
+else()
+	target_link_libraries(test_universal_rotator PRIVATE ${LIBLZMA_LIBRARIES})
+endif()
+
+target_link_libraries(test_universal_rotator PRIVATE ${OPENGL_LIBRARIES})
+target_link_libraries(test_universal_rotator PRIVATE glad::glad)
+target_link_libraries(test_universal_rotator PRIVATE glm::glm)
+target_link_libraries(test_universal_rotator PRIVATE nanovg::nanovg)
+target_link_libraries(test_universal_rotator PRIVATE spdlog::spdlog)
+target_link_libraries(test_universal_rotator PRIVATE tomlplusplus::tomlplusplus)
+target_link_libraries(test_universal_rotator PRIVATE sol2::sol2)
+target_link_libraries(test_universal_rotator PRIVATE cpr::cpr)
+target_link_libraries(test_universal_rotator PRIVATE WebP::webp)
+target_link_libraries(test_universal_rotator PRIVATE ${LUA_LIBRARIES})

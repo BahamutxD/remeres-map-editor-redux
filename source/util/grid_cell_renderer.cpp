@@ -6,9 +6,6 @@
 namespace rme::ui::grid {
 
 	namespace {
-		constexpr float kCardRadius = 4.0f;
-		constexpr float kIconRadius = 3.0f;
-
 		// Hover reaction: the card grows by up to two pixels a side and its
 		// shadow deepens as the animation runs.
 		constexpr float kHoverGrow = 2.0f;
@@ -131,63 +128,140 @@ namespace rme::ui::grid {
 		return m_entries.emplace(key, std::move(label)).first->second;
 	}
 
-	wxRect DrawCardChrome(NVGcontext* vg, const wxRect& cell, bool selected, bool hovered, float hoverAnim) {
-		float x = static_cast<float>(cell.x);
-		float y = static_cast<float>(cell.y);
-		float w = static_cast<float>(cell.width);
-		float h = static_cast<float>(cell.height);
-
-		if (hovered) {
-			const float grow = kHoverGrow * hoverAnim;
-			x -= grow;
-			y -= grow;
-			w += grow * 2.0f;
-			h += grow * 2.0f;
+	NVGcolor GetStandardCategoryColor(Theme::Role role, bool isLightTheme) {
+		if (isLightTheme) {
+			switch (role) {
+				case Theme::Role::BrushCategoryGround: return nvgRGBA(30, 155, 40, 255);
+				case Theme::Role::BrushCategoryWall: return nvgRGBA(110, 115, 165, 255);
+				case Theme::Role::BrushCategoryWallDecoration: return nvgRGBA(30, 125, 235, 255);
+				case Theme::Role::BrushCategoryDoor: return nvgRGBA(215, 100, 10, 255);
+				case Theme::Role::BrushCategoryDoodad: return nvgRGBA(185, 125, 0, 255);
+				case Theme::Role::BrushCategoryTable: return nvgRGBA(165, 95, 30, 255);
+				case Theme::Role::BrushCategoryCarpet: return nvgRGBA(175, 40, 195, 255);
+				case Theme::Role::BrushCategoryDefaultRaw:
+				default: return nvgRGBA(120, 125, 135, 255);
+			}
+		} else {
+			switch (role) {
+				case Theme::Role::BrushCategoryGround: return nvgRGBA(85, 230, 85, 255);
+				case Theme::Role::BrushCategoryWall: return nvgRGBA(180, 185, 230, 255);
+				case Theme::Role::BrushCategoryWallDecoration: return nvgRGBA(95, 175, 255, 255);
+				case Theme::Role::BrushCategoryDoor: return nvgRGBA(255, 175, 55, 255);
+				case Theme::Role::BrushCategoryDoodad: return nvgRGBA(255, 225, 45, 255);
+				case Theme::Role::BrushCategoryTable: return nvgRGBA(225, 145, 70, 255);
+				case Theme::Role::BrushCategoryCarpet: return nvgRGBA(225, 90, 235, 255);
+				case Theme::Role::BrushCategoryDefaultRaw:
+				default: return nvgRGBA(150, 155, 165, 255);
+			}
 		}
+	}
 
-		const wxRect drawn(static_cast<int>(x), static_cast<int>(y), static_cast<int>(w), static_cast<int>(h));
+	NVGcolor GetStandardCategoryColor(const Brush* brush, bool isLightTheme) {
+		return GetStandardCategoryColor(Theme::GetBrushCategoryRole(brush), isLightTheme);
+	}
 
-		if (selected) {
-			const NVGpaint glow = nvgBoxGradient(vg, x, y, w, h, kCardRadius, 10.0f, nvgRGBA(100, 150, 255, 128), nvgRGBA(0, 0, 0, 0));
-			nvgBeginPath(vg);
-			nvgRect(vg, x - 10.0f, y - 10.0f, w + 20.0f, h + 20.0f);
-			nvgRoundedRect(vg, x, y, w, h, kCardRadius);
-			nvgPathWinding(vg, NVG_HOLE);
-			nvgFillPaint(vg, glow);
-			nvgFill(vg);
-		} else if (hovered) {
-			const float alpha = kHoverShadowAlphaFactor * hoverAnim + kHoverShadowAlphaBase;
-			const float blur = kHoverShadowBlurBase + kHoverShadowBlurFactor * hoverAnim;
-			const NVGpaint shadow = nvgBoxGradient(vg, x, y + 2.0f, w, h, kCardRadius, blur, nvgRGBA(0, 0, 0, static_cast<int>(alpha)), nvgRGBA(0, 0, 0, 0));
-			nvgBeginPath(vg);
-			nvgRect(vg, x - 10.0f, y - 10.0f, w + 20.0f, h + 20.0f);
-			nvgRoundedRect(vg, x, y, w, h, kCardRadius);
-			nvgPathWinding(vg, NVG_HOLE);
-			nvgFillPaint(vg, shadow);
-			nvgFill(vg);
-		}
+	void DrawDogEarBadge(NVGcontext* vg, const wxRect& iconRect, NVGcolor categoryColor) {
+		const float sizeDelta = static_cast<float>(std::max(0, iconRect.width - 32));
+		const float triSize = std::round(6.0f + sizeDelta * (4.0f / 64.0f));
+		const float bx = static_cast<float>(iconRect.x + 1);
+		const float by = static_cast<float>(iconRect.y + iconRect.height - 1);
 
 		nvgBeginPath(vg);
-		nvgRoundedRect(vg, x, y, w, h, kCardRadius);
-		if (selected) {
-			const NVGcolor accent = NvgUtils::ToNvColor(Theme::Get(Theme::Role::Accent));
-			nvgFillColor(vg, nvgRGBAf(accent.r, accent.g, accent.b, 1.0f));
-		} else if (hovered) {
-			nvgFillColor(vg, NvgUtils::ToNvColor(Theme::Get(Theme::Role::CardBaseHover)));
+		nvgMoveTo(vg, bx, by);
+		nvgLineTo(vg, bx, by - triSize);
+		nvgLineTo(vg, bx + triSize, by);
+		nvgClosePath(vg);
+		nvgFillColor(vg, categoryColor);
+		nvgFill(vg);
+	}
+
+	wxRect DrawCardChrome(
+		NVGcontext* vg,
+		const wxRect& cell,
+		bool selected,
+		bool hovered,
+		float /*hoverAnim*/,
+		bool showLabels
+	) {
+		const float x = static_cast<float>(cell.x);
+		const float y = static_cast<float>(cell.y);
+		const float w = static_cast<float>(cell.width);
+		const float h = static_cast<float>(cell.height);
+		const float iconH = showLabels ? w : h;
+
+		const bool isLightTheme = (Theme::Get(Theme::Role::Surface).Red() > 128);
+
+		NVGcolor shadowColor;
+		NVGcolor lipColor;
+		NVGcolor wellBg;
+		NVGcolor divShadow;
+		NVGcolor divLip;
+
+		if (isLightTheme) {
+			shadowColor = nvgRGBA(180, 184, 192, 255);
+			lipColor = nvgRGBA(255, 255, 255, 255);
+			wellBg = hovered ? nvgRGBA(255, 255, 255, 255) : nvgRGBA(242, 244, 248, 255);
+			divShadow = nvgRGBA(205, 210, 218, 255);
+			divLip = nvgRGBA(255, 255, 255, 255);
 		} else {
-			nvgFillColor(vg, NvgUtils::ToNvColor(Theme::Get(Theme::Role::CardBase)));
+			shadowColor = nvgRGBA(14, 15, 17, 255);
+			lipColor = nvgRGBA(52, 56, 64, 255);
+			wellBg = hovered ? nvgRGBA(34, 37, 43, 255) : nvgRGBA(22, 24, 27, 255);
+			divShadow = nvgRGBA(14, 15, 17, 255);
+			divLip = nvgRGBA(46, 50, 58, 255);
 		}
+
+		// 1. Classic Inset 1px Outer Sunken Groove
+		nvgBeginPath(vg);
+		nvgMoveTo(vg, x, y + h);
+		nvgLineTo(vg, x, y);
+		nvgLineTo(vg, x + w, y);
+		nvgStrokeColor(vg, shadowColor);
+		nvgStrokeWidth(vg, 1.0f);
+		nvgStroke(vg);
+
+		nvgBeginPath(vg);
+		nvgMoveTo(vg, x + w - 0.5f, y);
+		nvgLineTo(vg, x + w - 0.5f, y + h - 0.5f);
+		nvgLineTo(vg, x, y + h - 0.5f);
+		nvgStrokeColor(vg, lipColor);
+		nvgStrokeWidth(vg, 1.0f);
+		nvgStroke(vg);
+
+		// 2. Well Background filling entire card
+		nvgBeginPath(vg);
+		nvgRect(vg, x + 1.0f, y + 1.0f, w - 2.0f, h - 2.0f);
+		nvgFillColor(vg, wellBg);
 		nvgFill(vg);
 
+		// 3. Label Row Divider (if labels are shown)
+		if (showLabels) {
+			const float divY = y + iconH;
+			nvgBeginPath(vg);
+			nvgMoveTo(vg, x + 1.0f, divY - 0.5f);
+			nvgLineTo(vg, x + w - 1.0f, divY - 0.5f);
+			nvgStrokeColor(vg, divShadow);
+			nvgStrokeWidth(vg, 1.0f);
+			nvgStroke(vg);
+
+			nvgBeginPath(vg);
+			nvgMoveTo(vg, x + 1.0f, divY + 0.5f);
+			nvgLineTo(vg, x + w - 1.0f, divY + 0.5f);
+			nvgStrokeColor(vg, divLip);
+			nvgStrokeWidth(vg, 1.0f);
+			nvgStroke(vg);
+		}
+
+		// 4. Selection: 2px Blue Frame around entire card
 		if (selected) {
 			nvgBeginPath(vg);
-			nvgRoundedRect(vg, x + 0.5f, y + 0.5f, w - 1.0f, h - 1.0f, kCardRadius);
+			nvgRect(vg, x + 0.5f, y + 0.5f, w - 1.0f, h - 1.0f);
 			nvgStrokeColor(vg, NvgUtils::ToNvColor(Theme::Get(Theme::Role::Accent)));
 			nvgStrokeWidth(vg, 2.0f);
 			nvgStroke(vg);
 		}
 
-		return drawn;
+		return cell;
 	}
 
 	void DrawCellIcon(NVGcontext* vg, const wxRect& iconRect, int texture, rme::rendering::TileIndicatorType badge) {
@@ -201,7 +275,7 @@ namespace rme::ui::grid {
 		if (texture <= 0) {
 			// Placeholder for entries without a sprite.
 			nvgBeginPath(vg);
-			nvgRoundedRect(vg, static_cast<float>(iconRect.x), static_cast<float>(iconRect.y), static_cast<float>(iconRect.width), static_cast<float>(iconRect.height), kIconRadius);
+			nvgRect(vg, static_cast<float>(iconRect.x), static_cast<float>(iconRect.y), static_cast<float>(iconRect.width), static_cast<float>(iconRect.height));
 			nvgFillColor(vg, nvgRGBA(textColour.Red(), textColour.Green(), textColour.Blue(), 12));
 			nvgFill(vg);
 			nvgStrokeColor(vg, nvgRGBA(textColour.Red(), textColour.Green(), textColour.Blue(), 40));
@@ -224,7 +298,7 @@ namespace rme::ui::grid {
 		const float drawHeight = static_cast<float>(iconRect.height);
 
 		nvgBeginPath(vg);
-		nvgRoundedRect(vg, drawX, drawY, drawWidth, drawHeight, kIconRadius);
+		nvgRect(vg, drawX, drawY, drawWidth, drawHeight);
 		nvgFillPaint(vg, nvgImagePattern(vg, drawX, drawY, drawWidth, drawHeight, 0.0f, texture, 1.0f));
 		nvgFill(vg);
 	}
@@ -240,7 +314,7 @@ namespace rme::ui::grid {
 		const CellLabel& label = cache.Get(vg, text, static_cast<float>(cell.width - 4));
 
 		nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-		nvgFillColor(vg, selected ? NvgUtils::ToNvColor(Theme::Get(Theme::Role::TextOnAccent)) : NvgUtils::ToNvColor(Theme::Get(Theme::Role::Text)));
+		nvgFillColor(vg, NvgUtils::ToNvColor(Theme::Get(Theme::Role::Text)));
 
 		const float centreX = cell.x + cell.width / 2.0f;
 		const float labelTop = static_cast<float>(cell.y + cell.height - kLabelHeight);
@@ -259,7 +333,7 @@ namespace rme::ui::grid {
 		const float y = static_cast<float>(cell.y) + 2.0f;
 
 		nvgBeginPath(vg);
-		nvgRoundedRect(vg, x, y, size, size, 2.0f);
+		nvgRect(vg, x, y, size, size);
 		nvgFillColor(vg, hovered ? NvgColor(Theme::Role::Error) : NvgColor(Theme::Role::RaisedSurface));
 		nvgFill(vg);
 		nvgStrokeColor(vg, hovered ? NvgColor(Theme::Role::Error) : NvgColor(Theme::Role::Border, 200));
