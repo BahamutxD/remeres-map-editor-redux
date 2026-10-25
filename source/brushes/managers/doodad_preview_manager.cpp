@@ -50,7 +50,6 @@ void DoodadPreviewManager::FillBuffer() {
 		}
 	}
 
-	const bool randomize = g_settings.getBoolean(Config::RANDOMIZE_DOODADS);
 	const int variation = g_brush_manager.GetBrushVariation();
 	Position center_pos(0x8000, 0x8000, 0x8);
 
@@ -59,17 +58,11 @@ void DoodadPreviewManager::FillBuffer() {
 		int object_count = 0;
 		const int object_range = (g_brush_manager.UseCustomThickness() ? static_cast<int>(area * g_brush_manager.GetCustomThicknessMod()) : brush->getThickness() * area / std::max(1, brush->getThicknessCeiling()));
 
-		std::mt19937 seeded_rng;
-		if (!randomize) {
-			seeded_rng.seed(static_cast<uint32_t>(1337u + variation * 37u));
-		}
+		std::mt19937 seeded_rng(static_cast<uint32_t>(1337u + static_cast<uint32_t>(variation) * 37u));
 		auto next_rand = [&](int min_val, int max_val) -> int {
 			if (min_val >= max_val) return min_val;
-			if (!randomize) {
-				std::uniform_int_distribution<int> dist(min_val, max_val);
-				return dist(seeded_rng);
-			}
-			return random(min_val, max_val);
+			std::uniform_int_distribution<int> dist(min_val, max_val);
+			return dist(seeded_rng);
 		};
 
 		const int final_object_count = std::max(1, object_range + next_rand(0, object_range));
@@ -141,7 +134,7 @@ void DoodadPreviewManager::FillBuffer() {
 			++object_count;
 		}
 	} else {
-		if (!randomize && brush->getTotalVariants() > 0) {
+		if (brush->getTotalVariants() > 0) {
 			const auto variant = brush->getVariant(variation);
 			if (variant.composite) {
 				for (const auto& composite : *variant.composite) {
@@ -158,21 +151,6 @@ void DoodadPreviewManager::FillBuffer() {
 				Tile* tile = doodad_buffer_map->createTile(center_pos.x, center_pos.y, center_pos.z);
 				tile->addItem(variant.single_item->deepCopy());
 			}
-		} else if (brush->hasCompositeObjects(variation) && random(brush->getTotalChance(variation)) <= brush->getCompositeChance(variation)) {
-			// Composite
-			const CompositeTileList& composites = brush->getComposite(variation);
-			for (const auto& composite : composites) {
-				Position pos = center_pos + composite.first;
-				const auto& items = composite.second;
-				Tile* tile = doodad_buffer_map->createTile(pos.x, pos.y, pos.z);
-				for (const auto& item : items) {
-					tile->addItem(item->deepCopy());
-				}
-			}
-		} else if (brush->hasSingleObjects(variation)) {
-			Tile* tile = doodad_buffer_map->createTile(center_pos.x, center_pos.y, center_pos.z);
-			int var = variation;
-			brush->draw(doodad_buffer_map.get(), tile, &var);
 		}
 	}
 }

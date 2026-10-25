@@ -152,10 +152,6 @@ int main() {
 		g_item_definitions.setEditorData(id, editor_data);
 	}
 
-	TEST_ASSERT(rotated.findRotatedWallVariant(4001, true) == 4011);
-	TEST_ASSERT(rotated.findRotatedWallVariant(4001, false) == 4021);
-	TEST_ASSERT(!rotated.findRotatedWallVariant(4030, false).has_value()); // no NW target
-	TEST_ASSERT(rotated.findRotatedWallVariant(4010, true) == 4040);
 
 	static TestWallBrush door_wall;
 	door_wall.items.addDoorItem(WALL_HORIZONTAL, 5000, WALL_DOOR_NORMAL, false);
@@ -261,6 +257,23 @@ int main() {
 
 		auto v_prev = items.getVariant(-1);
 		TEST_ASSERT(v_prev.single_item->getID() == 2742);
+
+		// Advance 10 times with 'X' and step back with 'Z'
+		std::vector<uint16_t> history;
+		int var = 0;
+		for (int i = 0; i < 11; ++i) {
+			auto v = items.getVariant(var);
+			TEST_ASSERT(v.single_item != nullptr);
+			history.push_back(v.single_item->getID());
+			++var;
+		}
+		--var;
+		for (int i = 10; i >= 0; --i) {
+			auto v = items.getVariant(var);
+			TEST_ASSERT(v.single_item != nullptr);
+			TEST_ASSERT(v.single_item->getID() == history[i]);
+			var = std::max(0, var - 1);
+		}
 	}
 
 	// Buffer tile preservation on doodad draw (merge of copy preserves template)
@@ -348,7 +361,7 @@ int main() {
 		TEST_ASSERT(cur_t2->creature->getDirection() == WEST); // SOUTH -> WEST
 
 		TEST_ASSERT(cur_t3->items.size() == 1);
-		TEST_ASSERT(cur_t3->items[0]->getID() == 4011); // wall 4001 -> 4011
+		TEST_ASSERT(cur_t3->items[0]->getID() == 4001); // wall 4001 remains unchanged (walls do not rotate)
 
 		TEST_ASSERT(cur_t4->items.size() == 1);
 		TEST_ASSERT(cur_t4->items[0]->getID() == 5001); // door 5000 -> 5001 (toggled open)

@@ -41,7 +41,6 @@ public:
 	::DoorType getDoorTypeFromID(uint16_t id);
 	std::optional<BorderType> findAlignmentForItem(ServerItemId item_id) const;
 	std::optional<ServerItemId> findNextWallVariant(ServerItemId item_id) const;
-	std::optional<ServerItemId> findRotatedWallVariant(ServerItemId item_id, bool clockwise) const;
 
 	void getRelatedItems(std::vector<uint16_t>& items) override;
 

@@ -184,12 +184,10 @@ void KeyboardHandler::HandleBrushVariation(MapCanvas* canvas, int keycode) {
 		}
 		}
 	} else {
-		++nv;
 		if (brush->is<DoodadBrush>()) {
-			if (nv >= brush->getMaxVariation()) {
-				nv = brush->getMaxVariation() - 1;
-			}
+			++nv;
 		} else {
+			++nv;
 			if (nv >= brush->getMaxVariation()) {
 				nv = 0;
 			}

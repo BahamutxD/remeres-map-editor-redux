@@ -131,7 +131,9 @@ void BrushPanel::LoadContents() {
 	sizer->Add(brushbox->GetSelfWindow(), 1, wxEXPAND);
 	Layout();
 	Fit();
-	brushbox->SelectFirstBrush();
+	if (const Brush* current = g_gui.GetCurrentBrush()) {
+		brushbox->SelectBrush(current);
+	}
 }
 
 void BrushPanel::SetSort(TilesetSortKey key, TilesetSortDirection dir) {

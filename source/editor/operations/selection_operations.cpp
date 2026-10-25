@@ -49,12 +49,6 @@ namespace {
 				if (toggle_doors) {
 					DoorBrush::switchDoor(item.get());
 				}
-			} else if (item->isWall()) {
-				if (WallBrush* wall_brush = item->getWallBrush()) {
-					if (const auto rotated_id = wall_brush->findRotatedWallVariant(old_id, clockwise)) {
-						item->setID(*rotated_id);
-					}
-				}
 			} else if (item->isRoteable()) {
 				if (clockwise) {
 					item->doRotate();
@@ -175,64 +169,6 @@ bool SelectionOperations::rotateSelection(Editor& editor, bool clockwise) {
 		return false;
 	}
 
-	editor.addAction(std::move(action));
-	g_gui.RefreshView();
-	return true;
-}
-
-bool SelectionOperations::rotateWallOrDoorAt(Editor& editor, const Position& position) {
-	Tile* tile = editor.map.getTile(position);
-	if (!tile) {
-		return false;
-	}
-
-	size_t target_index = tile->items.size();
-	bool is_door = false;
-	for (size_t i = tile->items.size(); i-- > 0;) {
-		Item* item = tile->items[i].get();
-		if (!item) {
-			continue;
-		}
-		if (item->isBrushDoor()) {
-			target_index = i;
-			is_door = true;
-			break;
-		}
-		if (item->isWall()) {
-			target_index = i;
-			break;
-		}
-	}
-
-	if (target_index >= tile->items.size()) {
-		return false;
-	}
-
-	std::unique_ptr<Tile> new_tile = TileOperations::deepCopy(tile, editor.map);
-	if (target_index >= new_tile->items.size()) {
-		return false;
-	}
-
-	Item* target = new_tile->items[target_index].get();
-	if (!target) {
-		return false;
-	}
-
-	const ServerItemId old_id = target->getID();
-	if (is_door) {
-		DoorBrush::switchDoor(target);
-	} else if (WallBrush* wall_brush = target->getWallBrush()) {
-		if (const auto next_id = wall_brush->findNextWallVariant(old_id)) {
-			target->setID(*next_id);
-		}
-	}
-
-	if (target->getID() == old_id) {
-		return false;
-	}
-
-	std::unique_ptr<Action> action = editor.actionQueue->createAction(ACTION_ROTATE);
-	action->addChange(std::make_unique<Change>(std::move(new_tile)));
 	editor.addAction(std::move(action));
 	g_gui.RefreshView();
 	return true;

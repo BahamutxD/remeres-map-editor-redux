@@ -449,20 +449,14 @@ void BrushPalettePanel::OnPageChanged(wxChoicebookEvent& event) {
 	}
 
 	BrushPanel* panel = dynamic_cast<BrushPanel*>(choicebook->GetCurrentPage());
-	Brush* new_brush = nullptr;
-
 	if (panel) {
 		panel->OnSwitchIn();
 		ApplyFilter();
-		new_brush = panel->GetSelectedBrush();
+		if (const Brush* current = g_gui.GetCurrentBrush()) {
+			panel->SelectBrush(current);
+		}
 	}
 
-	g_gui.ActivatePalette(GetParentPalette());
-	if (new_brush) {
-		g_gui.SelectBrushInternal(new_brush);
-	} else {
-		g_gui.SelectBrush();
-	}
 	Layout();
 }
 

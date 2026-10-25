@@ -25,6 +25,9 @@
 namespace {
 
 	int32_t NormalizeVariation(const Brush* brush, int32_t variation) {
+		if (brush && brush->is<DoodadBrush>()) {
+			return std::max(0, variation);
+		}
 		const int32_t max_variation = brush ? brush->getMaxVariation() : 0;
 		if (max_variation <= 1) {
 			return 0;
@@ -414,6 +417,12 @@ void BrushManager::SetDoorLocked(bool on) {
 }
 
 void BrushManager::FillDoodadPreviewBuffer() {
+	if (g_settings.getBoolean(Config::RANDOMIZE_DOODADS)) {
+		brush_variation = random(0, 1000000);
+		if (current_brush) {
+			current_brush->setVariation(brush_variation);
+		}
+	}
 	g_doodad_preview.FillBuffer();
 }
 void BrushManager::UpdateDoodadPreview() {
