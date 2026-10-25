@@ -9,28 +9,19 @@
 #include "game/materials.h"
 #include "item_definitions/core/item_definition_store.h"
 #include "palette/controls/tileset_grid_toolbar.h"
+#include "rendering/indicators/technical_item_registry.h"
 #include "ui/gui.h"
 #include "ui/theme.h"
-#include "util/image_manager.h"
 #include "util/common.h"
+#include "util/grid_cell_renderer.h"
 
 #include <wx/sizer.h>
 #include <wx/stattext.h>
-#include <wx/button.h>
 
 #include <unordered_set>
 #include <algorithm>
 #include <format>
 #include <ranges>
-
-namespace {
-	wxButton* CreateIconButton(wxWindow* parent, std::string_view icon, const wxString& tooltip, const wxSize& size) {
-		auto* button = new wxButton(parent, wxID_ANY, wxEmptyString, wxDefaultPosition, size, wxBU_NOTEXT | wxBU_EXACTFIT);
-		button->SetBitmap(IMAGE_MANAGER.GetBitmap(icon, parent->FromDIP(wxSize(16, 16)), Theme::Get(Theme::Role::Text)));
-		button->SetToolTip(tooltip);
-		return button;
-	}
-} // namespace
 
 // ============================================================================
 // BrushItemsGrid
@@ -121,7 +112,8 @@ void BrushItemsGrid::OnItemSelected(int index) {
 		m_selectedItemId = id;
 		SetSelection(index);
 		if (RAWBrush* raw = g_materials.ensureRawBrush(id)) {
-			g_gui.SelectBrush(raw);
+			// Use SelectBrushInternal so the main palette/tileset window is not navigated away or jumped
+			g_gui.SelectBrushInternal(raw);
 		}
 	}
 }
@@ -154,13 +146,136 @@ void BrushItemsGrid::ApplyFilterAndSort() {
 }
 
 // ============================================================================
+// BrushBottomCardWidget
+// ============================================================================
+
+BrushBottomCardWidget::BrushBottomCardWidget(wxWindow* parent) :
+	NanoVGCanvas(parent, wxID_ANY, wxBORDER_NONE) {
+	SetMinSize(FromDIP(wxSize(-1, 42)));
+	Bind(wxEVT_LEFT_DOWN, &BrushBottomCardWidget::OnMouseDown, this);
+	Bind(wxEVT_ENTER_WINDOW, &BrushBottomCardWidget::OnMouseEnter, this);
+	Bind(wxEVT_LEAVE_WINDOW, &BrushBottomCardWidget::OnMouseLeave, this);
+}
+
+void BrushBottomCardWidget::SetBrush(const Brush* brush) {
+	m_brush = brush;
+	if (m_brush) {
+		SetToolTip(wxstr(std::format("Click to select {}", m_brush->getName())));
+	} else {
+		UnsetToolTip();
+	}
+	Refresh();
+}
+
+void BrushBottomCardWidget::SetIndicatorDogEar(bool dogEar) {
+	m_indicatorDogEar = dogEar;
+	Refresh();
+}
+
+wxSize BrushBottomCardWidget::DoGetBestClientSize() const {
+	return FromDIP(wxSize(200, 42));
+}
+
+void BrushBottomCardWidget::OnMouseDown(wxMouseEvent&) {
+	if (m_brush) {
+		// Use SelectBrushInternal so the main palette/tileset window is not jumped or filtered
+		g_gui.SelectBrushInternal(const_cast<Brush*>(m_brush));
+		if (auto* win = dynamic_cast<BrushItemsWindow*>(GetParent())) {
+			win->OnBottomCardClicked();
+		}
+		Refresh();
+	}
+}
+
+void BrushBottomCardWidget::OnMouseEnter(wxMouseEvent&) {
+	m_hovered = true;
+	SetCursor(wxCursor(wxCURSOR_HAND));
+	Refresh();
+}
+
+void BrushBottomCardWidget::OnMouseLeave(wxMouseEvent&) {
+	m_hovered = false;
+	SetCursor(wxCursor(wxCURSOR_ARROW));
+	Refresh();
+}
+
+void BrushBottomCardWidget::OnNanoVGPaint(NVGcontext* vg, int width, int height) {
+	// Surface background
+	const wxColour bgCol = Theme::Get(Theme::Role::Surface);
+	nvgBeginPath(vg);
+	nvgRect(vg, 0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height));
+	nvgFillColor(vg, nvgRGBA(bgCol.Red(), bgCol.Green(), bgCol.Blue(), 255));
+	nvgFill(vg);
+
+	// Top separator line
+	const wxColour borderCol = Theme::Get(Theme::Role::Border);
+	nvgBeginPath(vg);
+	nvgMoveTo(vg, 0.0f, 0.5f);
+	nvgLineTo(vg, static_cast<float>(width), 0.5f);
+	nvgStrokeColor(vg, nvgRGBA(borderCol.Red(), borderCol.Green(), borderCol.Blue(), 255));
+	nvgStrokeWidth(vg, 1.0f);
+	nvgStroke(vg);
+
+	if (!m_brush) {
+		return;
+	}
+
+	const bool isSelected = (g_gui.GetCurrentBrush() == m_brush);
+	const int cardSize = 32;
+	const int cardX = 6;
+	const int cardY = (height - cardSize) / 2;
+	const wxRect cardRect(cardX, cardY, cardSize, cardSize);
+
+	const wxRect drawn = rme::ui::grid::DrawCardChrome(vg, cardRect, isSelected, m_hovered, 0.0f, false);
+	const wxRect iconRect = rme::ui::grid::IconRect(drawn, 28);
+
+	int texture = 0;
+	const auto badge = rme::rendering::TechnicalItemRegistry::GetBrushIndicatorType(m_brush);
+	if (badge == rme::rendering::TileIndicatorType::None) {
+		if (Sprite* sprite = m_brush->getSprite()) {
+			texture = GetOrCreateSpriteTexture(vg, sprite);
+		} else {
+			const int lookId = m_brush->getLookID();
+			if (lookId < 0) {
+				texture = GetOrCreateEditorIconTexture(vg, lookId);
+			} else if (lookId > 0) {
+				if (Sprite* sprite = g_gui.gfx.getSprite(lookId)) {
+					texture = GetOrCreateSpriteTexture(vg, sprite);
+				}
+			}
+		}
+	}
+	rme::ui::grid::DrawCellIcon(vg, iconRect, texture, badge);
+
+	if (m_indicatorDogEar) {
+		const NVGcolor catNVG = rme::ui::grid::GetStandardCategoryColor(m_brush);
+		rme::ui::grid::DrawDogEarBadge(vg, iconRect, catNVG);
+	}
+
+	// Draw brush name label
+	const float textX = static_cast<float>(cardX + cardSize + 8);
+	const float textY = height / 2.0f;
+	const float maxTextWidth = static_cast<float>(width) - textX - 6.0f;
+	if (maxTextWidth > 0.0f) {
+		nvgSave(vg);
+		nvgScissor(vg, textX, 0.0f, maxTextWidth, static_cast<float>(height));
+		nvgFontSize(vg, 12.0f);
+		nvgFontFace(vg, "sans");
+		nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
+		const wxColour textCol = isSelected ? Theme::Get(Theme::Role::Accent) : Theme::Get(Theme::Role::Text);
+		nvgFillColor(vg, nvgRGBA(textCol.Red(), textCol.Green(), textCol.Blue(), 255));
+		nvgText(vg, textX, textY, m_brush->getName().c_str(), nullptr);
+		nvgRestore(vg);
+	}
+}
+
+// ============================================================================
 // BrushItemsWindow
 // ============================================================================
 
 BrushItemsWindow::BrushItemsWindow(wxWindow* parent) :
 	wxPanel(parent, wxID_ANY) {
 	BuildUI();
-	UpdateHeader();
 }
 
 void BrushItemsWindow::BuildUI() {
@@ -168,42 +283,10 @@ void BrushItemsWindow::BuildUI() {
 
 	wxBoxSizer* mainSizer = new wxBoxSizer(wxVERTICAL);
 
-	// Header panel
-	m_headerPanel = new wxPanel(this, wxID_ANY);
-	m_headerPanel->SetBackgroundColour(Theme::Get(Theme::Role::Header));
-	wxBoxSizer* headerSizer = new wxBoxSizer(wxHORIZONTAL);
-
-	m_brushNameLabel = new wxStaticText(m_headerPanel, wxID_ANY, "No Brush Selected");
-	wxFont titleFont = m_brushNameLabel->GetFont();
-	titleFont.SetWeight(wxFONTWEIGHT_BOLD);
-	m_brushNameLabel->SetFont(titleFont);
-	m_brushNameLabel->SetForegroundColour(Theme::Get(Theme::Role::Text));
-	headerSizer->Add(m_brushNameLabel, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, 8);
-
-	m_itemCountLabel = new wxStaticText(m_headerPanel, wxID_ANY, "");
-	m_itemCountLabel->SetForegroundColour(Theme::Get(Theme::Role::TextSubtle));
-	headerSizer->Add(m_itemCountLabel, 1, wxALIGN_CENTER_VERTICAL | wxLEFT, 6);
-
-	const wxSize btnSize = FromDIP(wxSize(28, 24));
-	m_useBrushBtn = CreateIconButton(m_headerPanel, ICON_PAINTBRUSH, "Switch drawing tool back to this composite brush", btnSize);
-	m_useBrushBtn->Enable(false);
-	m_useBrushBtn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
-		if (m_currentSourceBrush) {
-			g_gui.SelectBrush(m_currentSourceBrush);
-			if (m_grid) {
-				m_grid->SetSelectedItem(0);
-			}
-		}
-	});
-	headerSizer->Add(m_useBrushBtn, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 6);
-
-	m_headerPanel->SetSizer(headerSizer);
-	mainSizer->Add(m_headerPanel, 0, wxEXPAND);
-
 	// Grid
 	m_grid = new BrushItemsGrid(this);
 
-	// Toolbar
+	// Toolbar without search box
 	TilesetGridToolbar::Actions actions;
 	actions.filter = [this](const std::string& text) {
 		if (m_grid) {
@@ -234,6 +317,9 @@ void BrushItemsWindow::BuildUI() {
 		if (m_grid) {
 			m_grid->SetBrushIndicators(dogEar);
 		}
+		if (m_bottomCard) {
+			m_bottomCard->SetIndicatorDogEar(dogEar);
+		}
 		if (m_toolbar) {
 			m_toolbar->SetIndicatorState(dogEar);
 		}
@@ -247,7 +333,12 @@ void BrushItemsWindow::BuildUI() {
 		}
 	};
 
-	m_toolbar = new TilesetGridToolbar(this, std::move(actions), TilesetGridToolbar::Part_Standard);
+	const unsigned parts = TilesetGridToolbar::Part_Sort |
+	                       TilesetGridToolbar::Part_Labels |
+	                       TilesetGridToolbar::Part_Size |
+	                       TilesetGridToolbar::Part_Indicators |
+	                       TilesetGridToolbar::Part_Spacing;
+	m_toolbar = new TilesetGridToolbar(this, std::move(actions), parts);
 	m_toolbar->SetState(m_grid->GetShowLabels(), m_grid->GetIconSize(), m_grid->HasSort(), m_grid->GetSortKey(), m_grid->GetSortDirection(), false);
 	mainSizer->Add(m_toolbar, 0, wxEXPAND);
 
@@ -257,6 +348,11 @@ void BrushItemsWindow::BuildUI() {
 	mainSizer->Add(m_emptyLabel, 0, wxEXPAND | wxTOP | wxBOTTOM, 24);
 
 	mainSizer->Add(m_grid, 1, wxEXPAND);
+
+	// Bottom tile square with brush name
+	m_bottomCard = new BrushBottomCardWidget(this);
+	m_bottomCard->Show(false);
+	mainSizer->Add(m_bottomCard, 0, wxEXPAND);
 
 	SetSizer(mainSizer);
 }
@@ -268,7 +364,16 @@ void BrushItemsWindow::SetActiveBrush(const Brush* brush) {
 		if (m_grid) {
 			m_grid->SetItems({});
 		}
-		UpdateHeader();
+		if (m_bottomCard) {
+			m_bottomCard->SetBrush(nullptr);
+			m_bottomCard->Show(false);
+		}
+		if (m_emptyLabel) {
+			m_emptyLabel->SetLabel("Select a brush to view its items.");
+			m_emptyLabel->Show(true);
+		}
+		if (m_grid) m_grid->Show(false);
+		Layout();
 		return;
 	}
 
@@ -278,12 +383,21 @@ void BrushItemsWindow::SetActiveBrush(const Brush* brush) {
 		const uint16_t raw_id = raw->getItemID();
 		if (m_currentSourceBrush != nullptr && m_grid && m_grid->ContainsItem(raw_id)) {
 			m_grid->SetSelectedItem(raw_id);
+			if (m_bottomCard) {
+				m_bottomCard->Refresh();
+			}
 			return;
 		}
 	}
 
 	// If the brush is identical to current source brush, do not rebuild
 	if (brush == m_currentSourceBrush && brush->getName() == m_lastSourceBrushName) {
+		if (m_grid) {
+			m_grid->SetSelectedItem(0);
+		}
+		if (m_bottomCard) {
+			m_bottomCard->Refresh();
+		}
 		return;
 	}
 
@@ -303,6 +417,9 @@ void BrushItemsWindow::SetActiveBrush(const Brush* brush) {
 		}
 	}
 
+	const bool isComposite = !brush->is<RAWBrush>();
+	const size_t count = unique_items.size();
+
 	if (m_grid) {
 		m_grid->SetItems(std::move(unique_items));
 		if (const RAWBrush* raw = brush->as<RAWBrush>()) {
@@ -312,39 +429,31 @@ void BrushItemsWindow::SetActiveBrush(const Brush* brush) {
 		}
 	}
 
-	UpdateHeader();
+	if (m_bottomCard) {
+		m_bottomCard->SetBrush(isComposite ? brush : nullptr);
+		m_bottomCard->Show(isComposite);
+	}
+
+	if (m_emptyLabel) {
+		m_emptyLabel->SetLabel("No items associated with this brush.");
+		m_emptyLabel->Show(count == 0);
+	}
+	if (m_grid) {
+		m_grid->Show(count > 0);
+	}
+
+	Layout();
 }
 
 void BrushItemsWindow::RefreshItems() {
 	SetActiveBrush(m_currentSourceBrush);
 }
 
-void BrushItemsWindow::UpdateHeader() {
-	if (!m_brushNameLabel || !m_itemCountLabel || !m_useBrushBtn) {
-		return;
+void BrushItemsWindow::OnBottomCardClicked() {
+	if (m_grid) {
+		m_grid->SetSelectedItem(0);
 	}
-
-	if (!m_currentSourceBrush) {
-		m_brushNameLabel->SetLabel("No Brush Selected");
-		m_itemCountLabel->SetLabel("");
-		m_useBrushBtn->Enable(false);
-		if (m_emptyLabel) {
-			m_emptyLabel->SetLabel("Select a brush to view its items.");
-			m_emptyLabel->Show(true);
-		}
-		if (m_grid) m_grid->Show(false);
-	} else {
-		m_brushNameLabel->SetLabel(wxstr(m_currentSourceBrush->getName()));
-		const size_t count = m_grid ? m_grid->GetItemCount() : 0;
-		m_itemCountLabel->SetLabel(wxstr(std::format("({} {})", count, count == 1 ? "item" : "items")));
-		const bool isComposite = !m_currentSourceBrush->is<RAWBrush>();
-		m_useBrushBtn->Enable(isComposite);
-		if (m_emptyLabel) {
-			m_emptyLabel->SetLabel("No items associated with this brush.");
-			m_emptyLabel->Show(count == 0);
-		}
-		if (m_grid) m_grid->Show(count > 0);
+	if (m_bottomCard) {
+		m_bottomCard->Refresh();
 	}
-
-	Layout();
 }

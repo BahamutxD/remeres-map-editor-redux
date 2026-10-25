@@ -7,6 +7,7 @@
 
 #include "app/main.h"
 #include "util/virtual_item_grid.h"
+#include "util/nanovg_canvas.h"
 #include <wx/panel.h>
 #include <vector>
 #include <string>
@@ -14,7 +15,6 @@
 class Brush;
 class TilesetGridToolbar;
 class wxStaticText;
-class wxButton;
 
 class BrushItemsGrid : public VirtualItemGrid {
 public:
@@ -50,6 +50,28 @@ private:
 	uint16_t m_selectedItemId = 0;
 };
 
+class BrushBottomCardWidget : public NanoVGCanvas {
+public:
+	explicit BrushBottomCardWidget(wxWindow* parent);
+	~BrushBottomCardWidget() override = default;
+
+	void SetBrush(const Brush* brush);
+	void SetIndicatorDogEar(bool dogEar);
+
+protected:
+	void OnNanoVGPaint(NVGcontext* vg, int width, int height) override;
+	wxSize DoGetBestClientSize() const override;
+
+private:
+	void OnMouseDown(wxMouseEvent& event);
+	void OnMouseEnter(wxMouseEvent& event);
+	void OnMouseLeave(wxMouseEvent& event);
+
+	const Brush* m_brush = nullptr;
+	bool m_hovered = false;
+	bool m_indicatorDogEar = false;
+};
+
 class BrushItemsWindow : public wxPanel {
 public:
 	explicit BrushItemsWindow(wxWindow* parent);
@@ -57,20 +79,17 @@ public:
 
 	void SetActiveBrush(const Brush* brush);
 	void RefreshItems();
+	void OnBottomCardClicked();
 
 private:
 	void BuildUI();
-	void UpdateHeader();
 
 	const Brush* m_currentSourceBrush = nullptr;
 	std::string m_lastSourceBrushName;
 
-	wxPanel* m_headerPanel = nullptr;
-	wxStaticText* m_brushNameLabel = nullptr;
-	wxStaticText* m_itemCountLabel = nullptr;
-	wxButton* m_useBrushBtn = nullptr;
 	TilesetGridToolbar* m_toolbar = nullptr;
 	BrushItemsGrid* m_grid = nullptr;
+	BrushBottomCardWidget* m_bottomCard = nullptr;
 	wxStaticText* m_emptyLabel = nullptr;
 };
 
