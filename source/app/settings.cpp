@@ -26,6 +26,9 @@
 #include <spdlog/fmt/ostr.h>
 #include <toml++/toml.h>
 
+#include "util/file_system.h"
+#include <wx/filename.h>
+#include <filesystem>
 #include <iostream>
 #include <fstream>
 #include <limits>
@@ -236,14 +239,59 @@ static void populateDefaultTechnicalItems(toml::table& table) {
 	table.insert_or_assign("technical_items", std::move(tech_sec));
 }
 
+namespace {
+	std::filesystem::path settingsFsPath(const wxFileName& file) {
+#ifdef _WIN32
+		return std::filesystem::path(file.GetFullPath().ToStdWstring());
+#else
+		return std::filesystem::path(std::string(file.GetFullPath().utf8_str()));
+#endif
+	}
+
+	// path::string() can throw on Windows for names outside the ANSI code page.
+	std::string settingsPathUtf8(const std::filesystem::path& path) {
+		const std::u8string utf8 = path.u8string();
+		return std::string(reinterpret_cast<const char*>(utf8.data()), utf8.size());
+	}
+
+	// config.toml belongs to the editor, so it lives next to the executable.
+	// It used to be opened relative to the working directory, which is the
+	// map's folder when a map is opened by double-clicking it, so the editor
+	// read (and wrote) a separate config.toml beside every map.
+	std::filesystem::path configFilePath() {
+		return settingsFsPath(wxFileName(FileSystem::GetExecDirectory(), "config.toml"));
+	}
+
+	// Until the editor has written its own config.toml, fall back to one in the
+	// working directory so existing settings carry over; the next save writes
+	// them next to the executable.
+	std::filesystem::path configLoadPath() {
+		std::error_code ec;
+		const std::filesystem::path own = configFilePath();
+		if (std::filesystem::exists(own, ec)) {
+			return own;
+		}
+		const std::filesystem::path legacy = std::filesystem::current_path(ec) / "config.toml";
+		if (!ec && std::filesystem::exists(legacy, ec)) {
+			return legacy;
+		}
+		return own;
+	}
+} // namespace
+
 void Settings::IO(IOMode mode) {
 	if (mode == LOAD) {
+		const std::filesystem::path config_path = configLoadPath();
 		try {
-			g_settings_table = toml::parse_file("config.toml");
+			std::ifstream config_file(config_path, std::ios::binary);
+			if (config_file.is_open()) {
+				g_settings_table = toml::parse(config_file, settingsPathUtf8(config_path));
+				spdlog::info("Loaded settings from {}", settingsPathUtf8(config_path));
+			}
 		} catch (const toml::parse_error& err) {
-			spdlog::error("Failed to parse config.toml: {}", err.description());
+			spdlog::error("Failed to parse {}: {}", settingsPathUtf8(config_path), err.description());
 		} catch (const std::exception& err) {
-			spdlog::error("Failed to load config.toml: {}", err.what());
+			spdlog::error("Failed to load {}: {}", settingsPathUtf8(config_path), err.what());
 		}
 		populateDefaultTechnicalItems(g_settings_table);
 		rme::rendering::TechnicalItemRegistry::Initialize(g_settings_table);
@@ -661,15 +709,16 @@ void Settings::IO(IOMode mode) {
 			setString(PALETTE_DYNAMIC_STYLE, std::to_string(tileSize) + "x" + std::to_string(tileSize) + " px");
 			cur_sec->insert_or_assign("palette_dynamic_style", getString(PALETTE_DYNAMIC_STYLE));
 		}
-		std::ofstream file("config.toml");
+		const std::filesystem::path config_path = configFilePath();
+		std::ofstream file(config_path, std::ios::binary);
 		if (file.is_open()) {
 			file << g_settings_table;
 			if (file.fail()) {
-				spdlog::error("Failed to write to config.toml");
+				spdlog::error("Failed to write to {}", settingsPathUtf8(config_path));
 			}
 			file.close();
 		} else {
-			spdlog::error("Failed to open config.toml for writing");
+			spdlog::error("Failed to open {} for writing", settingsPathUtf8(config_path));
 		}
 	}
 
