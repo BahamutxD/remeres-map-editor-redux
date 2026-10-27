@@ -320,9 +320,25 @@ void Selection::flush() {
 		});
 		pending_adds.erase(first, last);
 
+		// Pending entries are the tile objects that the action just installed into the map.
+		// If a cached entry has the same position, the pending pointer must replace it;
+		// otherwise the selection cache keeps pointing at the displaced tile.
 		std::vector<Tile*> merged;
 		merged.reserve(tiles.size() + pending_adds.size());
-		std::ranges::set_union(tiles, pending_adds, std::back_inserter(merged), tilePositionLessThan);
+		auto cached = tiles.begin();
+		auto added = pending_adds.begin();
+		while (cached != tiles.end() && added != pending_adds.end()) {
+			if (tilePositionLessThan(*cached, *added)) {
+				merged.push_back(*cached++);
+			} else if (tilePositionLessThan(*added, *cached)) {
+				merged.push_back(*added++);
+			} else {
+				merged.push_back(*added++);
+				++cached;
+			}
+		}
+		merged.insert(merged.end(), cached, tiles.end());
+		merged.insert(merged.end(), added, pending_adds.end());
 		tiles = std::move(merged);
 	}
 

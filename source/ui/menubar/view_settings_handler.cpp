@@ -42,6 +42,10 @@ void ViewSettingsHandler::LoadValues() {
 			break;
 	}
 
+	const bool pixel_perfect = g_settings.getBoolean(Config::PIXEL_PERFECT_SELECTION);
+	menuBar->CheckItem(SELECT_METHOD_STANDARD, !pixel_perfect);
+	menuBar->CheckItem(SELECT_METHOD_PIXEL_PERFECT, pixel_perfect);
+
 	menuBar->CheckItem(AUTOMAGIC, g_settings.getBoolean(Config::USE_AUTOMAGIC));
 
 	const bool supports_zones = g_gui.IsEditorOpen() && g_gui.GetCurrentMap().supportsZones();
@@ -195,4 +199,11 @@ void ViewSettingsHandler::OnSelectionTypeChange(wxCommandEvent& WXUNUSED(event))
 	} else if (menuBar->IsItemChecked(SELECT_MODE_VISIBLE)) {
 		g_settings.setInteger(Config::SELECTION_TYPE, SELECT_VISIBLE_FLOORS);
 	}
+}
+
+void ViewSettingsHandler::OnSelectionMethodChange(wxCommandEvent& WXUNUSED(event)) {
+	using namespace MenuBar;
+	const bool pixel_perfect = menuBar->IsItemChecked(SELECT_METHOD_PIXEL_PERFECT);
+	g_settings.setInteger(Config::PIXEL_PERFECT_SELECTION, pixel_perfect ? 1 : 0);
+	g_gui.RefreshView();
 }

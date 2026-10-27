@@ -45,6 +45,10 @@ public:
 	void SetShowLabels(bool show) override;
 	void SetTileSize(int sizePx) override;
 	void SetFilterQuery(const std::string& query, const std::vector<Brush*>* overrideSource = nullptr) override;
+	void SetBrushIndicators(bool dogEar);
+	void SetGridSpacing(int spacingPx);
+	bool GetIndicatorDogEar() const { return m_indicatorDogEar; }
+	int GetGridSpacing() const { return m_gridSpacing; }
 
 protected:
 	/**
@@ -88,6 +92,8 @@ protected:
 	std::string m_filterQuery;
 	std::vector<Brush*> m_overrideBrushes;
 	bool m_hasOverrideBrushes = false;
+	bool m_indicatorDogEar = false;
+	int m_gridSpacing = rme::ui::grid::kPadding;
 
 	// Optimization: wrapped label cache shared with the item grids.
 	rme::ui::grid::LabelCache m_labelCache;

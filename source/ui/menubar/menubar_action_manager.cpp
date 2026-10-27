@@ -60,6 +60,8 @@ void MenuBarActionManager::RegisterActions(MainMenuBar* mb, std::unordered_map<s
 	MAKE_ACTION_ICON(SELECT_MODE_LOWER, wxITEM_RADIO, ICON_ARROW_DOWN, OnSelectionTypeChange);
 	MAKE_ACTION_ICON(SELECT_MODE_CURRENT, wxITEM_RADIO, ICON_CROSSHAIRS, OnSelectionTypeChange);
 	MAKE_ACTION_ICON(SELECT_MODE_VISIBLE, wxITEM_RADIO, ICON_EYE, OnSelectionTypeChange);
+	MAKE_ACTION_ICON(SELECT_METHOD_STANDARD, wxITEM_RADIO, ICON_WAND_MAGIC_SPARKLES, OnSelectionMethodChange);
+	MAKE_ACTION_ICON(SELECT_METHOD_PIXEL_PERFECT, wxITEM_RADIO, ICON_BULLSEYE, OnSelectionMethodChange);
 
 	MAKE_ACTION_ICON(AUTOMAGIC, wxITEM_CHECK, ICON_WAND_SPARKLES, OnToggleAutomagic);
 	MAKE_ACTION_ICON(BORDERIZE_SELECTION, wxITEM_NORMAL, ICON_BORDER_ALL, OnBorderizeSelection);
@@ -136,6 +138,7 @@ void MenuBarActionManager::RegisterActions(MainMenuBar* mb, std::unordered_map<s
 	MAKE_ACTION_ICON(WIN_MINIMAP, wxITEM_NORMAL, ICON_MAP, OnMinimapWindow);
 	MAKE_ACTION_ICON(WIN_TOOL_OPTIONS, wxITEM_NORMAL, ICON_SLIDERS, OnToolOptionsWindow);
 	MAKE_ACTION_ICON(WIN_INGAME_PREVIEW, wxITEM_NORMAL, ICON_GAMEPAD, OnIngamePreviewWindow);
+	MAKE_ACTION_ICON(WIN_BRUSH_ITEMS, wxITEM_NORMAL, ICON_BOXES_STACKED, OnBrushItemsWindow);
 	MAKE_ACTION_ICON(WIN_TILE_PROPERTIES, wxITEM_NORMAL, ICON_LIST, OnTilePropertiesWindow);
 	MAKE_ACTION_ICON(NEW_PALETTE, wxITEM_NORMAL, ICON_PLUS, OnNewPalette);
 	MAKE_ACTION_ICON(SHOW_PALETTE, wxITEM_NORMAL, ICON_PALETTE, OnShowPalette);
@@ -280,6 +283,7 @@ void MenuBarActionManager::UpdateState(MainMenuBar* mb) {
 	mb->EnableItem(WIN_MINIMAP, loaded);
 	mb->EnableItem(WIN_TOOL_OPTIONS, loaded);
 	mb->EnableItem(WIN_INGAME_PREVIEW, loaded);
+	mb->EnableItem(WIN_BRUSH_ITEMS, loaded);
 	mb->EnableItem(WIN_TILE_PROPERTIES, loaded);
 	mb->EnableItem(NEW_PALETTE, loaded);
 	mb->EnableItem(SHOW_PALETTE, loaded);

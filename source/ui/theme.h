@@ -4,6 +4,8 @@
 #include <wx/wx.h>
 #include <wx/settings.h>
 
+class Brush;
+
 class Theme {
 public:
 	enum class Role {
@@ -49,7 +51,17 @@ public:
 		TooltipBorderItem,
 		TooltipBorderDoor,
 		TooltipBorderTeleport,
-		TooltipBorderText
+		TooltipBorderText,
+
+		// Brush Category Colors
+		BrushCategoryGround,
+		BrushCategoryWall,
+		BrushCategoryWallDecoration,
+		BrushCategoryDoor,
+		BrushCategoryDoodad,
+		BrushCategoryTable,
+		BrushCategoryCarpet,
+		BrushCategoryDefaultRaw
 	};
 
 	enum class Type {
@@ -62,6 +74,10 @@ public:
 	static Type getType();
 
 	static wxColour Get(Role role);
+	static Role GetBrushCategoryRole(const Brush* brush);
+	static wxColour GetBrushColour(const Brush* brush) {
+		return Get(GetBrushCategoryRole(brush));
+	}
 
 	static int Grid(int units) {
 		return wxWindow::FromDIP(units * 4, nullptr);

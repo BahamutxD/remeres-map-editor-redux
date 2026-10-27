@@ -184,7 +184,9 @@ void DrawingController::HandleClick(const Position& mouse_map_pos, bool shift_do
 				}
 			}
 			// Change the doodad layout brush
-			g_gui.FillDoodadPreviewBuffer();
+			if (g_settings.getBoolean(Config::RANDOMIZE_DOODADS)) {
+				g_gui.FillDoodadPreviewBuffer();
+			}
 		}
 	}
 }
@@ -255,8 +257,10 @@ void DrawingController::HandleDrag(const Position& mouse_map_pos, bool shift_dow
 			}
 		}
 
-		// Create newd doodad layout (does nothing if a non-doodad brush is selected)
-		g_gui.FillDoodadPreviewBuffer();
+		// Create new doodad layout (does nothing if a non-doodad brush is selected)
+		if (g_settings.getBoolean(Config::RANDOMIZE_DOODADS)) {
+			g_gui.FillDoodadPreviewBuffer();
+		}
 
 		canvas->RequestLocalRefresh();
 	} else if (dragging_draw) {

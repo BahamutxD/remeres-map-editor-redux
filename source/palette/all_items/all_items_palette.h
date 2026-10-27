@@ -46,6 +46,8 @@ public:
 	void ClearSort();
 	void SetShowLabels(bool show);
 	void SetTileSize(int sizePx);
+	void SetBrushIndicators(bool dogEar);
+	void SetGridSpacing(int spacing);
 
 	void ResetFilter();
 	void ApplyFilter();
@@ -65,6 +67,8 @@ protected:
 	bool show_labels = false;
 	int tile_size = 32;
 	bool is_list_mode = false;
+	bool indicator_dogear = false;
+	int grid_spacing = 4;
 	bool loaded = false;
 };
 

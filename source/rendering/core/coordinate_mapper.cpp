@@ -8,8 +8,8 @@
 
 #include <cmath>
 
-void CoordinateMapper::ScreenToMap(int screen_x, int screen_y, int view_start_x, int view_start_y, double zoom, int floor, double scale_factor, int* map_x, int* map_y) {
-	MainMapViewMath::ScreenToMap(
+MainMapPixelPosition CoordinateMapper::ScreenToMapPixel(int screen_x, int screen_y, int view_start_x, int view_start_y, double zoom, int floor, double scale_factor) {
+	return MainMapViewMath::ScreenToMapPixel(
 		screen_x,
 		screen_y,
 		MainMapViewport {
@@ -18,9 +18,13 @@ void CoordinateMapper::ScreenToMap(int screen_x, int screen_y, int view_start_x,
 			.zoom = zoom,
 			.floor = floor,
 			.scale_factor = scale_factor,
-		},
-		map_x,
-		map_y);
+		});
+}
+
+void CoordinateMapper::ScreenToMap(int screen_x, int screen_y, int view_start_x, int view_start_y, double zoom, int floor, double scale_factor, int* map_x, int* map_y) {
+	const MainMapPixelPosition position = ScreenToMapPixel(screen_x, screen_y, view_start_x, view_start_y, zoom, floor, scale_factor);
+	*map_x = position.map_x;
+	*map_y = position.map_y;
 }
 
 void CoordinateMapper::MapToScreen(int map_x, int map_y, int view_start_x, int view_start_y, double zoom, int floor, double scale_factor, int* screen_x, int* screen_y) {

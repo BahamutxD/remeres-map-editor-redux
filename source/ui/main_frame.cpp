@@ -24,6 +24,7 @@
 #include "ui/main_menubar.h"
 #include "app/updater.h"
 #include "ui/tile_properties/tile_properties_panel.h"
+#include "ui/brush_items/brush_items_window.h"
 #include <wx/stattext.h>
 #include <wx/slider.h>
 
@@ -76,6 +77,21 @@ MainFrame::MainFrame(const wxString& title, const wxPoint& pos, const wxSize& si
 
 	g_gui.tile_properties_panel = newd TilePropertiesPanel(this);
 	g_gui.aui_manager->AddPane(g_gui.tile_properties_panel, wxAuiPaneInfo().Name("TileProperties").Caption("Tile Properties").Right().Layer(1).Position(1).CloseButton(true).MaximizeButton(true).Hide());
+	g_gui.brush_items_window = newd BrushItemsWindow(this);
+	g_gui.aui_manager->AddPane(g_gui.brush_items_window,
+		wxAuiPaneInfo()
+			.Name("BrushItems")
+			.Caption("Brush Items")
+			.Right()
+			.Layer(1)
+			.Position(2)
+			.CloseButton(true)
+			.MaximizeButton(true)
+			.Floatable(true)
+			.BestSize(320, 450)
+			.MinSize(220, 180)
+			.Hide()
+	);
 
 	// Create Script Manager panel (dockable)
 	LuaScriptsWindow* scriptsWindow = newd LuaScriptsWindow(this);
@@ -262,13 +278,18 @@ bool MainFrame::DoQuerySave(bool doclose) {
 
 		if (ret == wxID_YES) {
 			if (g_gui.GetCurrentMap().hasFile()) {
-				g_gui.SaveCurrentMap(true);
+				if (!g_gui.SaveCurrentMap(true)) {
+					// The save failed or was cancelled: keep the map open
+					// instead of closing it and losing the changes.
+					return false;
+				}
 			} else {
 				wxFileDialog file(this, "Save...", "", "", "*.otbm", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
 				int32_t result = file.ShowModal();
-				if (result == wxID_OK) {
-					g_gui.SaveCurrentMap(file.GetPath(), true);
-				} else {
+				if (result != wxID_OK) {
+					return false;
+				}
+				if (!g_gui.SaveCurrentMap(file.GetPath(), true)) {
 					return false;
 				}
 			}
@@ -336,18 +357,32 @@ void MainFrame::OnExit(wxCloseEvent& event) {
 		}
 	}
 	g_layout.SavePerspective();
-	g_palettes.DestroyPalettes();
-	g_minimap.Destroy();
-	g_search.DestroySearchWindow();
-	LuaDialog::DestroyDockPanelsForShutdown();
 
-	if (g_gui.aui_manager) {
-		g_gui.aui_manager->UnInit();
-		delete g_gui.aui_manager;
-		g_gui.aui_manager = nullptr;
+	// Nothing here can be cancelled or measured, but the editor must not look
+	// dead (nor be dragged around) while it frees the maps, the GL resources and
+	// the version data. The dialog is destroyed inside this scope, before the
+	// frame itself, and each step updates its message.
+	{
+		ScopedInfoBar closing("Closing editor...");
+
+		g_palettes.DestroyPalettes();
+
+		closing.SetText("Closing windows...");
+		g_minimap.Destroy();
+		g_search.DestroySearchWindow();
+		LuaDialog::DestroyDockPanelsForShutdown();
+
+		closing.SetText("Closing docked panels...");
+		if (g_gui.aui_manager) {
+			g_gui.aui_manager->UnInit();
+			delete g_gui.aui_manager;
+			g_gui.aui_manager = nullptr;
+		}
+
+		closing.SetText("Saving settings...");
+		static_cast<Application&>(wxGetApp()).Unload();
 	}
 
-	static_cast<Application&>(wxGetApp()).Unload();
 	Destroy();
 }
 

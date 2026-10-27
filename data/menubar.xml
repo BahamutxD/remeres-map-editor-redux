@@ -133,6 +133,10 @@
 			<item name="Floors Below" action="SELECT_MODE_LOWER" help="Select current floor and all floors below."/>
 			<item name="Visible Floors" action="SELECT_MODE_VISIBLE" help="Select only visible floors."/>
 		</menu>
+		<menu name="Selection Method">
+			<item name="Standard Selection" action="SELECT_METHOD_STANDARD" help="Select the top entity on the clicked tile."/>
+			<item name="Pixel Perfect Selection" action="SELECT_METHOD_PIXEL_PERFECT" help="Use sprite hit testing to select the exact item visible under the cursor."/>
+		</menu>
 		<separator/>
 		<item name="Borderize Selection" action="BORDERIZE_SELECTION" help="Creates automatic borders in the entire selected area."/>
 		<item name="Randomize Selection" action="RANDOMIZE_SELECTION" help="Randomizes the ground tiles of the selected area."/>
@@ -204,7 +208,8 @@
 	</menu>
 	<menu name="Window">
 		<item name="Minimap" hotkey="M" action="WIN_MINIMAP" help="Displays the minimap window."/>
-		<item name="Tool Options" action="WIN_TOOL_OPTIONS" help="Displays the tool options window."/>
+		<item name="Brush Options" action="WIN_TOOL_OPTIONS" help="Displays the brush options window."/>
+		<item name="Brush Items" action="WIN_BRUSH_ITEMS" help="Displays the brush items window."/>
 		<item name="Tile Properties" action="WIN_TILE_PROPERTIES" help="Displays the tile properties panel."/>
 		<item name="In-game Preview" action="WIN_INGAME_PREVIEW" help="Displays the in-game preview window."/>
 		<item name="New Palette" action="NEW_PALETTE" help="Creates a new palette."/>

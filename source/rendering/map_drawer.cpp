@@ -86,6 +86,7 @@ void MapDrawer::SetupGL() {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glBlendEquation(GL_FUNC_ADD);
+	glEnable(GL_MULTISAMPLE);
 
 	// Ensure renderers are initialized
 	if (!renderers_initialized) {

@@ -12,10 +12,69 @@
 #include "map/map.h"
 #include "map/tile_operations.h"
 #include "brushes/ground/ground_brush.h"
+#include "brushes/wall/wall_brush.h"
+#include "brushes/door/door_brush.h"
+#include "game/creature.h"
+#include "game/item.h"
 #include "app/settings.h"
 #include "ui/gui.h"
 
 #include "brushes/doodad/doodad_brush.h"
+
+
+namespace {
+
+	bool RotateSelectedTileContents(Tile& tile, bool clockwise, bool toggle_doors) {
+		bool changed = false;
+
+		if (tile.ground && tile.ground->isSelected() && tile.ground->isRoteable()) {
+			const ServerItemId old_id = tile.ground->getID();
+			if (clockwise) {
+				tile.ground->doRotate();
+			} else {
+				tile.ground->doRotateBackwards();
+			}
+			if (tile.ground->getID() != old_id) {
+				changed = true;
+			}
+		}
+
+		for (const auto& item : tile.items) {
+			if (!item || !item->isSelected()) {
+				continue;
+			}
+
+			const ServerItemId old_id = item->getID();
+			if (item->isBrushDoor()) {
+				if (toggle_doors) {
+					DoorBrush::switchDoor(item.get());
+				}
+			} else if (item->isRoteable()) {
+				if (clockwise) {
+					item->doRotate();
+				} else {
+					item->doRotateBackwards();
+				}
+			}
+
+			if (item->getID() != old_id) {
+				changed = true;
+			}
+		}
+
+		if (tile.creature && tile.creature->isSelected()) {
+			const Direction old_direction = tile.creature->getDirection();
+			const Direction new_direction = static_cast<Direction>((static_cast<int>(old_direction) + (clockwise ? 1 : 3)) % 4);
+			if (new_direction != old_direction) {
+				tile.creature->setDirection(new_direction);
+				changed = true;
+			}
+		}
+
+		return changed;
+	}
+
+}
 
 void SelectionOperations::doSurroundingBorders(DoodadBrush* doodad_brush, PositionList& tilestoborder, Tile* buffer_tile, Tile* new_tile) {
 	if (doodad_brush->doNewBorders() && g_settings.getInteger(Config::USE_AUTOMAGIC)) {
@@ -82,6 +141,37 @@ void SelectionOperations::randomizeSelection(Editor& editor) {
 		}
 	}
 	editor.addAction(std::move(action));
+}
+
+bool SelectionOperations::rotateSelection(Editor& editor, bool clockwise) {
+	if (editor.selection.empty()) {
+		return false;
+	}
+
+	std::unique_ptr<Action> action = editor.actionQueue->createAction(ACTION_ROTATE);
+	bool changed = false;
+
+	for (Tile* tile : editor.selection) {
+		if (!tile) {
+			continue;
+		}
+
+		std::unique_ptr<Tile> new_tile = TileOperations::deepCopy(tile, editor.map);
+		const bool tile_changed = RotateSelectedTileContents(*new_tile, clockwise, true);
+
+		if (tile_changed) {
+			action->addChange(std::make_unique<Change>(std::move(new_tile)));
+			changed = true;
+		}
+	}
+
+	if (!changed) {
+		return false;
+	}
+
+	editor.addAction(std::move(action));
+	g_gui.RefreshView();
+	return true;
 }
 
 void SelectionOperations::moveSelection(Editor& editor, Position offset) {

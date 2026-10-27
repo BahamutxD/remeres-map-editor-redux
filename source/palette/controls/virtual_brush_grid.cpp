@@ -1,3 +1,4 @@
+#include "app/settings.h"
 #include "app/main.h"
 #include "palette/controls/virtual_brush_grid.h"
 #include "palette/controls/ground_wall_link_menu.h"
@@ -61,6 +62,10 @@ VirtualBrushGrid::VirtualBrushGrid(wxWindow* parent, const DynamicTilesetDefinit
 	observed_tileset_size(_tileset ? _tileset->size() : 0),
 	m_display_brushes(),
 	m_animTimer(this) {
+
+	m_indicatorDogEar = g_settings.getBoolean(Config::PALETTE_INDICATOR_DOGEAR);
+	const int loadedSpacing = g_settings.getInteger(Config::PALETTE_GRID_SPACING);
+	m_gridSpacing = (loadedSpacing == 2 || loadedSpacing == 6) ? loadedSpacing : 4;
 
 	item_size = rme::ui::grid::CellWidth(icon_size_px);
 
@@ -224,11 +229,12 @@ void VirtualBrushGrid::UpdateLayout() {
 		width = 200; // Default
 	}
 
-	constexpr int padding = rme::ui::grid::kPadding;
+	const int padding = m_gridSpacing;
 	int totalItems = static_cast<int>(m_display_brushes.size());
 	if (display_mode == DisplayMode::List) {
 		columns = 1;
-		int contentHeight = totalItems * rme::ui::grid::kListRowHeight + padding;
+		int rowHeight = rme::ui::grid::kListRowHeight;
+		int contentHeight = totalItems > 0 ? (padding + totalItems * (rowHeight + padding)) : 0;
 		UpdateScrollbar(contentHeight);
 	} else {
 		int cellWidth = item_size;
@@ -253,9 +259,11 @@ void VirtualBrushGrid::OnNanoVGPaint(NVGcontext* vg, int width, int height) {
 
 	// Calculate visible range
 	int scrollPos = GetScrollPosition();
-	int rowHeight = (display_mode == DisplayMode::List) ? rme::ui::grid::kListRowHeight : (rme::ui::grid::CellHeight(icon_size_px, m_showLabels) + rme::ui::grid::kPadding);
-	int startRow = scrollPos / rowHeight;
-	int endRow = (scrollPos + height + rowHeight - 1) / rowHeight + 1;
+	int rowStep = (display_mode == DisplayMode::List)
+		? (rme::ui::grid::kListRowHeight + m_gridSpacing)
+		: (rme::ui::grid::CellHeight(icon_size_px, m_showLabels) + m_gridSpacing);
+	int startRow = std::max(0, (scrollPos - m_gridSpacing) / rowStep);
+	int endRow = (scrollPos + height - m_gridSpacing + rowStep - 1) / rowStep + 1;
 
 	int startIdx = startRow * columns;
 	int endIdx = std::min(static_cast<int>(m_display_brushes.size()), endRow * columns);
@@ -276,9 +284,7 @@ void VirtualBrushGrid::DrawBrushItem(NVGcontext* vg, int i, const wxRect& rect) 
 	const bool hovered = (i == hover_index);
 	const bool listMode = display_mode == DisplayMode::List;
 
-	// Card chrome, hover grow and state colours come from the shared renderer
-	// so this grid and the replace tool's item grid stay identical.
-	const wxRect drawn = rme::ui::grid::DrawCardChrome(vg, rect, selected, hovered, hover_anim);
+	const wxRect drawn = rme::ui::grid::DrawCardChrome(vg, rect, selected, hovered, hover_anim, m_showLabels && !listMode);
 
 	const int iconSize = listMode ? rme::ui::grid::kIconSizeBase : icon_size_px;
 	const wxRect iconRect = listMode
@@ -307,6 +313,12 @@ void VirtualBrushGrid::DrawBrushItem(NVGcontext* vg, int i, const wxRect& rect) 
 		DrawLinkedWallBadge(vg, iconRect.x, iconRect.y, iconRect.width);
 	}
 
+	if (m_indicatorDogEar) {
+		const bool isLightTheme = (Theme::Get(Theme::Role::Surface).Red() > 128);
+		const NVGcolor catNVG = rme::ui::grid::GetStandardCategoryColor(brush);
+		rme::ui::grid::DrawDogEarBadge(vg, iconRect, catNVG);
+	}
+
 	if (listMode) {
 		rme::ui::grid::DrawListLabel(vg, drawn, wxstr(brush->getName()));
 	} else if (m_showLabels) {
@@ -315,10 +327,11 @@ void VirtualBrushGrid::DrawBrushItem(NVGcontext* vg, int i, const wxRect& rect) 
 }
 
 wxRect VirtualBrushGrid::GetItemRect(int index) const {
-	constexpr int padding = rme::ui::grid::kPadding;
+	const int padding = m_gridSpacing;
 	if (display_mode == DisplayMode::List) {
-		int width = GetClientSize().x - 2 * padding;
-		return wxRect(padding, padding + index * rme::ui::grid::kListRowHeight, width, rme::ui::grid::kListRowHeight);
+		int width = std::max(1, GetClientSize().x - 2 * padding);
+		int rowHeight = rme::ui::grid::kListRowHeight;
+		return wxRect(padding, padding + index * (rowHeight + padding), width, rowHeight);
 	} else {
 		int row = index / columns;
 		int col = index % columns;
@@ -335,23 +348,27 @@ wxRect VirtualBrushGrid::GetItemRect(int index) const {
 }
 
 int VirtualBrushGrid::HitTest(int x, int y) const {
-	constexpr int padding = rme::ui::grid::kPadding;
+	const int padding = m_gridSpacing;
 	int scrollPos = GetScrollPosition();
 	int realY = y + scrollPos;
 	int realX = x;
 	int totalItems = static_cast<int>(m_display_brushes.size());
 
 	if (display_mode == DisplayMode::List) {
-		int row = (realY - padding) / rme::ui::grid::kListRowHeight;
+		if (realY < padding) {
+			return -1;
+		}
+		int rowHeight = rme::ui::grid::kListRowHeight;
+		int rowStep = rowHeight + padding;
+		int row = (realY - padding) / rowStep;
+		int offsetInRow = (realY - padding) % rowStep;
 
-		if (row < 0 || row >= totalItems) {
+		if (offsetInRow >= rowHeight || row < 0 || row >= totalItems) {
 			return -1;
 		}
 
-		int index = row;
-		// Check horizontal bounds properly
 		if (realX >= padding && realX <= GetClientSize().x - padding) {
-			return index;
+			return row;
 		}
 		return -1;
 	} else {
@@ -432,6 +449,8 @@ void VirtualBrushGrid::OnMouseDown(wxMouseEvent& event) {
 
 			g_gui.SelectBrushInternal(m_display_brushes[selected_index]);
 			Refresh();
+		} else if (selected_index >= 0 && selected_index < static_cast<int>(m_display_brushes.size())) {
+			g_gui.FocusCurrentMapCanvas();
 		}
 	}
 }
@@ -545,4 +564,20 @@ void VirtualBrushGrid::DrawLinkedWallBadge(NVGcontext* vg, int iconX, int iconY,
 	nvgStrokeColor(vg, NvgUtils::ToNvColor(Theme::Get(Theme::Role::TextOnAccent)));
 	nvgStrokeWidth(vg, 1.5f);
 	nvgStroke(vg);
+}
+
+void VirtualBrushGrid::SetBrushIndicators(bool dogEar) {
+	if (m_indicatorDogEar != dogEar) {
+		m_indicatorDogEar = dogEar;
+		Refresh();
+	}
+}
+
+void VirtualBrushGrid::SetGridSpacing(int spacingPx) {
+	const int validSpacing = (spacingPx == 2 || spacingPx == 6) ? spacingPx : 4;
+	if (m_gridSpacing != validSpacing) {
+		m_gridSpacing = validSpacing;
+		UpdateLayout();
+		Refresh();
+	}
 }

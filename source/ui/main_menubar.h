@@ -65,6 +65,8 @@ namespace MenuBar {
 		SELECT_MODE_CURRENT,
 		SELECT_MODE_LOWER,
 		SELECT_MODE_VISIBLE,
+		SELECT_METHOD_STANDARD,
+		SELECT_METHOD_PIXEL_PERFECT,
 		AUTOMAGIC,
 		BORDERIZE_SELECTION,
 		BORDERIZE_MAP,
@@ -133,6 +135,7 @@ namespace MenuBar {
 		WIN_MINIMAP,
 		WIN_TOOL_OPTIONS,
 		WIN_INGAME_PREVIEW,
+		WIN_BRUSH_ITEMS,
 		WIN_TILE_PROPERTIES,
 		NEW_PALETTE,
 		SHOW_PALETTE,
@@ -241,6 +244,7 @@ public:
 	void OnRemoveItemOnSelection(wxCommandEvent& event);
 
 	void OnSelectionTypeChange(wxCommandEvent& event);
+	void OnSelectionMethodChange(wxCommandEvent& event);
 
 	void OnCopy(wxCommandEvent& event);
 	void OnCut(wxCommandEvent& event);
@@ -290,6 +294,7 @@ public:
 	void OnMinimapWindow(wxCommandEvent& event);
 	void OnToolOptionsWindow(wxCommandEvent& event);
 	void OnIngamePreviewWindow(wxCommandEvent& event);
+	void OnBrushItemsWindow(wxCommandEvent& event);
 	void OnTilePropertiesWindow(wxCommandEvent& event);
 	void OnNewPalette(wxCommandEvent& event);
 	void OnShowPalette(wxCommandEvent& event);

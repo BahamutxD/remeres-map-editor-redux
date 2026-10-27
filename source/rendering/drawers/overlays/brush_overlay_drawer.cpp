@@ -14,6 +14,7 @@
 #include "app/settings.h"
 #include "editor/editor.h"
 #include "brushes/managers/brush_manager.h"
+#include "brushes/managers/doodad_preview_manager.h"
 #include "game/sprites.h"
 #include "game/outfit.h"
 #include "app/definitions.h"
@@ -32,10 +33,13 @@
 #include "brushes/table/table_brush.h"
 #include "brushes/waypoint/waypoint_brush.h"
 #include "brushes/door/door_brush.h"
+#include "brushes/ground/ground_brush.h"
+#include "brushes/town/town_temple_brush.h"
 #include "brushes/flag/flag_brush.h"
 #include "brushes/border/optional_border_brush.h"
 #include "rendering/indicators/technical_item_registry.h"
 #include "rendering/indicators/zone_flags.h"
+#include "item_definitions/core/item_definition_types.h"
 
 namespace {
 
@@ -165,6 +169,38 @@ void BrushOverlayDrawer::draw(
 		}
 	};
 
+	const bool show_outline = cfg.getBoolean(Config::CURSOR_SHOW_OUTLINE);
+
+	auto drawTileEdges = [&](float rx, float ry, bool north, bool south, bool west, bool east) {
+		if (!show_outline) {
+			return;
+		}
+		const AtlasRegion* white_pixel = atlas.getWhitePixel();
+		if (!white_pixel) {
+			return;
+		}
+
+		constexpr float S = static_cast<float>(TILE_SIZE);
+		const glm::vec4 col(1.0f, 1.0f, 1.0f, 0.7f);
+
+		if (north) {
+			sprite_batch.draw(rx, ry, S, 1.0f, *white_pixel, col.r, col.g, col.b, col.a);
+		}
+		if (south) {
+			sprite_batch.draw(rx, ry + S - 1.0f, S, 1.0f, *white_pixel, col.r, col.g, col.b, col.a);
+		}
+		if (west) {
+			sprite_batch.draw(rx, ry, 1.0f, S, *white_pixel, col.r, col.g, col.b, col.a);
+		}
+		if (east) {
+			sprite_batch.draw(rx + S - 1.0f, ry, 1.0f, S, *white_pixel, col.r, col.g, col.b, col.a);
+		}
+	};
+
+	auto drawTileOutline = [&](float rx, float ry) {
+		drawTileEdges(rx, ry, true, true, true, true);
+	};
+
 	if (drag_state.is_dragging_draw) {
 		ASSERT(brush->canDrag());
 
@@ -242,7 +278,9 @@ void BrushOverlayDrawer::draw(
 							if (brush->is<OptionalBorderBrush>()) {
 								sprite_batch.drawRect(static_cast<float>(cx), static_cast<float>(cy), static_cast<float>(TILE_SIZE), static_cast<float>(TILE_SIZE), get_check_color(brush, editor, Position(x, y, view.floor), cfg), atlas);
 							} else {
-								item_drawer->DrawRawBrush(sprite_batch, sprite_drawer, cx, cy, raw_brush->getItemID(), 160, 160, 160, 160, &ctx);
+								const Position target_pos(x, y, view.floor);
+								const Tile* target_tile = editor.map.getTile(target_pos);
+								item_drawer->DrawRawBrush(sprite_batch, sprite_drawer, cx, cy, raw_brush->getItemID(), 240, 245, 255, 180, &ctx, target_tile, target_pos);
 							}
 						}
 					}
@@ -366,7 +404,9 @@ void BrushOverlayDrawer::draw(
 						float distance = sqrt(dx * dx + dy * dy);
 						if (distance < radii) {
 							if (brush->is<RAWBrush>()) {
-								item_drawer->DrawRawBrush(sprite_batch, sprite_drawer, cx, cy, raw_brush->getItemID(), 160, 160, 160, 160, &ctx);
+								const Position target_pos(x, y, view.floor);
+								const Tile* target_tile = editor.map.getTile(target_pos);
+								item_drawer->DrawRawBrush(sprite_batch, sprite_drawer, cx, cy, raw_brush->getItemID(), 160, 160, 160, 160, &ctx, target_tile, target_pos);
 							} else if (brush->is<FlagBrush>()) {
 								const uint32_t zf = getZoneFlagForBrush(brush->as<FlagBrush>());
 								const AtlasRegion* white_pixel = atlas.getWhitePixel();
@@ -398,74 +438,109 @@ void BrushOverlayDrawer::draw(
 		}
 	} else {
 		const BrushFootprint footprint = bm.GetBrushFootprint();
-		if (brush->is<WallBrush>()) {
-			int start_map_x = view.mouse_map_x + footprint.min_offset_x;
-			int start_map_y = view.mouse_map_y + footprint.min_offset_y;
-			int end_map_x = view.mouse_map_x + footprint.max_offset_x + 1;
-			int end_map_y = view.mouse_map_y + footprint.max_offset_y + 1;
-
-			int start_sx = start_map_x * TILE_SIZE - view.view_scroll_x - view.getFloorAdjustment();
-			int start_sy = start_map_y * TILE_SIZE - view.view_scroll_y - view.getFloorAdjustment();
-			int end_sx = end_map_x * TILE_SIZE - view.view_scroll_x - view.getFloorAdjustment();
-			int end_sy = end_map_y * TILE_SIZE - view.view_scroll_y - view.getFloorAdjustment();
-
-			int delta_x = end_sx - start_sx;
-			int delta_y = end_sy - start_sy;
-
-			// Top
-			drawBrushRect(static_cast<float>(start_sx), static_cast<float>(start_sy), static_cast<float>(end_sx - start_sx), static_cast<float>(TILE_SIZE), brushColor);
-
-			// Bottom
-			if (delta_y > TILE_SIZE) {
-				drawBrushRect(static_cast<float>(start_sx), static_cast<float>(end_sy - TILE_SIZE), static_cast<float>(end_sx - start_sx), static_cast<float>(TILE_SIZE), brushColor);
-			}
-
-			// Right
-			if (delta_x > TILE_SIZE && delta_y > TILE_SIZE) {
-				float h = static_cast<float>(end_sy - start_sy - 2 * TILE_SIZE);
-				drawBrushRect(static_cast<float>(end_sx - TILE_SIZE), static_cast<float>(start_sy + TILE_SIZE), static_cast<float>(TILE_SIZE), h, brushColor);
-			}
-
-			// Left
-			if (delta_y > TILE_SIZE) {
-				float h = static_cast<float>(end_sy - start_sy - 2 * TILE_SIZE);
-				drawBrushRect(static_cast<float>(start_sx), static_cast<float>(start_sy + TILE_SIZE), static_cast<float>(TILE_SIZE), h, brushColor);
-			}
-		} else if (brush->is<DoorBrush>()) {
+		if (brush->is<DoorBrush>()) {
 			int cx = (view.mouse_map_x) * TILE_SIZE - view.view_scroll_x - view.getFloorAdjustment();
 			int cy = (view.mouse_map_y) * TILE_SIZE - view.view_scroll_y - view.getFloorAdjustment();
-
-			sprite_batch.drawRect(static_cast<float>(cx), static_cast<float>(cy), static_cast<float>(TILE_SIZE), static_cast<float>(TILE_SIZE), get_check_color(brush, editor, Position(view.mouse_map_x, view.mouse_map_y, view.floor), cfg), atlas);
+			DoorBrush* door_brush = brush->as<DoorBrush>();
+			Position pos(view.mouse_map_x, view.mouse_map_y, view.floor);
+			bool valid = door_brush->canDraw(&editor.map, pos);
+			uint16_t door_id = valid ? door_brush->getDoorItemId(&editor.map, pos) : door_brush->getFallbackDoorItemId();
+			if (door_id != 0) {
+				const Tile* target_tile = editor.map.getTile(pos);
+				if (valid) {
+					item_drawer->DrawRawBrush(sprite_batch, sprite_drawer, cx, cy, door_id, 255, 255, 255, 160, &ctx, target_tile, pos);
+				} else {
+					item_drawer->DrawRawBrush(sprite_batch, sprite_drawer, cx, cy, door_id, 255, 64, 64, 160, &ctx, target_tile, pos);
+				}
+			}
+			drawTileOutline(static_cast<float>(cx), static_cast<float>(cy));
 		} else if (brush->is<CreatureBrush>()) {
 			int cy = (view.mouse_map_y) * TILE_SIZE - view.view_scroll_y - view.getFloorAdjustment();
 			int cx = (view.mouse_map_x) * TILE_SIZE - view.view_scroll_x - view.getFloorAdjustment();
 			CreatureBrush* creature_brush = brush->as<CreatureBrush>();
+			const Direction creature_direction = creature_brush->getDirection();
 			if (creature_brush->canDraw(&editor.map, Position(view.mouse_map_x, view.mouse_map_y, view.floor))) {
-				creature_drawer->BlitCreature(sprite_batch, sprite_drawer, cx, cy, creature_brush->getType()->outfit, SOUTH, CreatureDrawOptions { .color = DrawColor(255, 255, 255, 160), .ctx = &ctx });
+				creature_drawer->BlitCreature(sprite_batch, sprite_drawer, cx, cy, creature_brush->getType()->outfit, creature_direction, CreatureDrawOptions { .color = DrawColor(255, 255, 255, 160), .ctx = &ctx });
 			} else {
-				creature_drawer->BlitCreature(sprite_batch, sprite_drawer, cx, cy, creature_brush->getType()->outfit, SOUTH, CreatureDrawOptions { .color = DrawColor(255, 64, 64, 160), .ctx = &ctx });
+				creature_drawer->BlitCreature(sprite_batch, sprite_drawer, cx, cy, creature_brush->getType()->outfit, creature_direction, CreatureDrawOptions { .color = DrawColor(255, 64, 64, 160), .ctx = &ctx });
 			}
-		} else if (!brush->is<DoodadBrush>()) {
-			RAWBrush* raw_brush = nullptr;
-			if (brush->is<RAWBrush>()) {
-				raw_brush = brush->as<RAWBrush>();
+			drawTileOutline(static_cast<float>(cx), static_cast<float>(cy));
+		} else {
+			RAWBrush* raw_brush = brush->is<RAWBrush>() ? brush->as<RAWBrush>() : nullptr;
+			WallBrush* wall_brush = brush->is<WallBrush>() ? brush->as<WallBrush>() : nullptr;
+			GroundBrush* ground_brush = brush->is<GroundBrush>() ? brush->as<GroundBrush>() : nullptr;
+			CarpetBrush* carpet_brush = brush->is<CarpetBrush>() ? brush->as<CarpetBrush>() : nullptr;
+			TableBrush* table_brush = brush->is<TableBrush>() ? brush->as<TableBrush>() : nullptr;
+			DoodadBrush* doodad_brush = brush->is<DoodadBrush>() ? brush->as<DoodadBrush>() : nullptr;
+
+			uint16_t placement_item_id = 0;
+			if (raw_brush) {
+				placement_item_id = raw_brush->getItemID();
+			} else if (wall_brush) {
+				placement_item_id = wall_brush->getPlacementItemId();
+			} else if (ground_brush) {
+				placement_item_id = ground_brush->getPlacementItemId();
+			} else if (carpet_brush) {
+				placement_item_id = carpet_brush->getPlacementItemId();
+			} else if (table_brush) {
+				placement_item_id = table_brush->getPlacementItemId();
+			} else if (doodad_brush && g_doodad_preview.GetBufferMap()->size() == 0) {
+				placement_item_id = doodad_brush->getPlacementItemId(g_brush_manager.GetBrushVariation());
+				if (placement_item_id == 0 && doodad_brush->getLookID() > 0) {
+					if (auto sid = ctx.item_definitions.findByClientId(static_cast<ClientItemId>(doodad_brush->getLookID()))) {
+						placement_item_id = *sid;
+					}
+				}
 			}
 
-			if (cursor_blend_mode == 1) {
+			BaseMap* buffer_map = (doodad_brush && placement_item_id == 0) ? g_doodad_preview.GetBufferMap() : nullptr;
+			const bool is_item_preview = (buffer_map != nullptr || placement_item_id != 0);
+
+			if (cursor_blend_mode == 1 && !is_item_preview) {
 				sprite_batch.setBlendFunc(GL_DST_COLOR, GL_ZERO, atlas);
 			}
 			const uint32_t zf_mult = (cursor_blend_mode == 1) ? static_cast<uint32_t>(rme::rendering::ZONE_FLAG_MULTIPLICATIVE) : 0u;
+			auto hasItemAt = [&](int ox, int oy) -> bool {
+				if (buffer_map) {
+					Tile* t = buffer_map->getTile(0x8000 + ox, 0x8000 + oy, 0x8);
+					return t != nullptr && !t->empty();
+				}
+				if (placement_item_id != 0) {
+					return footprint.containsOffset(ox, oy);
+				}
+				return false;
+			};
 
-			for (int y = footprint.min_offset_y - 1; y <= footprint.max_offset_y + 1; y++) {
+			const int min_y = buffer_map ? (footprint.min_offset_y - 2) : (footprint.min_offset_y - 1);
+			const int max_y = buffer_map ? (footprint.max_offset_y + 2) : (footprint.max_offset_y + 1);
+			const int min_x = buffer_map ? (footprint.min_offset_x - 2) : (footprint.min_offset_x - 1);
+			const int max_x = buffer_map ? (footprint.max_offset_x + 2) : (footprint.max_offset_x + 1);
+
+			for (int y = min_y; y <= max_y; y++) {
 				int cy = (view.mouse_map_y + y) * TILE_SIZE - view.view_scroll_y - view.getFloorAdjustment();
-				for (int x = footprint.min_offset_x - 1; x <= footprint.max_offset_x + 1; x++) {
+				for (int x = min_x; x <= max_x; x++) {
 					int cx = (view.mouse_map_x + x) * TILE_SIZE - view.view_scroll_x - view.getFloorAdjustment();
-					if (!footprint.containsOffset(x, y)) {
-						continue;
-					}
 
-					if (brush->is<RAWBrush>()) {
-						item_drawer->DrawRawBrush(sprite_batch, sprite_drawer, cx, cy, raw_brush->getItemID(), 160, 160, 160, 160, &ctx);
+					if (buffer_map || placement_item_id != 0) {
+						if (hasItemAt(x, y)) {
+							if (placement_item_id != 0) {
+								const Position target_pos(view.mouse_map_x + x, view.mouse_map_y + y, view.floor);
+								const Tile* target_tile = editor.map.getTile(target_pos);
+								uint16_t item_to_draw = placement_item_id;
+								if (wall_brush && wall_brush->is<WallDecorationBrush>()) {
+									if (uint16_t dynamic_id = wall_brush->getPlacementItemId(target_tile)) {
+										item_to_draw = dynamic_id;
+									}
+								}
+								item_drawer->DrawRawBrush(sprite_batch, sprite_drawer, cx, cy, item_to_draw, 255, 255, 255, 160, &ctx, target_tile, target_pos);
+							}
+							bool north = !hasItemAt(x, y - 1);
+							bool south = !hasItemAt(x, y + 1);
+							bool west  = !hasItemAt(x - 1, y);
+							bool east  = !hasItemAt(x + 1, y);
+							drawTileEdges(static_cast<float>(cx), static_cast<float>(cy), north, south, west, east);
+						}
+						continue;
 					} else if (brush->is<SpawnBrush>()) {
 						const AtlasRegion* white_pixel = atlas.getWhitePixel();
 						if (white_pixel) {
@@ -490,6 +565,11 @@ void BrushOverlayDrawer::draw(
 						if (white_pixel) {
 							sprite_batch.draw(static_cast<float>(cx), static_cast<float>(cy), 32.0f, 32.0f, *white_pixel, 1.0f, 1.0f, 1.0f, 0.9f, 0.0f, rme::rendering::MakeIndicatorZoneFlag(static_cast<uint8_t>(rme::rendering::TileIndicatorType::HouseEntry)));
 						}
+					} else if (brush->is<TownTempleBrush>()) {
+						const AtlasRegion* white_pixel = atlas.getWhitePixel();
+						if (white_pixel) {
+							sprite_batch.draw(static_cast<float>(cx), static_cast<float>(cy), 32.0f, 32.0f, *white_pixel, 1.0f, 1.0f, 1.0f, 0.9f, 0.0f, rme::rendering::MakeIndicatorZoneFlag(static_cast<uint8_t>(rme::rendering::TileIndicatorType::TownTemple)));
+						}
 					} else if (brush->is<FlagBrush>()) {
 						const AtlasRegion* white_pixel = atlas.getWhitePixel();
 						if (white_pixel) {
@@ -505,16 +585,18 @@ void BrushOverlayDrawer::draw(
 							}
 						}
 					} else {
-						glm::vec4 c = brushColor;
-						if (brush->is<OptionalBorderBrush>()) {
-							c = get_check_color(brush, editor, Position(view.mouse_map_x + x, view.mouse_map_y + y, view.floor), cfg);
+						if (footprint.containsOffset(x, y)) {
+							glm::vec4 c = brushColor;
+							if (brush->is<OptionalBorderBrush>()) {
+								c = get_check_color(brush, editor, Position(view.mouse_map_x + x, view.mouse_map_y + y, view.floor), cfg);
+							}
+							drawBrushRect(static_cast<float>(cx), static_cast<float>(cy), static_cast<float>(TILE_SIZE), static_cast<float>(TILE_SIZE), c);
 						}
-						drawBrushRect(static_cast<float>(cx), static_cast<float>(cy), static_cast<float>(TILE_SIZE), static_cast<float>(TILE_SIZE), c);
 					}
 				}
 			}
 
-			if (cursor_blend_mode == 1) {
+			if (cursor_blend_mode == 1 && !is_item_preview) {
 				sprite_batch.setBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, atlas);
 			}
 		}

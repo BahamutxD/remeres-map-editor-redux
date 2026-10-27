@@ -53,6 +53,7 @@
 #include "app/application.h"
 #include "ui/welcome_dialog.h"
 #include "ui/tool_options_window.h"
+#include "ui/brush_items/brush_items_window.h"
 
 #include "live/live_client.h"
 #include "live/live_tab.h"
@@ -107,6 +108,7 @@ GUI::GUI() :
 	town_palette(nullptr),
 	tool_options(nullptr),
 	tile_properties_panel(nullptr),
+	brush_items_window(nullptr),
 	pasting(false),
 	disabled_counter(0),
 	hotkeys_enabled(true) {
@@ -207,6 +209,9 @@ void GUI::SetCurrentMapSecondaryMap(BaseMap* secondary_map) {
 }
 
 void GUI::RefreshView(bool immediate) {
+	if (!tabbook) {
+		return;
+	}
 	MapTab* current_map_tab = GetCurrentMapTab();
 	for (int i = 0; i < tabbook->GetTabCount(); ++i) {
 		auto* editor_tab = tabbook->GetTab(i);
@@ -368,12 +373,24 @@ void GUI::FillDoodadPreviewBuffer() {
 	SyncCurrentMapCanvasPreviewState();
 }
 
+void GUI::FocusCurrentMapCanvas() {
+	if (MapTab* map_tab = GetCurrentMapTab()) {
+		if (auto* canvas = map_tab->GetCanvas()) {
+			canvas->SetFocus();
+		}
+	}
+}
+
 void GUI::SelectBrush() {
 	g_brush_manager.SelectBrush();
 	if (tool_options) {
 		tool_options->SetActiveBrush(GetCurrentBrush());
 	}
+	if (brush_items_window) {
+		brush_items_window->SetActiveBrush(GetCurrentBrush());
+	}
 	SyncCurrentMapCanvasPreviewState();
+	FocusCurrentMapCanvas();
 	emitBrushChangeIfNeeded(*this);
 }
 bool GUI::SelectBrush(const Brush* brush) {
@@ -381,7 +398,11 @@ bool GUI::SelectBrush(const Brush* brush) {
 	if (tool_options) {
 		tool_options->SetActiveBrush(GetCurrentBrush());
 	}
+	if (brush_items_window) {
+		brush_items_window->SetActiveBrush(GetCurrentBrush());
+	}
 	SyncCurrentMapCanvasPreviewState();
+	FocusCurrentMapCanvas();
 	emitBrushChangeIfNeeded(*this);
 	return changed;
 }
@@ -390,7 +411,11 @@ void GUI::SelectPreviousBrush() {
 	if (tool_options) {
 		tool_options->SetActiveBrush(GetCurrentBrush());
 	}
+	if (brush_items_window) {
+		brush_items_window->SetActiveBrush(GetCurrentBrush());
+	}
 	SyncCurrentMapCanvasPreviewState();
+	FocusCurrentMapCanvas();
 	emitBrushChangeIfNeeded(*this);
 }
 void GUI::SelectBrushInternal(Brush* brush) {
@@ -398,7 +423,11 @@ void GUI::SelectBrushInternal(Brush* brush) {
 	if (tool_options) {
 		tool_options->SetActiveBrush(GetCurrentBrush());
 	}
+	if (brush_items_window) {
+		brush_items_window->SetActiveBrush(GetCurrentBrush());
+	}
 	SyncCurrentMapCanvasPreviewState();
+	FocusCurrentMapCanvas();
 	emitBrushChangeIfNeeded(*this);
 }
 Brush* GUI::GetCurrentBrush() const {
@@ -656,6 +685,9 @@ void GUI::ActivatePalette(PaletteWindow* p) {
 	g_palettes.ActivatePalette(p);
 	if (p && tool_options) {
 		tool_options->SetActiveBrush(GetCurrentBrush());
+	}
+	if (p && brush_items_window) {
+		brush_items_window->SetActiveBrush(GetCurrentBrush());
 	}
 }
 void GUI::RebuildPalettes() {

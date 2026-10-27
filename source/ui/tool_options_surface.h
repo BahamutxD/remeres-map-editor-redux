@@ -51,6 +51,7 @@ private:
 	[[nodiscard]] bool IsCreatureToolMode() const;
 	[[nodiscard]] bool HasBrushSizeControls() const;
 	[[nodiscard]] bool HasThicknessControl() const;
+	[[nodiscard]] bool HasRandomizeDoodadsControl() const;
 	[[nodiscard]] bool HasPreviewBorderControl() const;
 	[[nodiscard]] bool HasLockDoorsControl() const;
 	[[nodiscard]] bool HasSpawnControls() const;
@@ -69,6 +70,7 @@ private:
 	void OnPreviewBorderToggled(wxCommandEvent& event);
 	void OnLockDoorsToggled(wxCommandEvent& event);
 	void OnThicknessChanged(wxCommandEvent& event);
+	void OnRandomizeDoodadsToggled(wxCommandEvent& event);
 	void OnPlaceSpawnWithCreatureToggled(wxCommandEvent& event);
 	void OnSpawnTimeChanged(wxSpinEvent& event);
 	void OnSpawnSizeChanged(wxSpinEvent& event);
@@ -96,6 +98,7 @@ private:
 	wxBitmapToggleButton* aspect_button = nullptr;
 	wxCheckBox* preview_border_checkbox = nullptr;
 	wxCheckBox* lock_doors_checkbox = nullptr;
+	wxCheckBox* randomize_doodads_checkbox = nullptr;
 	wxStaticText* thickness_label = nullptr;
 	wxSlider* thickness_slider = nullptr;
 	wxStaticText* thickness_value = nullptr;

@@ -16,6 +16,7 @@
 #include "brushes/managers/brush_manager.h"
 #include "ui/managers/loading_manager.h"
 #include "ui/tool_options_window.h"
+#include "ui/brush_items/brush_items_window.h"
 #include "item_definitions/core/asset_bundle_loader.h"
 #include "item_definitions/core/item_definition_store.h"
 #include "app/settings.h"
@@ -318,6 +319,9 @@ void VersionManager::UnloadVersion(bool full_clear) {
 	g_gui.gfx.clear();
 	if (g_gui.tool_options) {
 		g_gui.tool_options->Clear();
+	}
+	if (g_gui.brush_items_window) {
+		g_gui.brush_items_window->SetActiveBrush(nullptr);
 	}
 	g_brush_manager.Clear();
 	g_ground_wall_link.unlink();

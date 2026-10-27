@@ -66,6 +66,8 @@ public:
 	void SetShowLabels(bool show);
 	void SetTileSize(int sizePx);
 	void SetFilterQuery(const std::string& query, const std::vector<Brush*>* overrideSource = nullptr);
+	void SetBrushIndicators(bool dogEar);
+	void SetGridSpacing(int spacing);
 	// Assigns a tileset to this list
 	void AssignTileset(const DynamicTilesetDefinition* tileset);
 	[[nodiscard]] const DynamicTilesetDefinition* GetTileset() const {
@@ -88,6 +90,8 @@ protected:
 	const DynamicTilesetDefinition* tileset;
 	wxSizer* sizer;
 	BrushBoxInterface* brushbox;
+	bool indicator_dogear = false;
+	int grid_spacing = 4;
 	bool loaded;
 	BrushListType list_type;
 	bool has_sort = false;

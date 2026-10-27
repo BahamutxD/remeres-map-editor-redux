@@ -75,14 +75,16 @@ namespace {
 						std::unique_ptr<Tile> new_tile = TileOperations::deepCopy(tile, editor.map);
 						SelectionOperations::removeDuplicateWalls(buffer_tile, new_tile.get());
 						SelectionOperations::doSurroundingBorders(brush, tilestoborder, buffer_tile, new_tile.get());
-						TileOperations::merge(new_tile.get(), buffer_tile, &editor.map);
+						auto buffer_tile_copy = TileOperations::deepCopy(buffer_tile, *buffer_map);
+						TileOperations::merge(new_tile.get(), buffer_tile_copy.get(), &editor.map);
 						action->addChange(std::make_unique<Change>(std::move(new_tile)));
 					}
 				} else {
 					std::unique_ptr<Tile> new_tile(editor.map.allocator(location));
 					SelectionOperations::removeDuplicateWalls(buffer_tile, new_tile.get());
 					SelectionOperations::doSurroundingBorders(brush, tilestoborder, buffer_tile, new_tile.get());
-					TileOperations::merge(new_tile.get(), buffer_tile, &editor.map);
+					auto buffer_tile_copy = TileOperations::deepCopy(buffer_tile, *buffer_map);
+					TileOperations::merge(new_tile.get(), buffer_tile_copy.get(), &editor.map);
 					action->addChange(std::make_unique<Change>(std::move(new_tile)));
 				}
 			} else {
@@ -100,7 +102,8 @@ namespace {
 						std::unique_ptr<Tile> new_tile = TileOperations::deepCopy(tile, editor.map);
 						SelectionOperations::removeDuplicateWalls(buffer_tile, new_tile.get());
 						SelectionOperations::doSurroundingBorders(brush, tilestoborder, buffer_tile, new_tile.get());
-						TileOperations::merge(new_tile.get(), buffer_tile, &editor.map);
+						auto buffer_tile_copy = TileOperations::deepCopy(buffer_tile, *buffer_map);
+						TileOperations::merge(new_tile.get(), buffer_tile_copy.get(), &editor.map);
 						action->addChange(std::make_unique<Change>(std::move(new_tile)));
 					}
 				}
@@ -232,17 +235,21 @@ namespace {
 			g_doodad_preview.GetBufferMap()->clear();
 			BaseMap* draw_map = g_doodad_preview.GetBufferMap();
 
+			const bool is_multi_tile = tilestodraw.size() > 1;
+			bool special = !is_multi_tile;
 			for (const auto& drawPos : tilestodraw) {
 				auto* location = editor.map.createTileL(drawPos);
 				auto* tile = location->get();
 				if (tile) {
 					std::unique_ptr<Tile> new_tile = TileOperations::deepCopy(tile, editor.map);
-					TileOperations::cleanWalls(new_tile.get(), brush);
-					brush->draw(draw_map, new_tile.get(), nullptr);
+					if (is_multi_tile) {
+						TileOperations::cleanWalls(new_tile.get(), brush);
+					}
+					brush->draw(draw_map, new_tile.get(), special ? &special : nullptr);
 					(void)draw_map->setTile(drawPos, std::move(new_tile));
 				} else {
 					std::unique_ptr<Tile> new_tile(editor.map.allocator(location));
-					brush->draw(draw_map, new_tile.get(), nullptr);
+					brush->draw(draw_map, new_tile.get(), special ? &special : nullptr);
 					(void)draw_map->setTile(drawPos, std::move(new_tile));
 				}
 			}

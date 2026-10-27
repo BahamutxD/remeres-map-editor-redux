@@ -13,6 +13,7 @@ class GameSprite;
 struct AtlasRegion;
 class SpriteBatch;
 class AtlasManager;
+struct SpritePatterns;
 
 struct RenderFrameContext;
 
@@ -25,8 +26,8 @@ public:
 	void glBlitSquare(SpriteBatch& sprite_batch, int sx, int sy, DrawColor color, int size = 0, const AtlasManager* atlas = nullptr, float depth = 0.0f);
 	void glDrawBox(SpriteBatch& sprite_batch, int sx, int sy, int width, int height, DrawColor color, const AtlasManager* atlas = nullptr, float depth = 0.0f);
 
-	void BlitSprite(SpriteBatch& sprite_batch, int screenx, int screeny, ServerItemId server_item_id, DrawColor color = {}, const RenderFrameContext* ctx = nullptr, float depth = 0.0f);
-	void BlitSprite(SpriteBatch& sprite_batch, int screenx, int screeny, GameSprite* spr, DrawColor color = {}, const RenderFrameContext* ctx = nullptr, float depth = 0.0f);
+	void BlitSprite(SpriteBatch& sprite_batch, int screenx, int screeny, ServerItemId server_item_id, DrawColor color = {}, const RenderFrameContext* ctx = nullptr, float depth = 0.0f, const SpritePatterns* patterns = nullptr);
+	void BlitSprite(SpriteBatch& sprite_batch, int screenx, int screeny, GameSprite* spr, DrawColor color = {}, const RenderFrameContext* ctx = nullptr, float depth = 0.0f, const SpritePatterns* patterns = nullptr);
 };
 
 #endif

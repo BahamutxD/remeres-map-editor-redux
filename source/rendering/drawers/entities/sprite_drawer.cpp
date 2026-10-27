@@ -2,6 +2,7 @@
 #include "rendering/core/graphics.h"
 #include "game/sprites.h"
 #include "item_definitions/core/item_definition_store.h"
+#include "rendering/utilities/pattern_calculator.h"
 #include <spdlog/spdlog.h>
 #include "rendering/core/sprite_batch.h"
 #include "rendering/core/atlas_manager.h"
@@ -60,7 +61,7 @@ void SpriteDrawer::glDrawBox(SpriteBatch& sprite_batch, int sx, int sy, int widt
 	sprite_batch.drawRectLines(static_cast<float>(sx), static_cast<float>(sy), static_cast<float>(width), static_cast<float>(height), glm::vec4(COLOR_LUT[color.r], COLOR_LUT[color.g], COLOR_LUT[color.b], COLOR_LUT[color.a]), *atlas, depth);
 }
 
-void SpriteDrawer::BlitSprite(SpriteBatch& sprite_batch, int screenx, int screeny, ServerItemId server_item_id, DrawColor color, const RenderFrameContext* ctx, float depth) {
+void SpriteDrawer::BlitSprite(SpriteBatch& sprite_batch, int screenx, int screeny, ServerItemId server_item_id, DrawColor color, const RenderFrameContext* ctx, float depth, const SpritePatterns* patterns) {
 	if (!ctx) {
 		return;
 	}
@@ -70,10 +71,10 @@ void SpriteDrawer::BlitSprite(SpriteBatch& sprite_batch, int screenx, int screen
 		return;
 	}
 	// Call the pointer overload
-	BlitSprite(sprite_batch, screenx, screeny, spr, color, ctx, depth);
+	BlitSprite(sprite_batch, screenx, screeny, spr, color, ctx, depth, patterns);
 }
 
-void SpriteDrawer::BlitSprite(SpriteBatch& sprite_batch, int screenx, int screeny, GameSprite* spr, DrawColor color, const RenderFrameContext* ctx, float depth) {
+void SpriteDrawer::BlitSprite(SpriteBatch& sprite_batch, int screenx, int screeny, GameSprite* spr, DrawColor color, const RenderFrameContext* ctx, float depth, const SpritePatterns* patterns) {
 	if (spr == nullptr) {
 		return;
 	}
@@ -82,24 +83,28 @@ void SpriteDrawer::BlitSprite(SpriteBatch& sprite_batch, int screenx, int screen
 	screeny -= draw_offset.second;
 
 	const long elapsed_time = ctx ? ctx->elapsed_time : -1;
-	const int tme = spr->isAnimated() ? spr->getAnimationFrame(elapsed_time) : 0;
+	const int pattern_x = patterns ? patterns->x : 0;
+	const int pattern_y = patterns ? patterns->y : 0;
+	const int pattern_z = patterns ? patterns->z : 0;
+	const int subtype = (patterns && patterns->subtype.has_value()) ? *patterns->subtype : -1;
+	const int tme = (patterns && patterns->frame != 0) ? patterns->frame : (spr->isAnimated() ? spr->getAnimationFrame(elapsed_time) : 0);
 
 	// Fast path for single 1x1x1 sprites (waypoints, markers, simple items) — skip metric cache
 	if (spr->width == 1 && spr->height == 1 && spr->layers == 1) {
-		const AtlasRegion* region = spr->getAtlasRegion(0, 0, 0, -1, 0, 0, 0, tme);
+		const AtlasRegion* region = spr->getAtlasRegion(0, 0, 0, subtype, pattern_x, pattern_y, pattern_z, tme);
 		if (region) {
 			glBlitAtlasQuad(sprite_batch, screenx, screeny, region, color, 0.0f, 0u, depth);
 		}
 		return;
 	}
 
-	const auto layout_metrics = spr->getPlainLayoutMetrics(-1, 0, 0, 0, tme);
+	const auto layout_metrics = spr->getPlainLayoutMetrics(subtype, pattern_x, pattern_y, pattern_z, tme);
 	int x_offset = 0;
 	for (int cx = 0; cx < layout_metrics.num_columns; ++cx) {
 		int y_offset = 0;
 		for (int cy = 0; cy < layout_metrics.num_rows; ++cy) {
 			for (int cf = 0; cf != spr->layers; ++cf) {
-				const AtlasRegion* region = spr->getAtlasRegion(cx, cy, cf, -1, 0, 0, 0, tme);
+				const AtlasRegion* region = spr->getAtlasRegion(cx, cy, cf, subtype, pattern_x, pattern_y, pattern_z, tme);
 				if (region) {
 					glBlitAtlasQuad(sprite_batch, screenx - x_offset, screeny - y_offset, region, color, 0.0f, 0u, depth);
 				}

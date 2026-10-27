@@ -75,6 +75,13 @@ public:
 	// Item ids of the borders this ground draws itself.
 	void getOwnBorderItems(std::vector<uint16_t>& items) const;
 
+	[[nodiscard]] uint16_t getPlacementItemId() const {
+		if (!border_items.empty()) {
+			return border_items.front().id;
+		}
+		return 0;
+	}
+
 	static void doBorders(BaseMap* map, Tile* tile);
 	static const BorderBlock* getBrushTo(GroundBrush* first, GroundBrush* second);
 

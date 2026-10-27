@@ -44,6 +44,8 @@ public:
 	// (Re)Loads all currently displayed data, called from InvalidateContents implicitly
 	void LoadCurrentContents();
 	void ReloadDynamicPages();
+	void SetBrushIndicators(bool dogEar);
+	void SetGridSpacing(int spacing);
 	bool SelectTilesetInCurrentPalette(std::string_view tilesetName);
 	// Goes to the selected page and selects any brush there
 	void SelectPage(std::string_view paletteName);

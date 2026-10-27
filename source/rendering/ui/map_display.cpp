@@ -40,6 +40,8 @@
 #include "rendering/utilities/tile_describer.h"
 #include "rendering/core/coordinate_mapper.h"
 #include "rendering/ui/map_display.h"
+#include "util/image_manager.h"
+#include <wx/textctrl.h>
 #include "rendering/ui/map_status_updater.h"
 #include "rendering/map_drawer.h"
 #include "rendering/core/text_renderer.h"
@@ -67,6 +69,7 @@
 #include "rendering/ui/navigation_controller.h"
 #include "rendering/ui/selection_controller.h"
 #include "rendering/ui/drawing_controller.h"
+#include "editor/operations/selection_operations.h"
 #include "rendering/ui/map_menu_handler.h"
 #include "ui/managers/gl_context_manager.h"
 
@@ -287,6 +290,7 @@ void MapCanvas::DrawOverlays(NVGcontext* vg, const DrawingOptions& options) {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glBlendEquation(GL_FUNC_ADD);
+	glEnable(GL_MULTISAMPLE);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 }
 
@@ -420,6 +424,15 @@ void MapCanvas::ScreenToMap(int screen_x, int screen_y, int custom_floor, int* m
 
 	CoordinateMapper::ScreenToMap(screen_x, screen_y, start_x, start_y, zoom, custom_floor, GetContentScaleFactor(), map_x, map_y);
 }
+
+MainMapPixelPosition MapCanvas::ScreenToMapPixel(int screen_x, int screen_y) const {
+	int start_x = 0, start_y = 0;
+	if (auto mw = GetMapWindow()) {
+		mw->GetViewStart(&start_x, &start_y);
+	}
+
+	return CoordinateMapper::ScreenToMapPixel(screen_x, screen_y, start_x, start_y, zoom, floor, GetContentScaleFactor());
+}
 #if 0
 
 *map_y = int(start_y + (screen_y * zoom)) / TILE_SIZE;
@@ -474,13 +487,48 @@ void MapCanvas::UpdateZoomStatus() {
 	ZoomController::UpdateStatus(this);
 }
 
-void MapCanvas::UpdateCursor() {
-	Brush* brush = g_gui.GetCurrentBrush();
-	if (brush && brush->getCursor() == BrushCursor::Crosshair) {
-		SetCursor(wxCursor(wxCURSOR_CROSS));
-	} else {
-		SetCursor(wxNullCursor);
+namespace {
+
+wxCursor LoadEditorCursor(std::string_view assetPath, int hotspotX, int hotspotY) {
+	wxBitmap bmp = IMAGE_MANAGER.GetBitmap(assetPath);
+	if (bmp.IsOk()) {
+		wxImage img = bmp.ConvertToImage();
+		if (img.IsOk()) {
+			img.SetOption(wxIMAGE_OPTION_CUR_HOTSPOT_X, hotspotX);
+			img.SetOption(wxIMAGE_OPTION_CUR_HOTSPOT_Y, hotspotY);
+			return wxCursor(img);
+		}
 	}
+	return wxNullCursor;
+}
+
+} // namespace
+
+void MapCanvas::UpdateCursor() {
+	if (!g_gui.IsDrawingMode()) {
+		SetCursor(wxNullCursor);
+		return;
+	}
+
+	Brush* brush = g_gui.GetCurrentBrush();
+	if (!brush) {
+		SetCursor(wxNullCursor);
+		return;
+	}
+
+	if (brush->getCursor() == BrushCursor::Crosshair) {
+		SetCursor(wxCursor(wxCURSOR_CROSS));
+		return;
+	}
+
+	if (brush->is<EraserBrush>()) {
+		static const wxCursor eraserCursor = LoadEditorCursor("cursor/eraser.png", 9, 22);
+		SetCursor(eraserCursor.IsOk() ? eraserCursor : wxNullCursor);
+		return;
+	}
+
+	static const wxCursor penCursor = LoadEditorCursor("cursor/pencil.png", 6, 26);
+	SetCursor(penCursor.IsOk() ? penCursor : wxNullCursor);
 }
 
 void MapCanvas::SyncCursorHoverState() {
@@ -546,10 +594,9 @@ void MapCanvas::OnMouseLeftClick(wxMouseEvent& event) {
 }
 
 void MapCanvas::OnMouseLeftDoubleClick(wxMouseEvent& event) {
-	int mouse_map_x, mouse_map_y;
-	ScreenToMap(event.GetX(), event.GetY(), &mouse_map_x, &mouse_map_y);
+	const MainMapPixelPosition click = ScreenToMapPixel(event.GetX(), event.GetY());
 	if (selection_controller) {
-		selection_controller->HandleDoubleClick(Position(mouse_map_x, mouse_map_y, floor));
+		selection_controller->HandleDoubleClick(Position(click.map_x, click.map_y, floor));
 	}
 }
 
@@ -591,15 +638,16 @@ void MapCanvas::OnMouseActionClick(wxMouseEvent& event) {
 		map_window->ResumeMinimapTrackingToCurrentView();
 	}
 
-	int mouse_map_x, mouse_map_y;
-	ScreenToMap(event.GetX(), event.GetY(), &mouse_map_x, &mouse_map_y);
+	const MainMapPixelPosition click = ScreenToMapPixel(event.GetX(), event.GetY());
+	const int mouse_map_x = click.map_x;
+	const int mouse_map_y = click.map_y;
 
 	if (event.ControlDown() && event.AltDown()) {
 		Tile* tile = editor.map.getTile(mouse_map_x, mouse_map_y, floor);
 		BrushSelector::SelectSmartBrush(editor, tile);
 	} else if (g_gui.IsSelectionMode()) {
 		if (selection_controller) {
-			selection_controller->HandleClick(Position(mouse_map_x, mouse_map_y, floor), event.ShiftDown(), event.ControlDown(), event.AltDown());
+			selection_controller->HandleClick(Position(mouse_map_x, mouse_map_y, floor), SelectionPixelOffset { .x = click.pixel_x, .y = click.pixel_y }, event.ShiftDown(), event.ControlDown(), event.AltDown());
 		}
 	} else if (g_gui.GetCurrentBrush()) { // Drawing mode
 		if (drawing_controller) {
@@ -672,8 +720,9 @@ void MapCanvas::OnMousePropertiesClick(wxMouseEvent& event) {
 		map_window->ResumeMinimapTrackingToCurrentView();
 	}
 
-	int mouse_map_x, mouse_map_y;
-	ScreenToMap(event.GetX(), event.GetY(), &mouse_map_x, &mouse_map_y);
+	const MainMapPixelPosition click = ScreenToMapPixel(event.GetX(), event.GetY());
+	const int mouse_map_x = click.map_x;
+	const int mouse_map_y = click.map_y;
 
 	if (g_gui.IsDrawingMode()) {
 		g_gui.SetSelectionMode();
@@ -693,7 +742,7 @@ void MapCanvas::OnMousePropertiesClick(wxMouseEvent& event) {
 	last_click_map_y = mouse_map_y;
 	last_click_map_z = floor;
 
-	selection_controller->HandlePropertiesClick(Position(mouse_map_x, mouse_map_y, floor), event.ShiftDown(), event.ControlDown(), event.AltDown());
+	selection_controller->HandlePropertiesClick(Position(mouse_map_x, mouse_map_y, floor), SelectionPixelOffset { .x = click.pixel_x, .y = click.pixel_y }, event.ShiftDown(), event.ControlDown(), event.AltDown());
 	RequestLocalRefresh();
 }
 

@@ -5,6 +5,7 @@
 #include "item_definitions/core/item_definition_store.h"
 #include "game/item.h"
 #include "map/tile.h"
+#include "brushes/brush_enums.h"
 #include <bit>
 #include <cstdint>
 #include <optional>
@@ -61,6 +62,16 @@ public:
 				patterns.x = 1;
 			} else if (tile && tile->hasHookEast()) {
 				patterns.x = 2;
+			} else if (tile && tile->hasWall()) {
+				Item* wall = tile->getWall();
+				BorderType alignment = wall ? wall->getWallAlignment() : BORDER_NONE;
+				if (alignment == WALL_HORIZONTAL || alignment == WALL_SOUTH_T || alignment == WALL_NORTH_T) {
+					patterns.x = 1;
+				} else if (alignment == WALL_VERTICAL || alignment == WALL_WEST_T || alignment == WALL_EAST_T) {
+					patterns.x = 2;
+				} else {
+					patterns.x = 0;
+				}
 			} else {
 				patterns.x = 0;
 			}

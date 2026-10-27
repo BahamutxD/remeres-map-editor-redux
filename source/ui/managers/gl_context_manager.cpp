@@ -60,7 +60,15 @@ GLContextManager::~GLContextManager() = default;
 const wxGLAttributes& GLContextManager::CanvasAttributes() {
 	static const wxGLAttributes attributes = [] {
 		wxGLAttributes attr;
-		attr.PlatformDefaults().Defaults().RGBA().DoubleBuffer().Depth(24).Stencil(8).EndList();
+		attr.PlatformDefaults()
+			.Defaults()
+			.RGBA()
+			.DoubleBuffer()
+			.Depth(24)
+			.Stencil(8)
+			.SampleBuffers(1)
+			.Samplers(4)
+			.EndList();
 		return attr;
 	}();
 	return attributes;

@@ -124,6 +124,12 @@ GraphicsPage::GraphicsPage(wxWindow* parent) : ScrollablePreferencesPage(parent)
 		create_color_opacity_control(cursor_section, cursor_alt_color_pick, cursor_alt_opacity_spin, cursor_alt_blend_choice,
 			Config::CURSOR_ALT_RED, Config::CURSOR_ALT_GREEN, Config::CURSOR_ALT_BLUE, Config::CURSOR_ALT_ALPHA, Config::CURSOR_ALT_BLEND_MODE)
 	);
+	cursor_outline_chkbox = PreferencesLayout::AddCheckBoxRow(
+		cursor_section,
+		"Show tile outline in brush preview",
+		"Draw a crisp 1-pixel boundary around tiles hovered by brush placement previews.",
+		g_settings.getBoolean(Config::CURSOR_SHOW_OUTLINE)
+	);
 	page_sizer->Add(cursor_section, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(10));
 
 	auto* zone_section = new PreferencesSectionPanel(
@@ -436,6 +442,7 @@ void GraphicsPage::Apply() {
 
 	save_color_opacity_mode(cursor_color_pick, cursor_opacity_spin, cursor_blend_choice, Config::CURSOR_RED, Config::CURSOR_GREEN, Config::CURSOR_BLUE, Config::CURSOR_ALPHA, Config::CURSOR_BLEND_MODE);
 	save_color_opacity_mode(cursor_alt_color_pick, cursor_alt_opacity_spin, cursor_alt_blend_choice, Config::CURSOR_ALT_RED, Config::CURSOR_ALT_GREEN, Config::CURSOR_ALT_BLUE, Config::CURSOR_ALT_ALPHA, Config::CURSOR_ALT_BLEND_MODE);
+	g_settings.setInteger(Config::CURSOR_SHOW_OUTLINE, cursor_outline_chkbox->GetValue());
 	save_color_opacity_mode(zone_border_color_pick, zone_border_opacity_spin, zone_border_blend_choice, Config::ZONE_BORDER_COLOR_R, Config::ZONE_BORDER_COLOR_G, Config::ZONE_BORDER_COLOR_B, Config::ZONE_BORDER_COLOR_A, Config::ZONE_BORDER_BLEND_MODE);
 
 	save_color_opacity_mode(zone_pz_color_pick, zone_pz_opacity_spin, zone_pz_blend_choice, Config::ZONE_PZ_COLOR_R, Config::ZONE_PZ_COLOR_G, Config::ZONE_PZ_COLOR_B, Config::ZONE_PZ_COLOR_A, Config::ZONE_PZ_BLEND_MODE);

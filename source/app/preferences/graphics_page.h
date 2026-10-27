@@ -31,6 +31,7 @@ private:
 	wxColourPickerCtrl* cursor_alt_color_pick = nullptr;
 	wxSpinCtrl* cursor_alt_opacity_spin = nullptr;
 	wxChoice* cursor_alt_blend_choice = nullptr;
+	wxCheckBox* cursor_outline_chkbox = nullptr;
 
 	wxDirPickerCtrl* screenshot_directory_picker = nullptr;
 
