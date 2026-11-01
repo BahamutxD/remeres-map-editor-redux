@@ -374,7 +374,7 @@ void TextureAtlas::release() {
 
 void TextureAtlas::applyFilter(GLuint texture) const {
 	glTextureParameteri(texture, GL_TEXTURE_MIN_FILTER, smooth_ ? GL_LINEAR : GL_NEAREST);
-	glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTextureParameteri(texture, GL_TEXTURE_MAG_FILTER, smooth_ ? GL_LINEAR : GL_NEAREST);
 }
 
 void TextureAtlas::setSmoothing(bool smooth) {

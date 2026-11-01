@@ -224,7 +224,7 @@ void MapDrawer::Draw(const InteractionRenderState& interaction) {
 
 	// View > Ghost higher floors (Ctrl+L): the floor above, translucent, on top
 	// of the map. This call was lost in the OpenGL 4.5 renderer rewrite.
-	floor_drawer.draw(sprite_batch, &item_drawer, &sprite_drawer, &creature_drawer, view, options, editor.map);
+	floor_drawer.draw(sprite_batch, &item_drawer, &sprite_drawer, &creature_drawer, view, options, editor.map, &ctx);
 
 	drag_shadow_drawer.draw(sprite_batch, editor, interaction.drag_start_position, &item_drawer, &sprite_drawer, &creature_drawer, view, options, &ctx);
 

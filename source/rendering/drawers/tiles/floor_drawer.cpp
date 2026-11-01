@@ -13,7 +13,7 @@ FloorDrawer::FloorDrawer() {
 FloorDrawer::~FloorDrawer() {
 }
 
-void FloorDrawer::draw(SpriteBatch& sprite_batch, ItemDrawer* item_drawer, SpriteDrawer* sprite_drawer, CreatureDrawer* creature_drawer, const RenderView& view, const DrawingOptions& options, BaseMap& map) {
+void FloorDrawer::draw(SpriteBatch& sprite_batch, ItemDrawer* item_drawer, SpriteDrawer* sprite_drawer, CreatureDrawer* creature_drawer, const RenderView& view, const DrawingOptions& options, BaseMap& map, const RenderFrameContext* ctx) {
 
 	// Draw "transparent higher floor"
 	if (view.floor != 8 && view.floor != 0 && options.transparent_floors) {
@@ -40,6 +40,7 @@ void FloorDrawer::draw(SpriteBatch& sprite_batch, ItemDrawer* item_drawer, Sprit
 					if (tile->ground) {
 						BlitItemParams params(tile, tile->ground.get(), options);
 						params.alpha = 96;
+						params.ctx = ctx;
 						if (tile->isPZ()) {
 							params.red = 128;
 							params.green = 255;
@@ -55,6 +56,7 @@ void FloorDrawer::draw(SpriteBatch& sprite_batch, ItemDrawer* item_drawer, Sprit
 						for (const auto& item : tile->items) {
 							BlitItemParams params(tile, item.get(), options);
 							params.alpha = 96;
+							params.ctx = ctx;
 							item_drawer->BlitItem(sprite_batch, sprite_drawer, creature_drawer, draw_x, draw_y, params);
 						}
 					}
