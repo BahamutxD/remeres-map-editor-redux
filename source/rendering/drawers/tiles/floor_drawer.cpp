@@ -17,9 +17,12 @@ void FloorDrawer::draw(SpriteBatch& sprite_batch, ItemDrawer* item_drawer, Sprit
 
 	// Draw "transparent higher floor"
 	if (view.floor != 8 && view.floor != 0 && options.transparent_floors) {
-		int map_z = view.floor - 1;
-		for (int map_x = view.start_x; map_x <= view.end_x; map_x++) {
-			for (int map_y = view.start_y; map_y <= view.end_y; map_y++) {
+		const int map_z = view.floor - 1;
+		// The floor above is drawn one tile up-left, so use its own bounds
+		// rather than the current floor's.
+		const ViewBounds bounds = view.getBoundsForFloor(map_z);
+		for (int map_x = bounds.start_x; map_x <= bounds.end_x; map_x++) {
+			for (int map_y = bounds.start_y; map_y <= bounds.end_y; map_y++) {
 				Tile* tile = map.getTile(map_x, map_y, map_z);
 				if (tile) {
 					int offset;
