@@ -89,10 +89,9 @@ public:
 	void unbind(uint32_t slot = 0) const;
 
 	/**
-	 * Smooth (linear) minification for zoomed-out views, used by the
-	 * "Enable anti-aliasing" option. Magnification stays nearest so zoomed-in
-	 * pixel art remains crisp. Safe against atlas bleeding because every
-	 * region is inset by half a texel and the shaders sample at centroid.
+	 * Smooth (linear) filtering for zoomed views, used by the
+	 * "Enable anti-aliasing" option. Safe against atlas bleeding because
+	 * the shaders clamp texture coordinates to the sprite's UV bounds.
 	 */
 	void setSmoothing(bool smooth);
 

@@ -75,7 +75,7 @@ public:
 	void bind(uint32_t slot = 0) const;
 
 	/**
-	 * Smooth zoomed-out sprites (the "Enable anti-aliasing" option).
+	 * Smooth zoomed sprites (the "Enable anti-aliasing" option).
 	 */
 	void setSmoothing(bool smooth) {
 		atlas_.setSmoothing(smooth);

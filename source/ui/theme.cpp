@@ -12,6 +12,32 @@ Theme::Type Theme::current_type = Theme::Type::System;
 
 void Theme::setType(Theme::Type type) {
 	current_type = type;
+
+	if (wxTheApp) {
+#if wxCHECK_VERSION(3, 3, 0)
+		switch (type) {
+			case Type::Dark:
+				wxTheApp->SetAppearance(wxApp::Appearance::Dark);
+#ifdef __WXMSW__
+				wxTheApp->MSWEnableDarkMode(wxApp::DarkMode_Always);
+#endif
+				break;
+			case Type::Light:
+				wxTheApp->SetAppearance(wxApp::Appearance::Light);
+				break;
+			case Type::System:
+			default:
+				wxTheApp->SetAppearance(wxApp::Appearance::System);
+#ifdef __WXMSW__
+				wxTheApp->MSWEnableDarkMode(wxApp::DarkMode_Auto);
+#endif
+				break;
+		}
+#endif
+		if (wxWindow* top = wxTheApp->GetTopWindow()) {
+			top->Refresh();
+		}
+	}
 }
 
 Theme::Type Theme::getType() {
@@ -103,13 +129,13 @@ wxColour Theme::GetDark(Role role) {
 		case Role::TooltipTeleport:
 			return wxColour(186, 85, 211); // Medium Orchid
 		case Role::TooltipWaypoint:
-			return wxColour(50, 205, 50); // Lime Green
+			return wxColour(0, 160, 255); // Vivid Blue
 		case Role::TooltipBodyText:
 			return wxColour(220, 220, 220); // Light Gray
 		case Role::TooltipCountText:
 			return wxColour(200, 200, 200); // Light Gray
 		case Role::TooltipBorderWaypoint:
-			return wxColour(50, 205, 50); // Lime Green
+			return wxColour(0, 160, 255); // Vivid Blue
 		case Role::TooltipBorderItem:
 			return wxColour(58, 58, 64); // Charcoal
 		case Role::TooltipBorderDoor:
@@ -213,7 +239,7 @@ wxColour Theme::GetLight(Role role) {
 		case Role::TooltipCountText:
 			return wxColour(60, 60, 60); // Dark Gray
 		case Role::TooltipBorderWaypoint:
-			return wxColour(50, 205, 50); // Lime Green
+			return wxColour(0, 160, 255); // Vivid Blue
 		case Role::TooltipBorderItem:
 			return wxColour(58, 58, 64); // Charcoal
 		case Role::TooltipBorderDoor:

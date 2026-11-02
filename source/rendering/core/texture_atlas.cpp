@@ -63,6 +63,7 @@ bool TextureAtlas::initialize(int initial_layers) {
 
 	// Set texture parameters
 	applyFilter(texture_id_->GetID());
+
 	glTextureParameteri(texture_id_->GetID(), GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTextureParameteri(texture_id_->GetID(), GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
@@ -104,6 +105,7 @@ bool TextureAtlas::addLayer() {
 		auto new_texture = std::make_unique<GLTextureResource>(GL_TEXTURE_2D_ARRAY);
 
 		applyFilter(new_texture->GetID());
+
 		glTextureParameteri(new_texture->GetID(), GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTextureParameteri(new_texture->GetID(), GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 

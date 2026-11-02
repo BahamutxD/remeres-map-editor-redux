@@ -101,7 +101,7 @@ void Selection::add(Tile* tile, Item* item) {
 		item->deselect();
 
 		if (g_settings.getInteger(Config::BORDER_IS_GROUND)) {
-			if (item->isBorder()) {
+			if (item->isBorderLayer()) {
 				TileOperations::selectGround(new_tile.get());
 			}
 		}
@@ -110,7 +110,7 @@ void Selection::add(Tile* tile, Item* item) {
 	} else {
 		item->select();
 		if (g_settings.getInteger(Config::BORDER_IS_GROUND)) {
-			if (item->isBorder()) {
+			if (item->isBorderLayer()) {
 				TileOperations::selectGround(tile);
 			}
 		}
@@ -188,14 +188,14 @@ void Selection::remove(Tile* tile, Item* item) {
 		if (tmp) {
 			item->select();
 		}
-		if (item->isBorder() && g_settings.getInteger(Config::BORDER_IS_GROUND)) {
+		if (item->isBorderLayer() && g_settings.getInteger(Config::BORDER_IS_GROUND)) {
 			TileOperations::deselectGround(new_tile.get());
 		}
 
 		subsession->addChange(std::make_unique<Change>(std::move(new_tile)));
 	} else {
 		item->deselect();
-		if (item->isBorder() && g_settings.getInteger(Config::BORDER_IS_GROUND)) {
+		if (item->isBorderLayer() && g_settings.getInteger(Config::BORDER_IS_GROUND)) {
 			TileOperations::deselectGround(tile);
 		} else {
 			TileOperations::updateSelectionState(tile);
@@ -407,7 +407,7 @@ void Selection::commit() {
 		// Do the action
 		tmp->addAndCommitAction(std::move(subsession));
 
-		// Create a newd action for subsequent selects
+		// Create a new action for subsequent selects
 		subsession = editor.actionQueue->createAction(ACTION_SELECT);
 		session = std::move(tmp);
 	}

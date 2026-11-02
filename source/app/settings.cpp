@@ -27,8 +27,7 @@
 #include <toml++/toml.h>
 
 #include "util/file_system.h"
-#include <wx/filename.h>
-#include <filesystem>
+
 #include <iostream>
 #include <fstream>
 #include <limits>
@@ -239,59 +238,19 @@ static void populateDefaultTechnicalItems(toml::table& table) {
 	table.insert_or_assign("technical_items", std::move(tech_sec));
 }
 
-namespace {
-	std::filesystem::path settingsFsPath(const wxFileName& file) {
-#ifdef _WIN32
-		return std::filesystem::path(file.GetFullPath().ToStdWstring());
-#else
-		return std::filesystem::path(std::string(file.GetFullPath().utf8_str()));
-#endif
-	}
-
-	// path::string() can throw on Windows for names outside the ANSI code page.
-	std::string settingsPathUtf8(const std::filesystem::path& path) {
-		const std::u8string utf8 = path.u8string();
-		return std::string(reinterpret_cast<const char*>(utf8.data()), utf8.size());
-	}
-
-	// config.toml belongs to the editor, so it lives next to the executable.
-	// It used to be opened relative to the working directory, which is the
-	// map's folder when a map is opened by double-clicking it, so the editor
-	// read (and wrote) a separate config.toml beside every map.
-	std::filesystem::path configFilePath() {
-		return settingsFsPath(wxFileName(FileSystem::GetExecDirectory(), "config.toml"));
-	}
-
-	// Until the editor has written its own config.toml, fall back to one in the
-	// working directory so existing settings carry over; the next save writes
-	// them next to the executable.
-	std::filesystem::path configLoadPath() {
-		std::error_code ec;
-		const std::filesystem::path own = configFilePath();
-		if (std::filesystem::exists(own, ec)) {
-			return own;
-		}
-		const std::filesystem::path legacy = std::filesystem::current_path(ec) / "config.toml";
-		if (!ec && std::filesystem::exists(legacy, ec)) {
-			return legacy;
-		}
-		return own;
-	}
-} // namespace
-
 void Settings::IO(IOMode mode) {
 	if (mode == LOAD) {
-		const std::filesystem::path config_path = configLoadPath();
+		const auto config_path = FileSystem::GetConfigFilePath();
 		try {
 			std::ifstream config_file(config_path, std::ios::binary);
 			if (config_file.is_open()) {
-				g_settings_table = toml::parse(config_file, settingsPathUtf8(config_path));
-				spdlog::info("Loaded settings from {}", settingsPathUtf8(config_path));
+				g_settings_table = toml::parse(config_file, FileSystem::PathToUtf8(config_path));
+				spdlog::info("Loaded settings from {}", FileSystem::PathToUtf8(config_path));
 			}
 		} catch (const toml::parse_error& err) {
-			spdlog::error("Failed to parse {}: {}", settingsPathUtf8(config_path), err.description());
+			spdlog::error("Failed to parse {}: {}", FileSystem::PathToUtf8(config_path), err.description());
 		} catch (const std::exception& err) {
-			spdlog::error("Failed to load {}: {}", settingsPathUtf8(config_path), err.what());
+			spdlog::error("Failed to load {}: {}", FileSystem::PathToUtf8(config_path), err.what());
 		}
 		populateDefaultTechnicalItems(g_settings_table);
 		rme::rendering::TechnicalItemRegistry::Initialize(g_settings_table);
@@ -403,6 +362,7 @@ void Settings::IO(IOMode mode) {
 
 	section("View");
 	Bool(TRANSPARENT_FLOORS, false);
+	Int(TRANSPARENT_FLOORS_SHADE, 50);
 	Bool(TRANSPARENT_ITEMS, false);
 	Bool(SHOW_ALL_FLOORS, true);
 	Bool(SHOW_INGAME_BOX, false);
@@ -429,6 +389,9 @@ void Settings::IO(IOMode mode) {
 	Bool(SHOW_ONLY_MODIFIED_TILES, false);
 	Bool(SHOW_PREVIEW, true);
 	Bool(SHOW_AUTOBORDER_PREVIEW, false);
+	Bool(DRAW_ON_FLOOR_BELOW, false);
+	Int(DRAW_ON_FLOOR_BELOW_OFFSET_X, -1);
+	Int(DRAW_ON_FLOOR_BELOW_OFFSET_Y, -1);
 	Bool(SHOW_WALL_HOOKS, false);
 	Bool(SHOW_TOWNS, false);
 	Bool(ALWAYS_SHOW_ZONES, true);
@@ -621,16 +584,16 @@ void Settings::IO(IOMode mode) {
 	section("Window");
 	String(PALETTE_LAYOUT, "");
 	String(TOOL_OPTIONS_LAYOUT, "");
-	Bool(INGAME_PREVIEW_VISIBLE, false);
+	Bool(INGAME_PREVIEW_VISIBLE, true);
 	String(INGAME_PREVIEW_LAYOUT, "");
 	String(HOUSE_PALETTE_LAYOUT, "");
 	Bool(MINIMAP_VISIBLE, true);
 	String(MINIMAP_LAYOUT, "");
-	Int(WINDOW_HEIGHT, 500);
-	Int(WINDOW_WIDTH, 700);
+	Int(WINDOW_HEIGHT, 1000);
+	Int(WINDOW_WIDTH, 1600);
 	Int(REPLACE_TOOL_WINDOW_WIDTH, 1400);
 	Int(REPLACE_TOOL_WINDOW_HEIGHT, 850);
-	Bool(WINDOW_MAXIMIZED, false);
+	Bool(WINDOW_MAXIMIZED, true);
 	Bool(WELCOME_DIALOG, true);
 	Int(PREFERENCES_WINDOW_WIDTH, 1200);
 	Int(PREFERENCES_WINDOW_HEIGHT, 500);
@@ -639,6 +602,11 @@ void Settings::IO(IOMode mode) {
 	Int(ADVANCED_ITEM_FINDER_WINDOW_Y, -1);
 	Int(ADVANCED_ITEM_FINDER_WINDOW_WIDTH, 1480);
 	Int(ADVANCED_ITEM_FINDER_WINDOW_HEIGHT, 860);
+	String(BRUSH_ITEMS_LAYOUT, "");
+	Bool(BRUSH_ITEMS_SHOW_LABELS, true);
+	Bool(BRUSH_ITEMS_INDICATOR_DOGEAR, true);
+	String(TILE_PROPERTIES_LAYOUT, "");
+	String(SCRIPTS_MANAGER_LAYOUT, "");
 
 	section("Hotkeys");
 	String(NUMERICAL_HOTKEYS, "");
@@ -655,13 +623,15 @@ void Settings::IO(IOMode mode) {
 
 	section("Toolbars");
 	Bool(SHOW_TOOLBAR_STANDARD, true);
-	Bool(SHOW_TOOLBAR_BRUSHES, false);
-	Bool(SHOW_TOOLBAR_POSITION, false);
-	Bool(SHOW_TOOLBAR_SIZES, false);
+	Bool(SHOW_TOOLBAR_BRUSHES, true);
+	Bool(SHOW_TOOLBAR_POSITION, true);
+	Bool(SHOW_TOOLBAR_SIZES, true);
+	Bool(SHOW_TOOLBAR_LIGHT, true);
 	String(TOOLBAR_STANDARD_LAYOUT, "");
 	String(TOOLBAR_BRUSHES_LAYOUT, "");
 	String(TOOLBAR_POSITION_LAYOUT, "");
 	String(TOOLBAR_SIZES_LAYOUT, "");
+	String(TOOLBAR_LIGHT_LAYOUT, "");
 
 	// Missing items report (added at end to preserve enum stability)
 	section("Editor");
@@ -674,10 +644,11 @@ void Settings::IO(IOMode mode) {
 	Bool(PALETTE_HAS_SORT, false);
 	Bool(PALETTE_SHOW_LABELS, false);
 	Int(PALETTE_TILE_SIZE, 32);
-	Bool(PALETTE_INDICATOR_DOGEAR, false);
-	Int(PALETTE_GRID_SPACING, 4);
+	Bool(PALETTE_INDICATOR_DOGEAR, true);
+	Int(PALETTE_GRID_SPACING, 2);
 	Bool(PALETTE_FILTER_ALL, false);
 	String(PALETTE_FILTER_QUERY, "");
+	String(PALETTE_ACTIVE_PAGE, "Terrain");
 
 	if (mode == LOAD) {
 		const bool hasExplicitTileSize = cur_sec && cur_sec->contains("palette_tile_size");
@@ -709,16 +680,16 @@ void Settings::IO(IOMode mode) {
 			setString(PALETTE_DYNAMIC_STYLE, std::to_string(tileSize) + "x" + std::to_string(tileSize) + " px");
 			cur_sec->insert_or_assign("palette_dynamic_style", getString(PALETTE_DYNAMIC_STYLE));
 		}
-		const std::filesystem::path config_path = configFilePath();
+		const auto config_path = FileSystem::GetConfigSavePath();
 		std::ofstream file(config_path, std::ios::binary);
 		if (file.is_open()) {
 			file << g_settings_table;
 			if (file.fail()) {
-				spdlog::error("Failed to write to {}", settingsPathUtf8(config_path));
+				spdlog::error("Failed to write to {}", FileSystem::PathToUtf8(config_path));
 			}
 			file.close();
 		} else {
-			spdlog::error("Failed to open {} for writing", settingsPathUtf8(config_path));
+			spdlog::error("Failed to open {} for writing", FileSystem::PathToUtf8(config_path));
 		}
 	}
 
