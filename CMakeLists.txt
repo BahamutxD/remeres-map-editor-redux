@@ -43,6 +43,16 @@ find_package(Boost 1.34.0 COMPONENTS thread system REQUIRED)
 
 find_package(wxWidgets 3.3 COMPONENTS html aui gl adv core net base propgrid stc REQUIRED)
 
+# vcpkg's wxWidgets 3.3 rasterizes SVG bitmap bundles with the separate nanosvg
+# port, but FindwxWidgets does not add it to a static Linux link.
+set(RME_WX_EXTRA_LIBS "")
+if(NOT WIN32)
+	find_package(NanoSVG CONFIG QUIET)
+	if(NanoSVG_FOUND)
+		list(APPEND RME_WX_EXTRA_LIBS NanoSVG::nanosvgrast NanoSVG::nanosvg)
+	endif()
+endif()
+
 
 find_package(ZLIB REQUIRED)
 
@@ -138,6 +148,7 @@ else()
 	# vcpkg/system provides wxWidgets_LIBRARIES variable
 	target_link_libraries(rme PRIVATE ${wxWidgets_LIBRARIES})
 endif()
+target_link_libraries(rme PRIVATE ${RME_WX_EXTRA_LIBS})
 
 # Include directories (for legacy find modules)
 target_include_directories(rme PRIVATE
@@ -206,6 +217,7 @@ if(TARGET wxWidgets::wxWidgets)
 else()
 	target_link_libraries(test_universal_rotator PRIVATE ${wxWidgets_LIBRARIES})
 endif()
+target_link_libraries(test_universal_rotator PRIVATE ${RME_WX_EXTRA_LIBS})
 
 target_include_directories(test_universal_rotator PRIVATE
 	${Boost_INCLUDE_DIRS}
