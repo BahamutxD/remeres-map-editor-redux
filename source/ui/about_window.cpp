@@ -22,6 +22,7 @@
 
 #include "ui/about_window.h"
 #include "util/image_manager.h"
+#include <filesystem>
 #include <fstream>
 #include <typeinfo>
 #include <memory>
@@ -128,7 +129,11 @@ void AboutWindow::OnClickLicense(wxCommandEvent& WXUNUSED(event)) {
 		return;
 	}
 	path.SetFullName("COPYING.txt");
-	std::ifstream gpl(path.GetFullPath().ToStdWstring());
+#ifdef _WIN32
+	std::ifstream gpl(std::filesystem::path(path.GetFullPath().ToStdWstring()));
+#else
+	std::ifstream gpl(std::filesystem::path(std::string(path.GetFullPath().utf8_str())));
+#endif
 
 	std::string gpl_str;
 	char ch;
