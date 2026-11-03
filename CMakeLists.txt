@@ -49,7 +49,16 @@ set(RME_WX_EXTRA_LIBS "")
 if(NOT WIN32)
 	find_package(NanoSVG CONFIG QUIET)
 	if(NanoSVG_FOUND)
-		list(APPEND RME_WX_EXTRA_LIBS NanoSVG::nanosvgrast NanoSVG::nanosvg)
+		# Linked as whole archives (by file, since nanosvgrast's own interface
+		# already lists nanosvg): the static wx libraries end up later on the
+		# link line, so plain archives would be scanned before wx needs them.
+		list(APPEND RME_WX_EXTRA_LIBS
+			"-Wl,--whole-archive"
+			"$<TARGET_FILE:NanoSVG::nanosvgrast>"
+			"$<TARGET_FILE:NanoSVG::nanosvg>"
+			"-Wl,--no-whole-archive"
+			m
+		)
 	endif()
 endif()
 
