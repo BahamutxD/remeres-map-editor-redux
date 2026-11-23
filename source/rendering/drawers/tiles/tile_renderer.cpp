@@ -28,6 +28,7 @@
 #include "rendering/utilities/pattern_calculator.h"
 #include "rendering/core/sprite_preloader.h"
 #include "rendering/core/render_depth.h"
+#include "rendering/core/item_render_rules.h"
 
 #include <algorithm>
 
@@ -202,11 +203,6 @@ void TileRenderer::RenderStaticItems(SpriteBatch& sprite_batch, const TileLocati
 	const float item_house_id = (options.show_houses && options.extended_house_shader && is_house_tile) ? static_cast<float>(tile->getHouseID()) : 0.0f;
 	constexpr uint8_t default_ir = 255, default_ig = 255, default_ib = 255;
 
-	uint8_t r = 255, g = 255, b = 255;
-	if (options.hasTileColorModifiers()) {
-		TileColorCalculator::Calculate(tile, options, r, g, b);
-	}
-
 	BlitItemParams item_params(position, nullptr, options);
 	item_params.tile = tile;
 	item_params.ctx = &ctx;
@@ -223,13 +219,14 @@ void TileRenderer::RenderStaticItems(SpriteBatch& sprite_batch, const TileLocati
 			continue;
 		}
 
-		rme::rendering::RenderSublayer sublayer = rme::rendering::RenderSublayer::CommonItem;
-		if (item->isAlwaysOnBottom()) {
-			sublayer = rme::rendering::RenderSublayer::BottomItem;
-		} else if (it && it.hasFlag(ItemFlag::TopEffect)) {
-			sublayer = rme::rendering::RenderSublayer::TopItem;
-		}
-		const float item_depth = rme::rendering::calculateTileDepth(position.x, position.y, sublayer, elevation_step);
+		rme::rendering::RenderSublayer sublayer = rme::rendering::ResolveItemSublayer(
+			item->isAlwaysOnBottom(),
+			it && it.hasFlag(ItemFlag::TopEffect)
+		);
+		const int common_layer = sublayer == rme::rendering::RenderSublayer::CommonItem
+			? rme::rendering::CommonItemElevationStep(elevation_step)
+			: 0;
+		const float item_depth = rme::rendering::calculateTileDepth(position.x, position.y, sublayer, common_layer);
 		if (sublayer == rme::rendering::RenderSublayer::CommonItem) {
 			elevation_step++;
 		}
@@ -302,11 +299,6 @@ void TileRenderer::RenderAnimatedItems(SpriteBatch& sprite_batch, const TileLoca
 	const float item_house_id = (options.show_houses && options.extended_house_shader && is_house_tile) ? static_cast<float>(tile->getHouseID()) : 0.0f;
 	constexpr uint8_t default_ir = 255, default_ig = 255, default_ib = 255;
 
-	uint8_t r = 255, g = 255, b = 255;
-	if (options.hasTileColorModifiers()) {
-		TileColorCalculator::Calculate(tile, options, r, g, b);
-	}
-
 	BlitItemParams item_params(position, nullptr, options);
 	item_params.tile = tile;
 	item_params.ctx = &ctx;
@@ -323,13 +315,14 @@ void TileRenderer::RenderAnimatedItems(SpriteBatch& sprite_batch, const TileLoca
 			continue;
 		}
 
-		rme::rendering::RenderSublayer sublayer = rme::rendering::RenderSublayer::CommonItem;
-		if (item->isAlwaysOnBottom()) {
-			sublayer = rme::rendering::RenderSublayer::BottomItem;
-		} else if (it && it.hasFlag(ItemFlag::TopEffect)) {
-			sublayer = rme::rendering::RenderSublayer::TopItem;
-		}
-		const float item_depth = rme::rendering::calculateTileDepth(position.x, position.y, sublayer, anim_elevation_step);
+		rme::rendering::RenderSublayer sublayer = rme::rendering::ResolveItemSublayer(
+			item->isAlwaysOnBottom(),
+			it && it.hasFlag(ItemFlag::TopEffect)
+		);
+		const int common_layer = sublayer == rme::rendering::RenderSublayer::CommonItem
+			? rme::rendering::CommonItemElevationStep(anim_elevation_step)
+			: 0;
+		const float item_depth = rme::rendering::calculateTileDepth(position.x, position.y, sublayer, common_layer);
 		if (sublayer == rme::rendering::RenderSublayer::CommonItem) {
 			anim_elevation_step++;
 		}
@@ -356,6 +349,7 @@ void TileRenderer::RenderAnimatedItems(SpriteBatch& sprite_batch, const TileLoca
 		item_params.patterns = &patterns;
 		item_params.red = default_ir;
 		item_params.green = default_ig;
+		item_params.blue = default_ib;
 		const bool is_blocking_item = item->isBlocking() &&
 			!rme::rendering::TechnicalItemRegistry::IsInvisibleWall(item->getID(), it.clientId());
 		item_params.zone_flags = (options.show_blocking && options.extended_pathing_shader && is_blocking_item)
