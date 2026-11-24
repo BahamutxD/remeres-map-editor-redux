@@ -371,7 +371,7 @@ public:
 	const std::list<PaletteWindow*>& GetPalettes();
 
 	void DestroyPalettes();
-	PaletteWindow* CreatePalette();
+	PaletteWindow* CreatePalette(bool update_layout = true);
 
 protected:
 	//=========================================================================

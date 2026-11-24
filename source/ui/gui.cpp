@@ -738,8 +738,8 @@ const std::list<PaletteWindow*>& GUI::GetPalettes() {
 void GUI::DestroyPalettes() {
 	g_palettes.DestroyPalettes();
 }
-PaletteWindow* GUI::CreatePalette() {
-	return g_palettes.CreatePalette();
+PaletteWindow* GUI::CreatePalette(bool update_layout) {
+	return g_palettes.CreatePalette(update_layout);
 }
 
 void SetWindowToolTip(wxWindow* a, const wxString& tip) {

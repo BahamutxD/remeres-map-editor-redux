@@ -140,7 +140,7 @@ void LayoutManager::LoadPerspective() {
 		}
 
 		if (palette_list.empty() && g_palettes.palettes.empty()) {
-			g_gui.CreatePalette();
+			g_gui.CreatePalette(false);
 		}
 
 		// Restoring the perspective runs twice on a normal start (application
@@ -154,7 +154,7 @@ void LayoutManager::LoadPerspective() {
 			if (index < g_palettes.palettes.size()) {
 				palette = *std::next(g_palettes.palettes.begin(), static_cast<std::ptrdiff_t>(index));
 			} else {
-				palette = g_gui.CreatePalette();
+				palette = g_gui.CreatePalette(false);
 			}
 			if (!palette) {
 				continue;
