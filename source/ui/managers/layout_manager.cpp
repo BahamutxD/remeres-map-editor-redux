@@ -29,16 +29,14 @@ LayoutManager g_layout;
 namespace {
 	// Dragging a sidebar's edge resizes the wxAUI dock, not the pane, and
 	// SavePaneInfo() only writes the pane, so the width was lost on restart.
-	// wxAUI restores a dock from its stored dock_size, so record the docked
-	// pane's current size there (and as its best size) before saving it.
+	// wxAUI sizes a new dock from its panes' best sizes, so record each docked
+	// pane's current size as its best size before saving it.
 	wxString SavePaneInfoWithCurrentSize(wxAuiManager& manager, wxWindow* window) {
 		wxAuiPaneInfo& info = manager.GetPane(window);
 		if (info.IsOk() && info.IsDocked() && info.IsShown() && !info.IsMaximized()) {
 			const wxSize size = window->GetSize();
 			if (size.x > 0 && size.y > 0) {
 				info.BestSize(size);
-				const bool side_dock = info.dock_direction == wxAUI_DOCK_LEFT || info.dock_direction == wxAUI_DOCK_RIGHT;
-				info.dock_size = side_dock ? size.x : size.y;
 			}
 		}
 		return manager.SavePaneInfo(info);
