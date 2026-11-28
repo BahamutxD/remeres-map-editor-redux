@@ -51,7 +51,7 @@ MapCompatibilityPage::MapCompatibilityPage(wxWindow* parent) : ScrollablePrefere
 		"Remere's Map Editor 3.8.0 and servers built for it store the item count as 2 bytes instead of 1. Maps already in that format are detected when opened and saved the same way automatically; enable this to also force it for new maps or maps that were re-saved in the 1-byte format.",
 		g_settings.getBoolean(Config::LEGACY_ITEM_COUNT_FORMAT)
 	);
-	page_sizer->Add(items_section, wxSizerFlags().Expand().Border(wxLEFT | wxRIGHT | wxTOP, FromDIP(10)));
+	page_sizer->Add(items_section, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, FromDIP(10));
 
 	// Section 2: Zones
 	auto* zones_section = new PreferencesSectionPanel(

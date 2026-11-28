@@ -63,7 +63,6 @@ protected:
 
 	// Event Handlers
 	void OnMouseDown(wxMouseEvent& event);
-	void OnRightUp(wxMouseEvent& event);
 	void OnMotion(wxMouseEvent& event);
 	void OnSize(wxSizeEvent& event);
 	void OnShow(wxShowEvent& event);
@@ -80,7 +79,6 @@ protected:
 	int HitTest(int x, int y) const;
 	wxRect GetItemRect(int index) const;
 	void DrawBrushItem(NVGcontext* vg, int index, const wxRect& rect);
-	void DrawLinkedWallBadge(NVGcontext* vg, int iconX, int iconY, int iconSize);
 
 	DisplayMode display_mode = DisplayMode::Grid;
 	int icon_size_px;

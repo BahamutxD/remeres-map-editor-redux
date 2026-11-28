@@ -138,19 +138,6 @@ inline GroundBrush* extractGroundBrushFromTile(BaseMap* map, uint32_t x, uint32_
 void GroundBrush::doBorders(BaseMap* map, Tile* tile) {
 	GroundBorderCalculator::calculate(map, tile);
 }
-void GroundBrush::getOwnBorderItems(std::vector<uint16_t>& items) const {
-	for (const auto& bb : borders) {
-		if (!bb->autoborder) {
-			continue;
-		}
-		for (uint32_t tile_id : bb->autoborder->tiles) {
-			if (tile_id != 0) {
-				items.push_back(static_cast<uint16_t>(tile_id));
-			}
-		}
-	}
-}
-
 void GroundBrush::getRelatedItems(std::vector<uint16_t>& items) {
 	for (const auto& item_block : border_items) {
 		if (item_block.id != 0) {
@@ -175,4 +162,27 @@ void GroundBrush::getRelatedItems(std::vector<uint16_t>& items) {
 			}
 		}
 	}
+}
+
+bool GroundBrush::ownsBorderItem(uint32_t item_id) const {
+	if (item_id == 0) {
+		return false;
+	}
+	const auto in_border = [item_id](const AutoBorder* border) {
+		return border && std::ranges::find(border->tiles, item_id) != border->tiles.end();
+	};
+	if (in_border(optional_border)) {
+		return true;
+	}
+	for (const auto& block : borders) {
+		if (in_border(block->autoborder)) {
+			return true;
+		}
+		for (const auto& specific : block->specific_cases) {
+			if (specific->to_replace_id == item_id || specific->with_id == item_id) {
+				return true;
+			}
+		}
+	}
+	return false;
 }

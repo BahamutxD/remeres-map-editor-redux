@@ -5,14 +5,12 @@
 #include "app/main.h"
 #include <format>
 #include "editor/operations/draw_operations.h"
-#include "editor/operations/ground_wall_outline.h"
 #include <unordered_set>
 #include <array>
 #include "editor/editor.h"
 #include "editor/action_queue.h"
 #include "ui/gui.h"
 #include "brushes/managers/doodad_preview_manager.h"
-#include "brushes/managers/ground_wall_link.h"
 #include "brushes/brush.h"
 #include "brushes/doodad/doodad_brush.h"
 #include "brushes/ground/ground_brush.h"
@@ -206,15 +204,6 @@ namespace {
 				}
 			}
 			batch->addAndCommitAction(std::move(action));
-		}
-
-		if constexpr (std::is_same_v<T, GroundBrush>) {
-			if (WallBrush* linked_wall = g_ground_wall_link.linkedWall()) {
-				if (!g_ground_wall_link.keepGroundBorder()) {
-					GroundWallOutline::removeGroundBorder(editor, *batch, *brush, tilestodraw);
-				}
-				GroundWallOutline::apply(editor, *batch, *brush, *linked_wall, tilestodraw);
-			}
 		}
 
 		editor.addBatch(std::move(batch), 2);
@@ -542,25 +531,27 @@ void DrawOperations::draw(Editor& editor, const PositionVector& tilestodraw, Pos
 		// Commit changes to map
 		batch->addAndCommitAction(std::move(action));
 
-		// Do borders!
-		action = editor.actionQueue->createAction(batch.get());
-		for (const auto& borderPos : tilestoborder) {
-			Tile* tile = editor.map.getTile(borderPos);
-			if (brush->is<TableBrush>()) {
-				if (tile && tile->hasTable()) {
-					std::unique_ptr<Tile> new_tile = TileOperations::deepCopy(tile, editor.map);
-					TileOperations::tableize(new_tile.get(), &editor.map);
-					action->addChange(std::make_unique<Change>(std::move(new_tile)));
-				}
-			} else if (brush->is<CarpetBrush>()) {
-				if (tile && tile->hasCarpet()) {
-					std::unique_ptr<Tile> new_tile = TileOperations::deepCopy(tile, editor.map);
-					TileOperations::carpetize(new_tile.get(), &editor.map);
-					action->addChange(std::make_unique<Change>(std::move(new_tile)));
+		if (g_settings.getInteger(Config::USE_AUTOMAGIC)) {
+			// Do borders!
+			action = editor.actionQueue->createAction(batch.get());
+			for (const auto& borderPos : tilestoborder) {
+				Tile* tile = editor.map.getTile(borderPos);
+				if (brush->is<TableBrush>()) {
+					if (tile && tile->hasTable()) {
+						std::unique_ptr<Tile> new_tile = TileOperations::deepCopy(tile, editor.map);
+						TileOperations::tableize(new_tile.get(), &editor.map);
+						action->addChange(std::make_unique<Change>(std::move(new_tile)));
+					}
+				} else if (brush->is<CarpetBrush>()) {
+					if (tile && tile->hasCarpet()) {
+						std::unique_ptr<Tile> new_tile = TileOperations::deepCopy(tile, editor.map);
+						TileOperations::carpetize(new_tile.get(), &editor.map);
+						action->addChange(std::make_unique<Change>(std::move(new_tile)));
+					}
 				}
 			}
+			batch->addAndCommitAction(std::move(action));
 		}
-		batch->addAndCommitAction(std::move(action));
 
 		editor.addBatch(std::move(batch), 2);
 	} else if (brush->is<WallBrush>()) {

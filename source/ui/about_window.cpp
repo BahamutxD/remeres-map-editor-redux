@@ -129,11 +129,9 @@ void AboutWindow::OnClickLicense(wxCommandEvent& WXUNUSED(event)) {
 		return;
 	}
 	path.SetFullName("COPYING.txt");
-#ifdef _WIN32
+	// std::filesystem::path keeps non-ASCII install paths intact on every platform;
+	// std::ifstream only takes a std::wstring as an MSVC extension.
 	std::ifstream gpl(std::filesystem::path(path.GetFullPath().ToStdWstring()));
-#else
-	std::ifstream gpl(std::filesystem::path(std::string(path.GetFullPath().utf8_str())));
-#endif
 
 	std::string gpl_str;
 	char ch;

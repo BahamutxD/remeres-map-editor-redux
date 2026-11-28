@@ -34,7 +34,7 @@ public:
 	void SetGridSpacing(int spacing);
 	bool SelectTilesetInPalette(std::string_view paletteName, std::string_view tilesetName);
 	void DestroyPalettes();
-	PaletteWindow* CreatePalette(bool update_layout = true);
+	PaletteWindow* CreatePalette();
 
 	// This is public for now as it's accessed by GUI for iteration
 public:

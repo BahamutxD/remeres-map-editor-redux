@@ -14,8 +14,6 @@
 #include "rendering/ui/minimap_window.h"
 #include "ui/main_menubar.h"
 #include "ui/main_toolbar.h"
-#include <utility>
-#include <vector>
 #include <wx/display.h>
 #include "ui/managers/minimap_manager.h"
 #include "ingame_preview/ingame_preview_manager.h"
@@ -42,29 +40,6 @@ namespace {
 			}
 		}
 		return manager.SavePaneInfo(info);
-	}
-
-	// wxAUI sizes a new dock once, from its panes, and never shrinks it below the
-	// panes' minimum sizes. A sidebar restored from a saved width can therefore
-	// come back at the default width when its dock was created first. For one
-	// layout pass, raise a docked side pane's minimum to its saved width; the
-	// caller restores the original minimums afterwards, so the dock keeps the width.
-	void RaiseSidebarMinToSavedWidth(wxAuiManager& manager, wxWindow* window, std::vector<std::pair<wxWindow*, wxSize>>& saved_mins) {
-		wxAuiPaneInfo& info = manager.GetPane(window);
-		if (!info.IsOk() || !info.IsDocked() || !info.IsShown() || info.best_size.x <= 0) {
-			return;
-		}
-		if (info.dock_direction != wxAUI_DOCK_LEFT && info.dock_direction != wxAUI_DOCK_RIGHT) {
-			return;
-		}
-		saved_mins.emplace_back(window, info.min_size);
-		info.MinSize(wxSize(info.best_size.x, info.min_size.y));
-	}
-
-	void RestoreSidebarMins(wxAuiManager& manager, const std::vector<std::pair<wxWindow*, wxSize>>& saved_mins) {
-		for (const auto& [window, min_size] : saved_mins) {
-			manager.GetPane(window).MinSize(min_size);
-		}
 	}
 
 } // namespace
@@ -165,7 +140,7 @@ void LayoutManager::LoadPerspective() {
 		}
 
 		if (palette_list.empty() && g_palettes.palettes.empty()) {
-			g_gui.CreatePalette(false);
+			g_gui.CreatePalette();
 		}
 
 		// Restoring the perspective runs twice on a normal start (application
@@ -179,7 +154,7 @@ void LayoutManager::LoadPerspective() {
 			if (index < g_palettes.palettes.size()) {
 				palette = *std::next(g_palettes.palettes.begin(), static_cast<std::ptrdiff_t>(index));
 			} else {
-				palette = g_gui.CreatePalette(false);
+				palette = g_gui.CreatePalette();
 			}
 			if (!palette) {
 				continue;
@@ -348,15 +323,7 @@ void LayoutManager::LoadPerspective() {
 	}
 
 
-	std::vector<std::pair<wxWindow*, wxSize>> sidebar_mins;
-	for (PaletteWindow* palette : g_palettes.palettes) {
-		RaiseSidebarMinToSavedWidth(*g_gui.aui_manager, palette, sidebar_mins);
-	}
-	if (g_gui.tool_options) {
-		RaiseSidebarMinToSavedWidth(*g_gui.aui_manager, g_gui.tool_options, sidebar_mins);
-	}
 	g_gui.aui_manager->Update();
-	RestoreSidebarMins(*g_gui.aui_manager, sidebar_mins);
 	if (g_gui.root && g_gui.root->GetAuiToolBar()) {
 		g_gui.root->GetAuiToolBar()->LoadPerspective();
 	}

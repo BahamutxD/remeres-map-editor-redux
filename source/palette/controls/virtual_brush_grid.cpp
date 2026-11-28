@@ -2,11 +2,6 @@
 #include "app/main.h"
 #include "brushes/brush.h"
 #include "palette/controls/virtual_brush_grid.h"
-#include "palette/controls/ground_wall_link_menu.h"
-#include "brushes/managers/ground_wall_link.h"
-#include "brushes/wall/wall_brush.h"
-#include "ui/theme.h"
-#include "util/nvg_utils.h"
 #include "palette/palette_window.h"
 #include "palette/panels/brush_palette_panel.h"
 #include "ui/gui.h"
@@ -45,7 +40,6 @@ VirtualBrushGrid::VirtualBrushGrid(wxWindow* parent, const DynamicTilesetDefinit
 	item_size = rme::ui::grid::CellWidth(icon_size_px);
 
 	Bind(wxEVT_LEFT_DOWN, &VirtualBrushGrid::OnMouseDown, this);
-	Bind(wxEVT_RIGHT_UP, &VirtualBrushGrid::OnRightUp, this);
 	Bind(wxEVT_MOTION, &VirtualBrushGrid::OnMotion, this);
 	Bind(wxEVT_SIZE, &VirtualBrushGrid::OnSize, this);
 	Bind(wxEVT_SHOW, &VirtualBrushGrid::OnShow, this);
@@ -295,10 +289,6 @@ void VirtualBrushGrid::DrawBrushItem(NVGcontext* vg, int i, const wxRect& rect) 
 	}
 	rme::ui::grid::DrawCellIcon(vg, iconRect, texture, badge);
 
-	if (brush == g_ground_wall_link.linkedWall()) {
-		DrawLinkedWallBadge(vg, iconRect.x, iconRect.y, iconRect.width);
-	}
-
 	if (m_indicatorDogEar) {
 		const bool isLightTheme = (Theme::Get(Theme::Role::Surface).Red() > 128);
 		const NVGcolor catNVG = rme::ui::grid::GetStandardCategoryColor(brush);
@@ -441,14 +431,6 @@ void VirtualBrushGrid::OnMouseDown(wxMouseEvent& event) {
 	}
 }
 
-void VirtualBrushGrid::OnRightUp(wxMouseEvent& event) {
-	const int index = HitTest(event.GetX(), event.GetY());
-	Brush* clicked = (index >= 0 && static_cast<size_t>(index) < m_display_brushes.size()) ? m_display_brushes[index] : nullptr;
-	if (GroundWallLinkMenu::show(this, clicked)) {
-		Refresh();
-	}
-}
-
 void VirtualBrushGrid::OnMotion(wxMouseEvent& event) {
 	int index = HitTest(event.GetX(), event.GetY());
 
@@ -577,18 +559,6 @@ bool VirtualBrushGrid::SelectBrush(const Brush* brush) {
 	return false;
 }
 
-void VirtualBrushGrid::DrawLinkedWallBadge(NVGcontext* vg, int iconX, int iconY, int iconSize) {
-	constexpr float kRadius = 5.0f;
-	const float cx = static_cast<float>(iconX + iconSize) - kRadius;
-	const float cy = static_cast<float>(iconY) + kRadius;
-	nvgBeginPath(vg);
-	nvgCircle(vg, cx, cy, kRadius);
-	nvgFillColor(vg, NvgUtils::ToNvColor(Theme::Get(Theme::Role::Accent)));
-	nvgFill(vg);
-	nvgStrokeColor(vg, NvgUtils::ToNvColor(Theme::Get(Theme::Role::TextOnAccent)));
-	nvgStrokeWidth(vg, 1.5f);
-	nvgStroke(vg);
-}
 
 void VirtualBrushGrid::SetBrushIndicators(bool dogEar) {
 	if (m_indicatorDogEar != dogEar) {

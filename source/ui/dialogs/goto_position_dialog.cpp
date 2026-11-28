@@ -30,6 +30,7 @@ GotoPositionDialog::GotoPositionDialog(wxWindow* parent, Editor& editor) :
 	wxButton* okBtn = new wxButton(this, wxID_OK, "OK");
 	okBtn->SetBitmap(IMAGE_MANAGER.GetBitmapBundle(ICON_CHECK));
 	okBtn->SetToolTip("Go to position");
+	okBtn->SetDefault();
 	tmpsizer->Add(okBtn, wxSizerFlags(1).Center());
 	wxButton* cancelBtn = new wxButton(this, wxID_CANCEL, "Cancel");
 	cancelBtn->SetBitmap(IMAGE_MANAGER.GetBitmapBundle(ICON_XMARK));
@@ -53,6 +54,7 @@ void GotoPositionDialog::OnClickCancel(wxCommandEvent&) {
 }
 
 void GotoPositionDialog::OnClickOK(wxCommandEvent&) {
-	g_gui.SetScreenCenterPosition(posctrl->GetPosition());
-	EndModal(1);
+    posctrl->CheckRange();
+    g_gui.SetScreenCenterPosition(posctrl->GetPosition());
+    EndModal(1);
 }

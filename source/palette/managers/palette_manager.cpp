@@ -18,13 +18,7 @@ PaletteManager::PaletteManager() :
 	palette_creation_counter(0) {
 }
 
-PaletteManager::~PaletteManager() {
-	spdlog::info("PaletteManager destructor started");
-	spdlog::default_logger()->flush();
-
-	spdlog::info("PaletteManager destructor finished");
-	spdlog::default_logger()->flush();
-}
+PaletteManager::~PaletteManager() = default;
 
 PaletteWindow* PaletteManager::GetPalette() {
 	if (palettes.empty()) {
@@ -182,7 +176,7 @@ void PaletteManager::DestroyPalettes() {
 	spdlog::default_logger()->flush();
 }
 
-PaletteWindow* PaletteManager::CreatePalette(bool update_layout) {
+PaletteWindow* PaletteManager::CreatePalette() {
 	if (!g_version.IsVersionLoaded()) {
 		return nullptr;
 	}
@@ -210,11 +204,7 @@ PaletteWindow* PaletteManager::CreatePalette(bool update_layout) {
 			.BestSize(220, 650)
 			.MinSize(g_gui.root ? g_gui.root->FromDIP(wxSize(PALETTE_HORIZONTAL_LEFT_WIDTH, 100)) : wxSize(PALETTE_HORIZONTAL_LEFT_WIDTH, 100))
 	);
-	// Updating here creates a new dock from this pane's default size. The
-	// startup layout restore passes false so the saved sizes apply first.
-	if (update_layout) {
-		g_gui.aui_manager->Update();
-	}
+	g_gui.aui_manager->Update();
 
 	palettes.push_front(palette);
 	g_gui.SelectBrushInternal(palette->GetSelectedBrush());

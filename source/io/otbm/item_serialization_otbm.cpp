@@ -10,7 +10,6 @@
 #include "map/tile.h"
 #include "io/filehandle.h"
 #include "io/otbm/fast_otbm_reader.h"
-#include "app/settings.h"
 #include <spdlog/spdlog.h>
 
 std::unique_ptr<Item> ItemSerializationOTBM::createFromStream(const IOMap& maphandle, BinaryNode* stream) {
