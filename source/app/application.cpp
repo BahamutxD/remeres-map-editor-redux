@@ -62,9 +62,16 @@
 
 wxIMPLEMENT_APP_NO_MAIN(Application);
 
+#ifdef _WIN32
+// GUI subsystem entry point (see WIN32_EXECUTABLE in CMakeLists.txt): no console window opens with the editor.
+int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
+	return wxEntry(__argc, __argv);
+}
+#else
 int main(int argc, char** argv) {
 	return wxEntry(argc, argv);
 }
+#endif
 
 // OnRun is implemented below
 

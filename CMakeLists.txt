@@ -109,8 +109,11 @@ else()
 	target_link_libraries(rme_proto PUBLIC ${Protobuf_LIBRARIES})
 endif()
 
-# Removed WIN32 to enable Console subsystem for persistent debugging logs
 add_executable(rme ${rme_H} ${rme_SRC})
+if(WIN32)
+	# GUI subsystem: no console window opens next to the editor
+	set_target_properties(rme PROPERTIES WIN32_EXECUTABLE ON)
+endif()
 
 set_target_properties(rme PROPERTIES CXX_STANDARD 23)
 set_target_properties(rme PROPERTIES CXX_STANDARD_REQUIRED ON)
